@@ -2,8 +2,10 @@ import { View, Text, StyleSheet, TextInput, Pressable, Image, ScrollView, Keyboa
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { Plus } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
+import { AuthContext } from '@/contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -18,10 +20,13 @@ export default function OnboardingStep3() {
     'Unbounded-SemiBold': Unbounded_600SemiBold,
   });
 
+  const { session } = useContext(AuthContext);
   const [groups, setGroups] = useState<Group[]>([
     { id: '1', name: '' },
     { id: '2', name: '' }
   ]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -43,13 +48,57 @@ export default function OnboardingStep3() {
     ));
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    if (isSubmitting) return;
+
     // Filter out empty groups
     const validGroups = groups.filter(group => group.name.trim() !== '');
-    // Here you would typically save the groups to your backend
-    console.log('Created groups:', validGroups);
-    // Navigate to the main app
-    router.replace('/(tabs)');
+    
+    // If no groups, just skip to main app
+    if (validGroups.length === 0) {
+      router.replace('/(tabs)');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      if (!session?.user?.id) {
+        setError('Användarinformation saknas. Försök igen.');
+        return;
+      }
+
+      // Create groups in database
+      const groupsToInsert = validGroups.map(group => ({
+        name: group.name.trim(),
+        created_by: session.user.id
+      }));
+
+      const { error: insertError } = await supabase
+        .from('groups')
+        .insert(groupsToInsert);
+
+      if (insertError) {
+        console.error('Error creating groups:', insertError);
+        setError('Ett fel uppstod vid skapande av grupper. Försök igen.');
+        return;
+      }
+
+      // Navigate to main app
+      router.replace('/(tabs)');
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      setError('Ett oväntat fel uppstod. Försök igen.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getButtonText = () => {
+    if (isSubmitting) return 'Skapar grupper...';
+    const hasGroups = groups.some(g => g.name.trim() !== '');
+    return hasGroups ? 'Lägg till' : 'Skippa';
   };
 
   return (
@@ -119,23 +168,28 @@ export default function OnboardingStep3() {
           <Text style={styles.addButtonText}>Lägg till fler</Text>
         </Pressable>
 
+        {error && (
+          <Text style={styles.errorText}>{error}</Text>
+        )}
+
         <View style={styles.buttonSpacing} />
       </ScrollView>
 
-      <View style={styles.buttonContainer}>
-        <Pressable style={styles.skipButton} onPress={handleFinish}>
-          <Text style={styles.skipButtonText}>Skippa</Text>
-        </Pressable>
-
-        <Pressable 
-          style={[styles.button, !groups.some(g => g.name.trim() !== '') && styles.buttonDisabled]} 
-          onPress={handleFinish}
-        >
-          <Text style={[styles.buttonText, !groups.some(g => g.name.trim() !== '') && styles.buttonTextDisabled]}>
-            Klar
-          </Text>
-        </Pressable>
-      </View>
+      <Pressable 
+        style={[
+          styles.button,
+          isSubmitting && styles.buttonDisabled
+        ]} 
+        onPress={handleFinish}
+        disabled={isSubmitting}
+      >
+        <Text style={[
+          styles.buttonText,
+          isSubmitting && styles.buttonTextDisabled
+        ]}>
+          {getButtonText()}
+        </Text>
+      </Pressable>
     </KeyboardAvoidingView>
   );
 }
@@ -253,26 +307,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Unbounded-Regular',
   },
+  errorText: {
+    color: '#FF0000',
+    fontSize: 14,
+    fontFamily: 'Unbounded-Regular',
+    textAlign: 'center',
+    marginTop: 10,
+    marginBottom: 20,
+  },
   buttonSpacing: {
     height: 100,
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    justifyContent: 'space-between',
-    backgroundColor: 'white',
-    paddingTop: 10,
-  },
   button: {
-    flex: 1,
     backgroundColor: '#FF69B4',
     padding: 15,
     borderRadius: 25,
     alignItems: 'center',
-    marginLeft: 10,
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
   },
   buttonDisabled: {
     backgroundColor: '#E5E5E5',
@@ -284,20 +338,5 @@ const styles = StyleSheet.create({
   },
   buttonTextDisabled: {
     color: '#999',
-  },
-  skipButton: {
-    flex: 1,
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 25,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FF69B4',
-    marginRight: 10,
-  },
-  skipButtonText: {
-    color: '#FF69B4',
-    fontSize: 16,
-    fontFamily: 'Unbounded-SemiBold',
   },
 });
