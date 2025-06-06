@@ -310,7 +310,7 @@ export default function OnboardingStep1() {
                   onPress={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff color="#666" size={24} />
+                    <EyeOff color="#666\" size={24} />
                   ) : (
                     <Eye color="#666" size={24} />
                   )}
