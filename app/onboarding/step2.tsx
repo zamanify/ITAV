@@ -83,6 +83,12 @@ export default function OnboardingStep2() {
   const handleNextStep = async () => {
     if (!session?.user?.id || isSubmitting) return;
 
+    // If no contacts selected, just skip to next step
+    if (selectedContacts.length === 0) {
+      router.push('/onboarding/step3');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -170,6 +176,12 @@ export default function OnboardingStep2() {
     </Pressable>
   );
 
+  const getButtonText = () => {
+    if (isSubmitting) return 'Skapar kontakter...';
+    if (selectedContacts.length === 0) return 'Skippa';
+    return 'Lägg till';
+  };
+
   if (!fontsLoaded) {
     return null;
   }
@@ -240,16 +252,16 @@ export default function OnboardingStep2() {
       <Pressable 
         style={[
           styles.button,
-          (isSubmitting || selectedContacts.length === 0) && styles.buttonDisabled
+          isSubmitting && styles.buttonDisabled
         ]}
         onPress={handleNextStep}
-        disabled={isSubmitting || selectedContacts.length === 0}
+        disabled={isSubmitting}
       >
         <Text style={[
           styles.buttonText,
-          (isSubmitting || selectedContacts.length === 0) && styles.buttonTextDisabled
+          isSubmitting && styles.buttonTextDisabled
         ]}>
-          {isSubmitting ? 'Skapar kontakter...' : 'Till steg 3'}
+          {getButtonText()}
         </Text>
       </Pressable>
     </View>
