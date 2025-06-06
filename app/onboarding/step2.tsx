@@ -6,6 +6,7 @@ import { useState, useEffect, useContext } from 'react';
 import { Share2, Check } from 'lucide-react-native';
 import * as Contacts from 'expo-contacts';
 import { supabase } from '@/lib/supabase';
+import { normalizePhoneNumber } from '@/lib/phone';
 import { AuthContext } from '@/contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
@@ -62,23 +63,6 @@ export default function OnboardingStep2() {
     })();
   }, []);
 
-  const normalizePhoneNumber = (phone: string): string => {
-    const cleaned = phone.replace(/[^\d+]/g, '');
-    
-    if (cleaned.startsWith('0')) {
-      return '+46' + cleaned.substring(1);
-    }
-    
-    if (cleaned.startsWith('46')) {
-      return '+' + cleaned;
-    }
-    
-    if (!cleaned.startsWith('+')) {
-      return '+46' + cleaned;
-    }
-    
-    return cleaned;
-  };
 
   const handleNextStep = async () => {
     if (!session?.user?.id || isSubmitting) return;
