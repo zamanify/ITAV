@@ -85,24 +85,30 @@ export default function OnboardingStep2() {
         const normalizedPhone = normalizePhoneNumber(contact.phoneNumber);
 
         // Find user by phone number
-        const { data: users, error: userError } = await supabase
+        const { data: user, error: userError } = await supabase
           .from('users')
           .select('id')
           .eq('phone_number', normalizedPhone)
-          .single();
+          .maybeSingle();
 
         if (userError) {
           console.error('Error finding user:', userError);
+          setError(`Telefonnumret ${contact.phoneNumber} är inte unikt.`);
           continue;
         }
 
-        if (users && users.id !== session.user.id) {
+        if (!user) {
+          setError(`Ingen användare hittades med nummer ${contact.phoneNumber}.`);
+          continue;
+        }
+
+        if (user && user.id !== session.user.id) {
           // Create villager connection
           const { error: connectionError } = await supabase
             .from('villager_connections')
             .insert({
               sender_id: session.user.id,
-              receiver_id: users.id,
+              receiver_id: user.id,
               status: 'pending'
             })
             .select()
