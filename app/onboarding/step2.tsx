@@ -84,39 +84,41 @@ export default function OnboardingStep2() {
 
         const normalizedPhone = normalizePhoneNumber(contact.phoneNumber);
 
-        // Find user by phone number
-        const { data: user, error: userError } = await supabase
-          .from('users')
-          .select('id')
-          .eq('phone_number', normalizedPhone)
-          .maybeSingle();
+        // Use the new RPC function to find user by phone number
+        const { data: user_id, error: rpcError } = await supabase.rpc('get_user_id_by_phone', {
+          p_phone_number: normalizedPhone
+        });
 
-        if (userError) {
-          console.error('Error finding user:', userError);
-          setError(`Telefonnumret ${contact.phoneNumber} är inte unikt.`);
+        if (rpcError) {
+          console.error('Error calling RPC function:', rpcError);
+          setError('Ett fel uppstod vid sökning av användare.');
           continue;
         }
 
-        if (!user) {
+        // If user_id is null, no user was found
+        if (!user_id) {
           setError(`Ingen användare hittades med nummer ${contact.phoneNumber}.`);
           continue;
         }
 
-        if (user && user.id !== session.user.id) {
-          // Create villager connection
-          const { error: connectionError } = await supabase
-            .from('villager_connections')
-            .insert({
-              sender_id: session.user.id,
-              receiver_id: user.id,
-              status: 'pending'
-            })
-            .select()
-            .single();
+        // Don't create connection to yourself
+        if (user_id === session.user.id) {
+          continue;
+        }
 
-          if (connectionError && connectionError.code !== '23505') { // Ignore unique constraint violations
-            console.error('Error creating connection:', connectionError);
-          }
+        // Create villager connection
+        const { error: connectionError } = await supabase
+          .from('villager_connections')
+          .insert({
+            sender_id: session.user.id,
+            receiver_id: user_id,
+            status: 'pending'
+          })
+          .select()
+          .single();
+
+        if (connectionError && connectionError.code !== '23505') { // Ignore unique constraint violations
+          console.error('Error creating connection:', connectionError);
         }
       }
 
