@@ -6,6 +6,7 @@ import { SplashScreen } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { normalizePhoneNumber } from '@/lib/phone';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -64,24 +65,6 @@ export default function OnboardingStep1() {
       ...prev,
       [field]: ''
     }));
-  };
-
-  const normalizePhoneNumber = (phone: string): string => {
-    const cleaned = phone.replace(/[^\d+]/g, '');
-    
-    if (cleaned.startsWith('0')) {
-      return '+46' + cleaned.substring(1);
-    }
-    
-    if (cleaned.startsWith('46')) {
-      return '+' + cleaned;
-    }
-    
-    if (!cleaned.startsWith('+')) {
-      return '+46' + cleaned;
-    }
-    
-    return cleaned;
   };
 
   const validatePhoneNumber = (phone: string): boolean => {
