@@ -2,9 +2,11 @@ import { View, Text, StyleSheet, Pressable, Image, ScrollView, Platform } from '
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen, router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import RequestOfferModal from '../../components/RequestOfferModal';
 import AppFooter from '../../components/AppFooter';
+import { supabase } from '@/lib/supabase';
+import { AuthContext } from '@/contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,6 +31,12 @@ type ReceivedItem = {
   estimatedTime: number;
   balance: number;
   groupName?: string;
+};
+
+type UserStats = {
+  minuteBalance: number;
+  villagersCount: number;
+  hoodsCount: number;
 };
 
 const mockSentItems: SentItem[] = [
@@ -75,14 +83,77 @@ export default function Dashboard() {
     'Unbounded-SemiBold': Unbounded_600SemiBold,
   });
 
+  const { session } = useContext(AuthContext);
   const [selectedRequest, setSelectedRequest] = useState<ReceivedItem | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [userStats, setUserStats] = useState<UserStats>({
+    minuteBalance: 0,
+    villagersCount: 0,
+    hoodsCount: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchUserStats();
+    }
+  }, [session?.user?.id]);
+
+  const fetchUserStats = async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      setIsLoading(true);
+
+      // Fetch user's minute balance
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('minute_balance')
+        .eq('id', session.user.id)
+        .single();
+
+      if (userError) {
+        console.error('Error fetching user data:', userError);
+      }
+
+      // Count villager connections (accepted connections where user is sender or receiver)
+      const { count: villagersCount, error: villagersError } = await supabase
+        .from('villager_connections')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'accepted')
+        .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`);
+
+      if (villagersError) {
+        console.error('Error fetching villagers count:', villagersError);
+      }
+
+      // Count groups where user is a member
+      const { count: hoodsCount, error: hoodsError } = await supabase
+        .from('group_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', session.user.id);
+
+      if (hoodsError) {
+        console.error('Error fetching hoods count:', hoodsError);
+      }
+
+      setUserStats({
+        minuteBalance: userData?.minute_balance || 0,
+        villagersCount: villagersCount || 0,
+        hoodsCount: hoodsCount || 0,
+      });
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (!fontsLoaded) {
     return null;
@@ -99,6 +170,11 @@ export default function Dashboard() {
   const handleOpenModal = (item: ReceivedItem) => {
     setSelectedRequest(item);
     setModalVisible(true);
+  };
+
+  const formatMinuteBalance = (balance: number) => {
+    if (balance === 0) return '0 min';
+    return `${balance > 0 ? '+' : ''}${balance} min`;
   };
 
   return (
@@ -120,15 +196,21 @@ export default function Dashboard() {
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Saldo</Text>
-              <Text style={styles.statValue}>0 min</Text>
+              <Text style={styles.statValue}>
+                {isLoading ? '...' : formatMinuteBalance(userStats.minuteBalance)}
+              </Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Villagers</Text>
-              <Text style={styles.statValue}>3</Text>
+              <Text style={styles.statValue}>
+                {isLoading ? '...' : userStats.villagersCount}
+              </Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Hoods</Text>
-              <Text style={styles.statValue}>0</Text>
+              <Text style={styles.statValue}>
+                {isLoading ? '...' : userStats.hoodsCount}
+              </Text>
             </View>
           </View>
 
