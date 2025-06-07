@@ -207,11 +207,6 @@ export default function OnboardingStep1() {
           source={require('../../assets/images/Logo_ITAV.png')}
           style={styles.logo}
         />
-        <Pressable style={styles.menuButton}>
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-        </Pressable>
       </View>
 
       <Text style={styles.title}>Först, några{'\n'}snabba frågor.</Text>
@@ -293,9 +288,9 @@ export default function OnboardingStep1() {
                   onPress={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff color="#666" size={24} />
+                    <EyeOff color="#666\" size={16} />
                   ) : (
-                    <Eye color="#666" size={24} />
+                    <Eye color="#666" size={16} />
                   )}
                 </Pressable>
               </View>
@@ -401,27 +396,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 30,
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 60,
   },
   logo: {
     width: 100,
     height: 30,
     resizeMode: 'contain',
-  },
-  menuButton: {
-    width: 24,
-    height: 24,
-    justifyContent: 'space-between',
-  },
-  menuLine: {
-    width: '100%',
-    height: 2,
-    backgroundColor: '#FF69B4',
   },
   title: {
     fontSize: 32,
@@ -468,10 +451,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     marginBottom: 20,
+    gap: 10,
   },
   inputContainer: {
     flex: 1,
-    marginHorizontal: 5,
   },
   label: {
     fontSize: 12,
@@ -485,6 +468,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     padding: 10,
     fontFamily: 'Poppins-Regular',
+    fontSize: 16,
+    color: '#333',
+    height: 44,
   },
   inputError: {
     borderColor: '#FF0000',
@@ -501,14 +487,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E5E5',
     borderRadius: 4,
+    height: 44,
+    overflow: 'hidden',
   },
   passwordInput: {
     flex: 1,
-    padding: 10,
+    paddingLeft: 10,
+    paddingRight: 0,
     fontFamily: 'Poppins-Regular',
+    fontSize: 16,
+    color: '#333',
+    height: '100%',
   },
   eyeButton: {
-    padding: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 36,
   },
   checkboxContainer: {
     flexDirection: 'row',

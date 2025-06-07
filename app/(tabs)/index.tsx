@@ -3,9 +3,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen, router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Users, UserPlus, Chrome as Home, Plus } from 'lucide-react-native';
 import RequestOfferModal from '../../components/RequestOfferModal';
-import HamburgerMenu from '../../components/HamburgerMenu';
+import AppFooter from '../../components/AppFooter';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -78,7 +77,6 @@ export default function Dashboard() {
 
   const [selectedRequest, setSelectedRequest] = useState<ReceivedItem | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -89,22 +87,6 @@ export default function Dashboard() {
   if (!fontsLoaded) {
     return null;
   }
-
-  const handleNavigateToVillagers = () => {
-    router.push('/villagers');
-  };
-
-  const handleNavigateToGroups = () => {
-    router.push('/groups');
-  };
-
-  const handleNavigateToCreateHood = () => {
-    router.push('/create-hood');
-  };
-
-  const handleNavigateToInvite = () => {
-    router.push('/invite');
-  };
 
   const handleNavigateToCreateRequest = () => {
     router.push('/create-request');
@@ -126,17 +108,9 @@ export default function Dashboard() {
           source={require('../../assets/images/Logo_ITAV.png')}
           style={styles.logo}
         />
-        <Pressable 
-          style={styles.menuButton}
-          onPress={() => setMenuVisible(true)}
-        >
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-        </Pressable>
       </View>
 
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <LinearGradient
           colors={['#FF69B4', '#9370DB', '#87CEEB']}
           style={styles.gradientCard}
@@ -173,27 +147,6 @@ export default function Dashboard() {
             >
               <Text style={styles.gradientButtonText}>Nytt erbjudande</Text>
             </Pressable>
-          </View>
-
-          <View style={styles.iconButtonsContainer}>
-            <View style={styles.iconButtonRow}>
-              <Pressable style={styles.iconButton} onPress={handleNavigateToVillagers}>
-                <Users color="white" size={24} />
-                <Text style={styles.iconButtonText}>NYA{'\n'}VÄNNER</Text>
-              </Pressable>
-              <Pressable style={styles.iconButton} onPress={handleNavigateToInvite}>
-                <UserPlus color="white" size={24} />
-                <Text style={styles.iconButtonText}>BJUD{'\n'}IN</Text>
-              </Pressable>
-              <Pressable style={styles.iconButton} onPress={handleNavigateToGroups}>
-                <Home color="white" size={24} />
-                <Text style={styles.iconButtonText}>DINA{'\n'}HOODS</Text>
-              </Pressable>
-              <Pressable style={styles.iconButton} onPress={handleNavigateToCreateHood}>
-                <Plus color="white" size={24} />
-                <Text style={styles.iconButtonText}>SKAPA{'\n'}HOODS</Text>
-              </Pressable>
-            </View>
           </View>
         </LinearGradient>
 
@@ -262,10 +215,7 @@ export default function Dashboard() {
         />
       )}
 
-      <HamburgerMenu 
-        visible={menuVisible}
-        onClose={() => setMenuVisible(false)}
-      />
+      <AppFooter />
     </View>
   );
 }
@@ -278,9 +228,12 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 120, // Extra space for footer
+  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
     paddingTop: 40,
@@ -290,16 +243,6 @@ const styles = StyleSheet.create({
     width: 100,
     height: 30,
     resizeMode: 'contain',
-  },
-  menuButton: {
-    width: 24,
-    height: 24,
-    justifyContent: 'space-between',
-  },
-  menuLine: {
-    width: '100%',
-    height: 2,
-    backgroundColor: '#FF69B4',
   },
   gradientCard: {
     padding: 20,
@@ -360,23 +303,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Unbounded-Regular',
     textAlign: 'center',
-  },
-  iconButtonsContainer: {
-    marginTop: 10,
-  },
-  iconButtonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  iconButton: {
-    alignItems: 'center',
-  },
-  iconButtonText: {
-    color: 'white',
-    fontSize: 10,
-    fontFamily: 'Unbounded-Regular',
-    textAlign: 'center',
-    marginTop: 5,
   },
   contentContainer: {
     backgroundColor: 'white',

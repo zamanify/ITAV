@@ -112,11 +112,6 @@ export default function OnboardingStep3() {
           source={require('../../assets/images/Logo_ITAV.png')}
           style={styles.logo}
         />
-        <Pressable style={styles.menuButton}>
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-        </Pressable>
       </View>
 
       <Text style={styles.title}>Sista sista nu,{'\n'}sen är du klar!</Text>
@@ -200,27 +195,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 30,
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 60,
   },
   logo: {
     width: 100,
     height: 30,
     resizeMode: 'contain',
-  },
-  menuButton: {
-    width: 24,
-    height: 24,
-    justifyContent: 'space-between',
-  },
-  menuLine: {
-    width: '100%',
-    height: 2,
-    backgroundColor: '#FF69B4',
   },
   title: {
     fontSize: 32,

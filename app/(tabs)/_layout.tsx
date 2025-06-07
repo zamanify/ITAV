@@ -7,6 +7,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#FF69B4',
+        tabBarStyle: { display: 'none' },  // ← dölj hela footern
       }}>
       <Tabs.Screen
         name="index"
