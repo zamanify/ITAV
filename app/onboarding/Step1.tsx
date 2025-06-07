@@ -293,9 +293,9 @@ export default function OnboardingStep1() {
                   onPress={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff color="#666\" size={18} />
+                    <EyeOff color="#666" size={16} />
                   ) : (
-                    <Eye color="#666" size={18} />
+                    <Eye color="#666" size={16} />
                   )}
                 </Pressable>
               </View>
@@ -468,10 +468,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     marginBottom: 20,
+    gap: 10,
   },
   inputContainer: {
     flex: 1,
-    marginHorizontal: 5,
   },
   label: {
     fontSize: 12,
@@ -510,19 +510,19 @@ const styles = StyleSheet.create({
   passwordInput: {
     flex: 1,
     paddingLeft: 10,
-    paddingRight: 5,
+    paddingRight: 0,
     fontFamily: 'Poppins-Regular',
     fontSize: 16,
     color: '#333',
     height: '100%',
   },
   eyeButton: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    width: 40,
+    minWidth: 36,
   },
   checkboxContainer: {
     flexDirection: 'row',
