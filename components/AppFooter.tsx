@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { router } from 'expo-router';
-import { Users, UserPlus, Home, Plus, User } from 'lucide-react-native';
+import { Users, UserPlus, Chrome as Home, Plus, User } from 'lucide-react-native';
 import { useFonts, Unbounded_400Regular } from '@expo-google-fonts/unbounded';
 
 export default function AppFooter() {
