@@ -74,6 +74,8 @@ export default function InviteScreen() {
         }
       }
 
+      console.log('--- DEVICE CONTACTS COUNT:', deviceContacts.length);
+
       // Get current user's data for comparison and display
       const { data: currentUserData, error: userError } = await supabase
         .from('users')
@@ -88,6 +90,8 @@ export default function InviteScreen() {
       const currentUserPhone = currentUserData?.phone_number ? 
         normalizePhoneNumber(currentUserData.phone_number) : null;
 
+      console.log('--- CURRENT USER PHONE:', currentUserPhone);
+
       // Get all app users to check if contacts are existing users
       const { data: allAppUsers, error: allUsersError } = await supabase
         .from('users')
@@ -96,6 +100,9 @@ export default function InviteScreen() {
       if (allUsersError) {
         console.error('Error fetching all app users:', allUsersError);
       }
+
+      console.log('--- FETCHED ALL APP USERS:', allAppUsers?.length || 0);
+      console.log('--- ALL APP USERS DATA:', JSON.stringify(allAppUsers, null, 2));
 
       // Create a map of normalized phone numbers to user data
       const allAppUsersMap = new Map();
@@ -107,8 +114,17 @@ export default function InviteScreen() {
             name: `${user.first_name} ${user.last_name}`,
             isExistingUser: true
           });
+          console.log('--- MAPPING USER:', {
+            original: user.phone_number,
+            normalized: normalized,
+            name: `${user.first_name} ${user.last_name}`,
+            userId: user.id
+          });
         }
       });
+
+      console.log('--- ALL APP USERS MAP SIZE:', allAppUsersMap.size);
+      console.log('--- ALL APP USERS MAP KEYS:', Array.from(allAppUsersMap.keys()));
 
       // Get existing invites and connections from database
       const [invitesResult, connectionsResult] = await Promise.all([
@@ -139,6 +155,9 @@ export default function InviteScreen() {
 
       const invites = invitesResult.data || [];
       const connections = connectionsResult.data || [];
+
+      console.log('--- FETCHED INVITES:', invites.length);
+      console.log('--- FETCHED CONNECTIONS:', connections.length);
 
       // Create a detailed status map with priority: connections > invites > app users
       const detailedStatusMap = new Map<string, { 
@@ -190,13 +209,23 @@ export default function InviteScreen() {
         }
       });
 
+      console.log('--- DETAILED STATUS MAP SIZE:', detailedStatusMap.size);
+      console.log('--- DETAILED STATUS MAP KEYS:', Array.from(detailedStatusMap.keys()));
+
       // Process device contacts and merge with database info
       const processedContacts: Contact[] = deviceContacts
         .map(contact => {
           const normalized = normalizePhoneNumber(contact.phoneNumber);
           
+          console.log('--- PROCESSING CONTACT:', {
+            name: contact.name,
+            originalPhone: contact.phoneNumber,
+            normalizedPhone: normalized
+          });
+          
           // Check if this is the current user's phone number
           if (currentUserPhone && normalized === currentUserPhone) {
+            console.log('--- CONTACT IS CURRENT USER');
             return {
               id: 'self',
               name: currentUserData ? `${currentUserData.first_name} ${currentUserData.last_name}` : contact.name,
@@ -207,8 +236,12 @@ export default function InviteScreen() {
           }
 
           const dbInfo = detailedStatusMap.get(normalized);
+          console.log('--- DB INFO FOR CONTACT:', {
+            normalized,
+            dbInfo: dbInfo || 'NOT FOUND'
+          });
 
-          return {
+          const result = {
             id: contact.id,
             name: dbInfo?.name || contact.name,
             phoneNumber: contact.phoneNumber,
@@ -216,6 +249,9 @@ export default function InviteScreen() {
             isExistingUser: dbInfo?.isExistingUser || false,
             userId: dbInfo?.userId,
           };
+
+          console.log('--- FINAL CONTACT RESULT:', result);
+          return result;
         })
         .filter(Boolean) as Contact[];
 
@@ -247,7 +283,7 @@ export default function InviteScreen() {
         return a.name.localeCompare(b.name);
       });
 
-      console.log('Processed contacts:', processedContacts.map(c => ({
+      console.log('--- FINAL PROCESSED CONTACTS:', processedContacts.map(c => ({
         name: c.name,
         phone: c.phoneNumber,
         normalized: normalizePhoneNumber(c.phoneNumber),
@@ -466,7 +502,7 @@ export default function InviteScreen() {
                   >
                     {invitingContactId === contact.id ? (
                       <>
-                        <ActivityIndicator size="small\" color="#FF69B4" />
+                        <ActivityIndicator size="small" color="#FF69B4" />
                         <Text style={[
                           styles.inviteButtonText,
                           styles.inviteButtonTextLoading
