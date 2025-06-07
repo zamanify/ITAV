@@ -95,9 +95,20 @@ export default function OnboardingStep2() {
           continue;
         }
 
-        // If user_id is null, no user was found
+        // If user_id is null, store an invite for later
         if (!user_id) {
-          setError(`Ingen användare hittades med nummer ${contact.phoneNumber}.`);
+          const { error: inviteError } = await supabase
+            .from('villager_invite')
+            .insert({
+              inviter_id: session.user.id,
+              phone_number: normalizedPhone,
+              status: 'pending'
+            });
+
+          if (inviteError && inviteError.code !== '23505') {
+            console.error('Error creating invite:', inviteError);
+            setError('Ett fel uppstod vid skapande av inbjudan.');
+          }
           continue;
         }
 
