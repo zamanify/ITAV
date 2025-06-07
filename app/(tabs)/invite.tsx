@@ -403,7 +403,7 @@ export default function InviteScreen() {
                     disabled={invitingContactId === contact.id}
                   >
                     {invitingContactId === contact.id ? (
-                      <ActivityIndicator size="small" color="#FF69B4" />
+                      <ActivityIndicator size="small\" color="#FF69B4" />
                     ) : (
                       <UserPlus size={16} color="#FF69B4" />
                     )}
