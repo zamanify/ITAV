@@ -73,6 +73,20 @@ export default function InviteScreen() {
         }
       }
 
+      // Get current user's phone number for filtering
+      const { data: currentUserData, error: userError } = await supabase
+        .from('users')
+        .select('phone_number')
+        .eq('id', session?.user?.id)
+        .single();
+
+      if (userError) {
+        console.error('Error fetching current user:', userError);
+      }
+
+      const currentUserPhone = currentUserData?.phone_number ? 
+        normalizePhoneNumber(currentUserData.phone_number) : null;
+
       // Get existing invites and connections from database
       const [invitesResult, connectionsResult] = await Promise.all([
         // Get pending invites sent by current user
@@ -119,7 +133,7 @@ export default function InviteScreen() {
       // Add connections to map
       connections.forEach(connection => {
         const otherUser = connection.sender?.phone_number && 
-          normalizePhoneNumber(connection.sender.phone_number) !== normalizePhoneNumber(session?.user?.phone || '') 
+          normalizePhoneNumber(connection.sender.phone_number) !== currentUserPhone
           ? connection.sender 
           : connection.receiver;
 
@@ -135,21 +149,34 @@ export default function InviteScreen() {
       });
 
       // Process device contacts and merge with database info
-      const processedContacts: Contact[] = deviceContacts.map(contact => {
-        const normalized = normalizePhoneNumber(contact.phoneNumber);
-        const dbInfo = phoneStatusMap.get(normalized);
+      const processedContacts: Contact[] = deviceContacts
+        .map(contact => {
+          const normalized = normalizePhoneNumber(contact.phoneNumber);
+          
+          // CRITICAL: Filter out current user's own phone number
+          if (currentUserPhone && normalized === currentUserPhone) {
+            return null;
+          }
 
-        return {
-          id: contact.id,
-          name: dbInfo?.name || contact.name,
-          phoneNumber: contact.phoneNumber,
-          status: (dbInfo?.status as any) || 'pending',
-          isExistingUser: dbInfo?.isExistingUser || false,
-        };
-      });
+          const dbInfo = phoneStatusMap.get(normalized);
 
-      // Add any database contacts that aren't in device contacts
+          return {
+            id: contact.id,
+            name: dbInfo?.name || contact.name,
+            phoneNumber: contact.phoneNumber,
+            status: (dbInfo?.status as any) || 'pending',
+            isExistingUser: dbInfo?.isExistingUser || false,
+          };
+        })
+        .filter(Boolean) as Contact[]; // Remove null entries
+
+      // Add any database contacts that aren't in device contacts (but not current user)
       phoneStatusMap.forEach((info, phoneNumber) => {
+        // CRITICAL: Skip current user's phone number
+        if (currentUserPhone && phoneNumber === currentUserPhone) {
+          return;
+        }
+
         if (info.name && !processedContacts.find(c => normalizePhoneNumber(c.phoneNumber) === phoneNumber)) {
           processedContacts.push({
             id: `db-${phoneNumber}`,
