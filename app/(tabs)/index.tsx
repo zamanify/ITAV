@@ -4,7 +4,6 @@ import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-goo
 import { SplashScreen, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import RequestOfferModal from '../../components/RequestOfferModal';
-import HamburgerMenu from '../../components/HamburgerMenu';
 import AppFooter from '../../components/AppFooter';
 
 SplashScreen.preventAutoHideAsync();
@@ -78,7 +77,6 @@ export default function Dashboard() {
 
   const [selectedRequest, setSelectedRequest] = useState<ReceivedItem | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -110,14 +108,6 @@ export default function Dashboard() {
           source={require('../../assets/images/Logo_ITAV.png')}
           style={styles.logo}
         />
-        <Pressable 
-          style={styles.menuButton}
-          onPress={() => setMenuVisible(true)}
-        >
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-        </Pressable>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -225,11 +215,6 @@ export default function Dashboard() {
         />
       )}
 
-      <HamburgerMenu 
-        visible={menuVisible}
-        onClose={() => setMenuVisible(false)}
-      />
-
       <AppFooter />
     </View>
   );
@@ -248,7 +233,7 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
     paddingTop: 40,
@@ -258,16 +243,6 @@ const styles = StyleSheet.create({
     width: 100,
     height: 30,
     resizeMode: 'contain',
-  },
-  menuButton: {
-    width: 24,
-    height: 24,
-    justifyContent: 'space-between',
-  },
-  menuLine: {
-    width: '100%',
-    height: 2,
-    backgroundColor: '#FF69B4',
   },
   gradientCard: {
     padding: 20,
