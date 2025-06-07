@@ -1,6 +1,8 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Modal } from 'react-native';
 import { Check, X } from 'lucide-react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
+import { supabase } from '@/lib/supabase';
+import { AuthContext } from '@/contexts/AuthContext';
 
 type Villager = {
   id: string;
@@ -18,42 +20,78 @@ type Props = {
   initialSelectedIds?: string[];
 };
 
-const mockVillagers: Villager[] = [
-  {
-    id: '1',
-    name: 'Billie Jansson',
-    phoneNumber: '+46707865400',
-    memberSince: '28 maj 2025',
-    balance: 23,
-    status: 'connected'
-  },
-  {
-    id: '2',
-    name: 'Eija Skarsgård',
-    phoneNumber: '+46761727505',
-    memberSince: '29 maj 2025',
-    balance: 0,
-    status: 'connected'
-  },
-  {
-    id: '3',
-    name: 'Alexander Skarsgård',
-    phoneNumber: '+9723017744',
-    memberSince: '4 mars 2025',
-    balance: -125,
-    status: 'connected'
-  }
-];
-
 export default function VillagerSelectionModal({ visible, onClose, onSelectVillagers, initialSelectedIds = [] }: Props) {
+  const { session } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVillagers, setSelectedVillagers] = useState<string[]>(initialSelectedIds);
+  const [villagers, setVillagers] = useState<Villager[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     setSelectedVillagers(initialSelectedIds);
   }, [initialSelectedIds]);
 
-  const filteredVillagers = mockVillagers.filter(villager =>
+  useEffect(() => {
+    if (visible && session?.user?.id) {
+      fetchVillagers();
+    }
+  }, [visible, session?.user?.id]);
+
+  const fetchVillagers = async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      setIsLoading(true);
+
+      // Fetch villager connections with user details
+      const { data: connections, error: connectionsError } = await supabase
+        .from('villager_connections')
+        .select(`
+          id,
+          status,
+          created_at,
+          sender:sender_id(id, first_name, last_name, phone_number, minute_balance, created_at),
+          receiver:receiver_id(id, first_name, last_name, phone_number, minute_balance, created_at)
+        `)
+        .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
+        .eq('status', 'accepted');
+
+      if (connectionsError) {
+        console.error('Error fetching villager connections:', connectionsError);
+        return;
+      }
+
+      // Transform the data to get the other user in each connection
+      const villagersData: Villager[] = (connections || []).map(connection => {
+        const otherUser = connection.sender?.id === session.user.id 
+          ? connection.receiver 
+          : connection.sender;
+
+        if (!otherUser) return null;
+
+        return {
+          id: otherUser.id,
+          name: `${otherUser.first_name} ${otherUser.last_name}`,
+          phoneNumber: otherUser.phone_number || '',
+          memberSince: new Date(otherUser.created_at).toLocaleDateString('sv-SE', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          }),
+          balance: otherUser.minute_balance || 0,
+          status: 'connected' as const
+        };
+      }).filter(Boolean) as Villager[];
+
+      setVillagers(villagersData);
+    } catch (err) {
+      console.error('Error fetching villagers:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredVillagers = villagers.filter(villager =>
     villager.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     villager.phoneNumber.includes(searchQuery)
   );
@@ -110,44 +148,65 @@ export default function VillagerSelectionModal({ visible, onClose, onSelectVilla
           placeholderTextColor="#999"
         />
 
-        <Pressable
-          style={styles.selectAllContainer}
-          onPress={toggleSelectAll}
-        >
-          <View style={[
-            styles.checkbox,
-            isAllSelected && styles.checkboxSelected
-          ]}>
-            {isAllSelected && <Check size={16} color="white" />}
-          </View>
-          <Text style={styles.selectAllText}>VÄLJ ALLA</Text>
-        </Pressable>
+        {!isLoading && villagers.length > 0 && (
+          <Pressable
+            style={styles.selectAllContainer}
+            onPress={toggleSelectAll}
+          >
+            <View style={[
+              styles.checkbox,
+              isAllSelected && styles.checkboxSelected
+            ]}>
+              {isAllSelected && <Check size={16} color="white" />}
+            </View>
+            <Text style={styles.selectAllText}>VÄLJ ALLA</Text>
+          </Pressable>
+        )}
 
         <ScrollView style={styles.villagersList}>
-          {filteredVillagers.map((villager) => (
-            <Pressable
-              key={villager.id}
-              style={styles.villagerItem}
-              onPress={() => toggleVillagerSelection(villager.id)}
-            >
-              <View style={styles.villagerInfo}>
-                <Text style={styles.villagerName}>{villager.name}</Text>
-                <Text style={styles.villagerPhone}>{villager.phoneNumber}</Text>
-              </View>
-              <View style={[
-                styles.checkbox,
-                selectedVillagers.includes(villager.id) && styles.checkboxSelected
-              ]}>
-                {selectedVillagers.includes(villager.id) && (
-                  <Check size={16} color="white" />
-                )}
-              </View>
-            </Pressable>
-          ))}
+          {isLoading ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.loadingText}>Laddar villagers...</Text>
+            </View>
+          ) : villagers.length === 0 ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.emptyText}>Inga villagers att välja från</Text>
+              <Text style={styles.emptySubtext}>
+                Du behöver ansluta till villagers först
+              </Text>
+            </View>
+          ) : filteredVillagers.length === 0 ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.emptyText}>Inga villagers matchar sökningen</Text>
+            </View>
+          ) : (
+            filteredVillagers.map((villager) => (
+              <Pressable
+                key={villager.id}
+                style={styles.villagerItem}
+                onPress={() => toggleVillagerSelection(villager.id)}
+              >
+                <View style={styles.villagerInfo}>
+                  <Text style={styles.villagerName}>{villager.name}</Text>
+                  <Text style={styles.villagerPhone}>{villager.phoneNumber}</Text>
+                </View>
+                <View style={[
+                  styles.checkbox,
+                  selectedVillagers.includes(villager.id) && styles.checkboxSelected
+                ]}>
+                  {selectedVillagers.includes(villager.id) && (
+                    <Check size={16} color="white" />
+                  )}
+                </View>
+              </Pressable>
+            ))
+          )}
         </ScrollView>
 
         <Pressable style={styles.confirmButton} onPress={handleConfirm}>
-          <Text style={styles.confirmButtonText}>Bekräfta val</Text>
+          <Text style={styles.confirmButtonText}>
+            Bekräfta val ({selectedVillagers.length})
+          </Text>
         </Pressable>
       </View>
     </Modal>
@@ -203,6 +262,30 @@ const styles = StyleSheet.create({
   villagersList: {
     flex: 1,
     paddingHorizontal: 20,
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
+  },
+  emptyText: {
+    fontSize: 18,
+    color: '#666',
+    fontFamily: 'Unbounded-SemiBold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#999',
+    fontFamily: 'Unbounded-Regular',
+    textAlign: 'center',
   },
   villagerItem: {
     flexDirection: 'row',
