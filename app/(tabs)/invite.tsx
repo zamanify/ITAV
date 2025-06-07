@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
@@ -33,6 +33,7 @@ export default function InviteScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [permissionStatus, setPermissionStatus] = useState<'undetermined' | 'granted' | 'denied'>('undetermined');
+  const [invitingContactId, setInvitingContactId] = useState<string | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -225,9 +226,12 @@ export default function InviteScreen() {
   };
 
   const handleInviteContact = async (contact: Contact) => {
-    if (!session?.user?.id || contact.status === 'self') return;
+    if (!session?.user?.id || contact.status === 'self' || invitingContactId === contact.id) return;
 
     try {
+      // Set loading state immediately
+      setInvitingContactId(contact.id);
+
       const normalizedPhone = normalizePhoneNumber(contact.phoneNumber);
 
       if (contact.isExistingUser && contact.status === 'pending') {
@@ -278,9 +282,14 @@ export default function InviteScreen() {
         );
       }
 
-      // Don't reload contacts - we've already updated the local state
+      // Small delay to show the animation
+      setTimeout(() => {
+        setInvitingContactId(null);
+      }, 300);
+
     } catch (err) {
       console.error('Error inviting contact:', err);
+      setInvitingContactId(null);
     }
   };
 
@@ -386,12 +395,26 @@ export default function InviteScreen() {
                 </View>
                 {canInvite(contact) ? (
                   <Pressable 
-                    style={styles.inviteButton}
+                    style={[
+                      styles.inviteButton,
+                      invitingContactId === contact.id && styles.inviteButtonLoading
+                    ]}
                     onPress={() => handleInviteContact(contact)}
+                    disabled={invitingContactId === contact.id}
                   >
-                    <UserPlus size={16} color="#FF69B4" />
-                    <Text style={styles.inviteButtonText}>
-                      {contact.isExistingUser ? 'Skicka förfrågan' : 'Bjud in'}
+                    {invitingContactId === contact.id ? (
+                      <ActivityIndicator size="small" color="#FF69B4" />
+                    ) : (
+                      <UserPlus size={16} color="#FF69B4" />
+                    )}
+                    <Text style={[
+                      styles.inviteButtonText,
+                      invitingContactId === contact.id && styles.inviteButtonTextLoading
+                    ]}>
+                      {invitingContactId === contact.id 
+                        ? 'Bjuder in...' 
+                        : contact.isExistingUser ? 'Skicka förfrågan' : 'Bjud in'
+                      }
                     </Text>
                   </Pressable>
                 ) : (
@@ -564,11 +587,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     gap: 4,
+    minWidth: 120,
+    justifyContent: 'center',
+  },
+  inviteButtonLoading: {
+    backgroundColor: '#FFF8FC',
+    borderColor: '#FFB3D9',
   },
   inviteButtonText: {
     color: '#FF69B4',
     fontSize: 12,
     fontFamily: 'Unbounded-Regular',
+  },
+  inviteButtonTextLoading: {
+    color: '#FF69B4',
+    opacity: 0.7,
   },
   statusTextSelf: {
     color: '#FF69B4',
