@@ -21,9 +21,6 @@ type Contact = {
   userId?: string;
 };
 
-// Target phone number for debugging (Arman's number)
-const DEBUG_TARGET_PHONE = '+46736225228';
-
 export default function InviteScreen() {
   const [fontsLoaded] = useFonts({
     'Unbounded-Regular': Unbounded_400Regular,
@@ -49,10 +46,6 @@ export default function InviteScreen() {
       loadContacts();
     }
   }, [session?.user?.id]);
-
-  const debugLog = (message: string, data?: any) => {
-    console.log(`🔍 [ARMAN DEBUG] ${message}`, data ? JSON.stringify(data, null, 2) : '');
-  };
 
   const loadContacts = async () => {
     try {
@@ -81,18 +74,6 @@ export default function InviteScreen() {
         }
       }
 
-      // Find Arman's contacts in device contacts
-      const armanContacts = deviceContacts.filter(contact => {
-        const normalized = normalizePhoneNumber(contact.phoneNumber);
-        return normalized === DEBUG_TARGET_PHONE;
-      });
-
-      if (armanContacts.length > 0) {
-        debugLog('Found Arman contacts in device:', armanContacts);
-      } else {
-        debugLog('No Arman contacts found in device contacts');
-      }
-
       // Get current user's data for comparison and display
       const { data: currentUserData, error: userError } = await supabase
         .from('users')
@@ -116,29 +97,6 @@ export default function InviteScreen() {
         console.error('Error fetching all app users:', allUsersError);
       }
 
-      // Find Arman in app users
-      const armanInDb = allAppUsers?.find(user => {
-        if (!user.phone_number) return false;
-        const normalized = normalizePhoneNumber(user.phone_number);
-        return normalized === DEBUG_TARGET_PHONE;
-      });
-
-      if (armanInDb) {
-        debugLog('Found Arman in database:', {
-          id: armanInDb.id,
-          name: `${armanInDb.first_name} ${armanInDb.last_name}`,
-          originalPhone: armanInDb.phone_number,
-          normalizedPhone: normalizePhoneNumber(armanInDb.phone_number)
-        });
-      } else {
-        debugLog('Arman NOT found in database');
-        debugLog('All database phone numbers:', allAppUsers?.map(u => ({
-          name: `${u.first_name} ${u.last_name}`,
-          original: u.phone_number,
-          normalized: u.phone_number ? normalizePhoneNumber(u.phone_number) : null
-        })));
-      }
-
       // Create a map of normalized phone numbers to user data
       const allAppUsersMap = new Map();
       (allAppUsers || []).forEach(user => {
@@ -149,29 +107,8 @@ export default function InviteScreen() {
             name: `${user.first_name} ${user.last_name}`,
             isExistingUser: true
           });
-
-          // Log specifically for Arman's number
-          if (normalized === DEBUG_TARGET_PHONE) {
-            debugLog('Adding Arman to lookup map:', {
-              key: normalized,
-              value: {
-                userId: user.id,
-                name: `${user.first_name} ${user.last_name}`,
-                isExistingUser: true
-              }
-            });
-          }
         }
       });
-
-      // Check if Arman is in the lookup map
-      const armanInMap = allAppUsersMap.get(DEBUG_TARGET_PHONE);
-      if (armanInMap) {
-        debugLog('Arman found in lookup map:', armanInMap);
-      } else {
-        debugLog('Arman NOT found in lookup map');
-        debugLog('Lookup map keys:', Array.from(allAppUsersMap.keys()));
-      }
 
       // Get existing invites and connections from database
       const [invitesResult, connectionsResult] = await Promise.all([
@@ -202,30 +139,6 @@ export default function InviteScreen() {
 
       const invites = invitesResult.data || [];
       const connections = connectionsResult.data || [];
-
-      // Check for Arman in invites and connections
-      const armanInvite = invites.find(invite => {
-        if (!invite.phone_number) return false;
-        const normalized = normalizePhoneNumber(invite.phone_number);
-        return normalized === DEBUG_TARGET_PHONE;
-      });
-
-      const armanConnection = connections.find(connection => {
-        const otherUser = connection.sender?.id === session?.user?.id 
-          ? connection.receiver 
-          : connection.sender;
-        if (!otherUser?.phone_number) return false;
-        const normalized = normalizePhoneNumber(otherUser.phone_number);
-        return normalized === DEBUG_TARGET_PHONE;
-      });
-
-      if (armanInvite) {
-        debugLog('Found Arman in invites:', armanInvite);
-      }
-
-      if (armanConnection) {
-        debugLog('Found Arman in connections:', armanConnection);
-      }
 
       // Create a detailed status map with priority: connections > invites > app users
       const detailedStatusMap = new Map<string, { 
@@ -277,27 +190,10 @@ export default function InviteScreen() {
         }
       });
 
-      // Check final status for Arman
-      const armanFinalStatus = detailedStatusMap.get(DEBUG_TARGET_PHONE);
-      if (armanFinalStatus) {
-        debugLog('Arman final status in detailed map:', armanFinalStatus);
-      } else {
-        debugLog('Arman NOT found in final detailed status map');
-      }
-
       // Process device contacts and merge with database info
       const processedContacts: Contact[] = deviceContacts
         .map(contact => {
           const normalized = normalizePhoneNumber(contact.phoneNumber);
-          
-          // Special logging for Arman's contacts
-          if (normalized === DEBUG_TARGET_PHONE) {
-            debugLog('Processing Arman contact:', {
-              name: contact.name,
-              originalPhone: contact.phoneNumber,
-              normalizedPhone: normalized
-            });
-          }
           
           // Check if this is the current user's phone number
           if (currentUserPhone && normalized === currentUserPhone) {
@@ -311,17 +207,8 @@ export default function InviteScreen() {
           }
 
           const dbInfo = detailedStatusMap.get(normalized);
-          
-          // Special logging for Arman's contacts
-          if (normalized === DEBUG_TARGET_PHONE) {
-            debugLog('DB info lookup for Arman:', {
-              normalized,
-              dbInfo: dbInfo || 'NOT FOUND',
-              mapHasKey: detailedStatusMap.has(normalized)
-            });
-          }
 
-          const result = {
+          return {
             id: contact.id,
             name: dbInfo?.name || contact.name,
             phoneNumber: contact.phoneNumber,
@@ -329,13 +216,6 @@ export default function InviteScreen() {
             isExistingUser: dbInfo?.isExistingUser || false,
             userId: dbInfo?.userId,
           };
-
-          // Special logging for Arman's final result
-          if (normalized === DEBUG_TARGET_PHONE) {
-            debugLog('Final result for Arman:', result);
-          }
-
-          return result;
         })
         .filter(Boolean) as Contact[];
 
@@ -347,21 +227,14 @@ export default function InviteScreen() {
         }
 
         if (info.name && !processedContacts.find(c => normalizePhoneNumber(c.phoneNumber) === phoneNumber)) {
-          const result = {
+          processedContacts.push({
             id: `db-${phoneNumber}`,
             name: info.name,
             phoneNumber: phoneNumber,
             status: (info.status as any) || 'not_app_user',
             isExistingUser: info.isExistingUser || false,
             userId: info.userId,
-          };
-
-          // Special logging for Arman if added from database
-          if (phoneNumber === DEBUG_TARGET_PHONE) {
-            debugLog('Adding Arman from database (not in device contacts):', result);
-          }
-
-          processedContacts.push(result);
+          });
         }
       });
 
@@ -373,17 +246,6 @@ export default function InviteScreen() {
         if (b.status === 'connected' && a.status !== 'connected') return 1;
         return a.name.localeCompare(b.name);
       });
-
-      // Final check for Arman in processed contacts
-      const armanInProcessed = processedContacts.filter(c => 
-        normalizePhoneNumber(c.phoneNumber) === DEBUG_TARGET_PHONE
-      );
-
-      if (armanInProcessed.length > 0) {
-        debugLog('Arman in final processed contacts:', armanInProcessed);
-      } else {
-        debugLog('Arman NOT found in final processed contacts');
-      }
 
       setContacts(processedContacts);
     } catch (err) {
@@ -596,7 +458,7 @@ export default function InviteScreen() {
                   >
                     {invitingContactId === contact.id ? (
                       <>
-                        <ActivityIndicator size="small\" color="#FF69B4" />
+                        <ActivityIndicator size="small" color="#FF69B4" />
                         <Text style={[
                           styles.inviteButtonText,
                           styles.inviteButtonTextLoading
