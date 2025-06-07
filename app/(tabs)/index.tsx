@@ -117,8 +117,6 @@ export default function Dashboard() {
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
         >
-          <Text style={styles.welcomeText}>Välkommen{'\n'}Zeke Tastas</Text>
-
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Saldo</Text>
@@ -251,14 +249,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingBottom: 40,
   },
-  welcomeText: {
-    fontSize: 32,
-    color: 'white',
-    fontFamily: 'Unbounded-SemiBold',
-    marginBottom: 20,
-    textAlign: 'center',
-    width: '100%',
-  },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -281,7 +271,6 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
   },
   gradientButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
