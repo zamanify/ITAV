@@ -1,10 +1,14 @@
-import { View, Text, StyleSheet, TextInput, Pressable, Image, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { ArrowLeft, Share2, UserPlus } from 'lucide-react-native';
 import * as Contacts from 'expo-contacts';
+import { supabase } from '@/lib/supabase';
+import { AuthContext } from '@/contexts/AuthContext';
+import { normalizePhoneNumber } from '@/lib/phone';
+import AppFooter from '../../components/AppFooter';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -12,7 +16,9 @@ type Contact = {
   id: string;
   name: string;
   phoneNumber: string;
-  status?: 'pending' | 'invited' | 'in_app';
+  status: 'pending' | 'invited' | 'in_app' | 'connected';
+  isExistingUser?: boolean;
+  userId?: string;
 };
 
 export default function InviteScreen() {
@@ -21,62 +27,155 @@ export default function InviteScreen() {
     'Unbounded-SemiBold': Unbounded_600SemiBold,
   });
 
+  const { session } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState('');
   const [contacts, setContacts] = useState<Contact[]>([]);
-
-  // Mock data for existing contacts
-  const mockContacts: Contact[] = [
-    {
-      id: '1',
-      name: 'Dan Berggren/1',
-      phoneNumber: '+46707865400',
-      status: 'in_app'
-    },
-    {
-      id: '2',
-      name: 'Gustaf Sehlstedt/Le Bur...',
-      phoneNumber: '+4676172750',
-      status: 'pending'
-    },
-    {
-      id: '3',
-      name: 'Jörg/1',
-      phoneNumber: '+4917230177441',
-      status: 'pending'
-    }
-  ];
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [permissionStatus, setPermissionStatus] = useState<'undetermined' | 'granted' | 'denied'>('undetermined');
 
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
+  }, [fontsLoaded]);
 
-    if (Platform.OS !== 'web') {
-      (async () => {
+  useEffect(() => {
+    if (session?.user?.id) {
+      loadContacts();
+    }
+  }, [session?.user?.id]);
+
+  const loadContacts = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      let deviceContacts: any[] = [];
+
+      // Get device contacts if not on web
+      if (Platform.OS !== 'web') {
         const { status } = await Contacts.requestPermissionsAsync();
+        setPermissionStatus(status);
+
         if (status === 'granted') {
           const { data } = await Contacts.getContactsAsync({
             fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
           });
 
-          const formattedContacts = data
+          deviceContacts = data
             .filter(contact => contact.name && contact.phoneNumbers?.[0]?.number)
             .map(contact => ({
               id: contact.id,
               name: contact.name || '',
               phoneNumber: contact.phoneNumbers?.[0]?.number || '',
-              status: 'pending'
             }));
-
-          setContacts([...mockContacts, ...formattedContacts]);
-        } else {
-          setContacts(mockContacts);
         }
-      })();
-    } else {
-      setContacts(mockContacts);
+      }
+
+      // Get existing invites and connections from database
+      const [invitesResult, connectionsResult] = await Promise.all([
+        // Get pending invites sent by current user
+        supabase
+          .from('villager_invite')
+          .select('phone_number, email, status')
+          .eq('inviter_id', session?.user?.id),
+        
+        // Get existing connections
+        supabase
+          .from('villager_connections')
+          .select(`
+            status,
+            sender:sender_id(phone_number, first_name, last_name),
+            receiver:receiver_id(phone_number, first_name, last_name)
+          `)
+          .or(`sender_id.eq.${session?.user?.id},receiver_id.eq.${session?.user?.id}`)
+      ]);
+
+      if (invitesResult.error) {
+        console.error('Error fetching invites:', invitesResult.error);
+      }
+
+      if (connectionsResult.error) {
+        console.error('Error fetching connections:', connectionsResult.error);
+      }
+
+      const invites = invitesResult.data || [];
+      const connections = connectionsResult.data || [];
+
+      // Create a map of phone numbers to their status
+      const phoneStatusMap = new Map<string, { status: string; name?: string; isExistingUser?: boolean }>();
+
+      // Add invites to map
+      invites.forEach(invite => {
+        if (invite.phone_number) {
+          const normalized = normalizePhoneNumber(invite.phone_number);
+          phoneStatusMap.set(normalized, { 
+            status: invite.status === 'pending' ? 'invited' : 'pending' 
+          });
+        }
+      });
+
+      // Add connections to map
+      connections.forEach(connection => {
+        const otherUser = connection.sender?.phone_number && 
+          normalizePhoneNumber(connection.sender.phone_number) !== normalizePhoneNumber(session?.user?.phone || '') 
+          ? connection.sender 
+          : connection.receiver;
+
+        if (otherUser?.phone_number) {
+          const normalized = normalizePhoneNumber(otherUser.phone_number);
+          const name = `${otherUser.first_name} ${otherUser.last_name}`;
+          phoneStatusMap.set(normalized, { 
+            status: connection.status === 'accepted' ? 'connected' : 'pending',
+            name,
+            isExistingUser: true
+          });
+        }
+      });
+
+      // Process device contacts and merge with database info
+      const processedContacts: Contact[] = deviceContacts.map(contact => {
+        const normalized = normalizePhoneNumber(contact.phoneNumber);
+        const dbInfo = phoneStatusMap.get(normalized);
+
+        return {
+          id: contact.id,
+          name: dbInfo?.name || contact.name,
+          phoneNumber: contact.phoneNumber,
+          status: (dbInfo?.status as any) || 'pending',
+          isExistingUser: dbInfo?.isExistingUser || false,
+        };
+      });
+
+      // Add any database contacts that aren't in device contacts
+      phoneStatusMap.forEach((info, phoneNumber) => {
+        if (info.name && !processedContacts.find(c => normalizePhoneNumber(c.phoneNumber) === phoneNumber)) {
+          processedContacts.push({
+            id: `db-${phoneNumber}`,
+            name: info.name,
+            phoneNumber: phoneNumber,
+            status: (info.status as any) || 'pending',
+            isExistingUser: info.isExistingUser || false,
+          });
+        }
+      });
+
+      // Sort contacts: connected first, then by name
+      processedContacts.sort((a, b) => {
+        if (a.status === 'connected' && b.status !== 'connected') return -1;
+        if (b.status === 'connected' && a.status !== 'connected') return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      setContacts(processedContacts);
+    } catch (err) {
+      console.error('Error loading contacts:', err);
+      setError('Ett fel uppstod vid laddning av kontakter');
+    } finally {
+      setIsLoading(false);
     }
-  }, [fontsLoaded]);
+  };
 
   if (!fontsLoaded) {
     return null;
@@ -87,29 +186,78 @@ export default function InviteScreen() {
   };
 
   const handleShare = () => {
-    // Implement share functionality
+    // Share functionality will be implemented later
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'in_app':
-        return 'Bli vän';
-      case 'pending':
-        return 'Bjud in till appen';
-      default:
-        return 'Bjud in till appen';
+  const handleInviteContact = async (contact: Contact) => {
+    if (!session?.user?.id) return;
+
+    try {
+      const normalizedPhone = normalizePhoneNumber(contact.phoneNumber);
+
+      if (contact.isExistingUser && contact.status === 'pending') {
+        // This is an existing user, create a villager connection
+        const { error } = await supabase
+          .from('villager_connections')
+          .insert({
+            sender_id: session.user.id,
+            receiver_id: contact.userId,
+            status: 'pending'
+          });
+
+        if (error && error.code !== '23505') { // Ignore unique constraint violations
+          console.error('Error creating connection:', error);
+          return;
+        }
+      } else {
+        // This is not an existing user, create an invite
+        const { error } = await supabase
+          .from('villager_invite')
+          .insert({
+            inviter_id: session.user.id,
+            phone_number: normalizedPhone,
+            status: 'pending'
+          });
+
+        if (error && error.code !== '23505') { // Ignore unique constraint violations
+          console.error('Error creating invite:', error);
+          return;
+        }
+      }
+
+      // Refresh the contacts list
+      loadContacts();
+    } catch (err) {
+      console.error('Error inviting contact:', err);
     }
   };
 
-  const getStatusStyle = (status: string) => {
-    switch (status) {
+  const getStatusText = (contact: Contact) => {
+    switch (contact.status) {
+      case 'connected':
+        return 'Ansluten';
+      case 'invited':
+        return 'Inbjuden';
       case 'in_app':
-        return styles.statusTextInApp;
-      case 'pending':
-        return styles.statusTextPending;
+        return contact.isExistingUser ? 'Skicka vänförfrågan' : 'Bjud in till appen';
+      default:
+        return contact.isExistingUser ? 'Skicka vänförfrågan' : 'Bjud in till appen';
+    }
+  };
+
+  const getStatusStyle = (contact: Contact) => {
+    switch (contact.status) {
+      case 'connected':
+        return styles.statusTextConnected;
+      case 'invited':
+        return styles.statusTextInvited;
       default:
         return styles.statusTextPending;
     }
+  };
+
+  const canInvite = (contact: Contact) => {
+    return contact.status === 'pending' || (contact.status === 'in_app' && contact.isExistingUser);
   };
 
   const filteredContacts = contacts.filter(contact =>
@@ -144,20 +292,61 @@ export default function InviteScreen() {
           </Pressable>
         </View>
 
-        <ScrollView style={styles.contactsList}>
-          {filteredContacts.map((contact) => (
-            <View key={contact.id} style={styles.contactItem}>
-              <View style={styles.contactInfo}>
-                <Text style={styles.contactName}>{contact.name}</Text>
-                <Text style={styles.contactPhone}>{contact.phoneNumber}</Text>
-              </View>
-              <Text style={getStatusStyle(contact.status || 'pending')}>
-                {getStatusText(contact.status || 'pending')}
-              </Text>
+        <ScrollView style={styles.contactsList} contentContainerStyle={styles.scrollContent}>
+          {isLoading ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.loadingText}>Laddar kontakter...</Text>
             </View>
-          ))}
+          ) : error ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+              <Pressable style={styles.retryButton} onPress={loadContacts}>
+                <Text style={styles.retryButtonText}>Försök igen</Text>
+              </Pressable>
+            </View>
+          ) : filteredContacts.length === 0 ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.emptyText}>
+                {searchQuery ? `Inga kontakter matchar "${searchQuery}"` : 'Inga kontakter att visa'}
+              </Text>
+              {Platform.OS !== 'web' && permissionStatus === 'denied' && (
+                <Text style={styles.permissionText}>
+                  Ge appen tillgång till dina kontakter för att se fler personer att bjuda in
+                </Text>
+              )}
+            </View>
+          ) : (
+            filteredContacts.map((contact) => (
+              <View key={contact.id} style={styles.contactItem}>
+                <View style={styles.contactInfo}>
+                  <Text style={styles.contactName}>{contact.name}</Text>
+                  <Text style={styles.contactPhone}>{contact.phoneNumber}</Text>
+                  {contact.isExistingUser && (
+                    <Text style={styles.existingUserBadge}>Använder appen</Text>
+                  )}
+                </View>
+                {canInvite(contact) ? (
+                  <Pressable 
+                    style={styles.inviteButton}
+                    onPress={() => handleInviteContact(contact)}
+                  >
+                    <UserPlus size={16} color="#FF69B4" />
+                    <Text style={styles.inviteButtonText}>
+                      {contact.isExistingUser ? 'Skicka förfrågan' : 'Bjud in'}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Text style={getStatusStyle(contact)}>
+                    {getStatusText(contact)}
+                  </Text>
+                )}
+              </View>
+            ))
+          )}
         </ScrollView>
       </View>
+
+      <AppFooter />
     </View>
   );
 }
@@ -232,6 +421,52 @@ const styles = StyleSheet.create({
   contactsList: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 120, // Space for footer
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF4444',
+    fontFamily: 'Unbounded-Regular',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#FF69B4',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontFamily: 'Unbounded-SemiBold',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  permissionText: {
+    fontSize: 14,
+    color: '#999',
+    fontFamily: 'Unbounded-Regular',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   contactItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -252,15 +487,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     fontFamily: 'Unbounded-Regular',
+    marginBottom: 2,
   },
-  statusTextInApp: {
+  existingUserBadge: {
+    fontSize: 12,
+    color: '#87CEEB',
+    fontFamily: 'Unbounded-Regular',
+    fontStyle: 'italic',
+  },
+  inviteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#FF69B4',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 4,
+  },
+  inviteButtonText: {
     color: '#FF69B4',
+    fontSize: 12,
+    fontFamily: 'Unbounded-Regular',
+  },
+  statusTextConnected: {
+    color: '#4CAF50',
+    fontSize: 14,
+    fontFamily: 'Unbounded-Regular',
+  },
+  statusTextInvited: {
+    color: '#87CEEB',
     fontSize: 14,
     fontFamily: 'Unbounded-Regular',
   },
   statusTextPending: {
-    color: '#87CEEB',
+    color: '#FF69B4',
     fontSize: 14,
     fontFamily: 'Unbounded-Regular',
-  }
+  },
 });
