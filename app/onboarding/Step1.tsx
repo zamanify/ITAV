@@ -207,11 +207,6 @@ export default function OnboardingStep1() {
           source={require('../../assets/images/Logo_ITAV.png')}
           style={styles.logo}
         />
-        <Pressable style={styles.menuButton}>
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-        </Pressable>
       </View>
 
       <Text style={styles.title}>Först, några{'\n'}snabba frågor.</Text>
@@ -293,7 +288,7 @@ export default function OnboardingStep1() {
                   onPress={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff color="#666\" size={16} />
+                    <EyeOff color="#666" size={16} />
                   ) : (
                     <Eye color="#666" size={16} />
                   )}
@@ -401,27 +396,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 30,
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 60,
   },
   logo: {
     width: 100,
     height: 30,
     resizeMode: 'contain',
-  },
-  menuButton: {
-    width: 24,
-    height: 24,
-    justifyContent: 'space-between',
-  },
-  menuLine: {
-    width: '100%',
-    height: 2,
-    backgroundColor: '#FF69B4',
   },
   title: {
     fontSize: 32,
