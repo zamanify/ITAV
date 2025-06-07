@@ -16,7 +16,7 @@ type Contact = {
   id: string;
   name: string;
   phoneNumber: string;
-  status: 'pending' | 'invited' | 'in_app' | 'connected' | 'self';
+  status: 'pending' | 'invited' | 'in_app' | 'connected' | 'self' | 'not_app_user';
   isExistingUser?: boolean;
   userId?: string;
 };
@@ -88,6 +88,28 @@ export default function InviteScreen() {
       const currentUserPhone = currentUserData?.phone_number ? 
         normalizePhoneNumber(currentUserData.phone_number) : null;
 
+      // Get all app users to check if contacts are existing users
+      const { data: allAppUsers, error: allUsersError } = await supabase
+        .from('users')
+        .select('id, phone_number, first_name, last_name');
+
+      if (allUsersError) {
+        console.error('Error fetching all app users:', allUsersError);
+      }
+
+      // Create a map of normalized phone numbers to user data
+      const allAppUsersMap = new Map();
+      (allAppUsers || []).forEach(user => {
+        if (user.phone_number) {
+          const normalized = normalizePhoneNumber(user.phone_number);
+          allAppUsersMap.set(normalized, {
+            userId: user.id,
+            name: `${user.first_name} ${user.last_name}`,
+            isExistingUser: true
+          });
+        }
+      });
+
       // Get existing invites and connections from database
       const [invitesResult, connectionsResult] = await Promise.all([
         // Get pending invites sent by current user
@@ -101,8 +123,8 @@ export default function InviteScreen() {
           .from('villager_connections')
           .select(`
             status,
-            sender:sender_id(phone_number, first_name, last_name),
-            receiver:receiver_id(phone_number, first_name, last_name)
+            sender:sender_id(id, phone_number, first_name, last_name),
+            receiver:receiver_id(id, phone_number, first_name, last_name)
           `)
           .or(`sender_id.eq.${session?.user?.id},receiver_id.eq.${session?.user?.id}`)
       ]);
@@ -118,33 +140,52 @@ export default function InviteScreen() {
       const invites = invitesResult.data || [];
       const connections = connectionsResult.data || [];
 
-      // Create a map of phone numbers to their status
-      const phoneStatusMap = new Map<string, { status: string; name?: string; isExistingUser?: boolean }>();
+      // Create a detailed status map with priority: connections > invites > app users
+      const detailedStatusMap = new Map<string, { 
+        status: string; 
+        name?: string; 
+        isExistingUser?: boolean; 
+        userId?: string; 
+      }>();
 
-      // Add invites to map
-      invites.forEach(invite => {
-        if (invite.phone_number) {
-          const normalized = normalizePhoneNumber(invite.phone_number);
-          phoneStatusMap.set(normalized, { 
-            status: invite.status === 'pending' ? 'invited' : 'pending' 
-          });
-        }
-      });
-
-      // Add connections to map
+      // First, add connections (highest priority)
       connections.forEach(connection => {
-        const otherUser = connection.sender?.phone_number && 
-          normalizePhoneNumber(connection.sender.phone_number) !== currentUserPhone
-          ? connection.sender 
-          : connection.receiver;
+        const otherUser = connection.sender?.id === session?.user?.id 
+          ? connection.receiver 
+          : connection.sender;
 
         if (otherUser?.phone_number) {
           const normalized = normalizePhoneNumber(otherUser.phone_number);
           const name = `${otherUser.first_name} ${otherUser.last_name}`;
-          phoneStatusMap.set(normalized, { 
+          detailedStatusMap.set(normalized, { 
             status: connection.status === 'accepted' ? 'connected' : 'pending',
             name,
-            isExistingUser: true
+            isExistingUser: true,
+            userId: otherUser.id
+          });
+        }
+      });
+
+      // Then, add invites (medium priority) - only if not already in map
+      invites.forEach(invite => {
+        if (invite.phone_number) {
+          const normalized = normalizePhoneNumber(invite.phone_number);
+          if (!detailedStatusMap.has(normalized)) {
+            detailedStatusMap.set(normalized, { 
+              status: invite.status === 'pending' ? 'invited' : 'pending' 
+            });
+          }
+        }
+      });
+
+      // Finally, add app users who aren't connected or invited (lowest priority)
+      allAppUsersMap.forEach((userData, phoneNumber) => {
+        if (!detailedStatusMap.has(phoneNumber) && phoneNumber !== currentUserPhone) {
+          detailedStatusMap.set(phoneNumber, {
+            status: 'in_app',
+            name: userData.name,
+            isExistingUser: true,
+            userId: userData.userId
           });
         }
       });
@@ -165,20 +206,21 @@ export default function InviteScreen() {
             };
           }
 
-          const dbInfo = phoneStatusMap.get(normalized);
+          const dbInfo = detailedStatusMap.get(normalized);
 
           return {
             id: contact.id,
             name: dbInfo?.name || contact.name,
             phoneNumber: contact.phoneNumber,
-            status: (dbInfo?.status as any) || 'pending',
+            status: (dbInfo?.status as any) || 'not_app_user',
             isExistingUser: dbInfo?.isExistingUser || false,
+            userId: dbInfo?.userId,
           };
         })
         .filter(Boolean) as Contact[];
 
       // Add any database contacts that aren't in device contacts (but not current user)
-      phoneStatusMap.forEach((info, phoneNumber) => {
+      detailedStatusMap.forEach((info, phoneNumber) => {
         // Skip current user's phone number since we handle it above
         if (currentUserPhone && phoneNumber === currentUserPhone) {
           return;
@@ -189,8 +231,9 @@ export default function InviteScreen() {
             id: `db-${phoneNumber}`,
             name: info.name,
             phoneNumber: phoneNumber,
-            status: (info.status as any) || 'pending',
+            status: (info.status as any) || 'not_app_user',
             isExistingUser: info.isExistingUser || false,
+            userId: info.userId,
           });
         }
       });
@@ -234,7 +277,7 @@ export default function InviteScreen() {
 
       const normalizedPhone = normalizePhoneNumber(contact.phoneNumber);
 
-      if (contact.isExistingUser && contact.status === 'pending') {
+      if (contact.isExistingUser && contact.userId) {
         // This is an existing user, create a villager connection
         const { error } = await supabase
           .from('villager_connections')
@@ -302,7 +345,9 @@ export default function InviteScreen() {
       case 'invited':
         return 'Inbjuden';
       case 'in_app':
-        return contact.isExistingUser ? 'Skicka vänförfrågan' : 'Bjud in till appen';
+        return 'Skicka vänförfrågan';
+      case 'not_app_user':
+        return 'Bjud in till appen';
       default:
         return contact.isExistingUser ? 'Skicka vänförfrågan' : 'Bjud in till appen';
     }
@@ -316,6 +361,10 @@ export default function InviteScreen() {
         return styles.statusTextConnected;
       case 'invited':
         return styles.statusTextInvited;
+      case 'in_app':
+        return styles.statusTextInApp;
+      case 'not_app_user':
+        return styles.statusTextPending;
       default:
         return styles.statusTextPending;
     }
@@ -325,7 +374,7 @@ export default function InviteScreen() {
     return contact.status !== 'self' && 
            contact.status !== 'connected' && 
            contact.status !== 'invited' &&
-           (contact.status === 'pending' || (contact.status === 'in_app' && contact.isExistingUser));
+           (contact.status === 'pending' || contact.status === 'in_app' || contact.status === 'not_app_user');
   };
 
   const filteredContacts = contacts.filter(contact =>
@@ -404,7 +453,7 @@ export default function InviteScreen() {
                   >
                     {invitingContactId === contact.id ? (
                       <>
-                        <ActivityIndicator size="small\" color="#FF69B4" />
+                        <ActivityIndicator size="small" color="#FF69B4" />
                         <Text style={[
                           styles.inviteButtonText,
                           styles.inviteButtonTextLoading
@@ -416,7 +465,7 @@ export default function InviteScreen() {
                       <>
                         <UserPlus size={16} color="#FF69B4" />
                         <Text style={styles.inviteButtonText}>
-                          {contact.isExistingUser ? 'Skicka förfrågan' : 'Bjud in'}
+                          {contact.status === 'in_app' ? 'Skicka förfrågan' : 'Bjud in'}
                         </Text>
                       </>
                     )}
@@ -620,6 +669,11 @@ const styles = StyleSheet.create({
   },
   statusTextInvited: {
     color: '#87CEEB',
+    fontSize: 14,
+    fontFamily: 'Unbounded-Regular',
+  },
+  statusTextInApp: {
+    color: '#9370DB',
     fontSize: 14,
     fontFamily: 'Unbounded-Regular',
   },
