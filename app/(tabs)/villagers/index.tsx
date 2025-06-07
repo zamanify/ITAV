@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
@@ -17,12 +17,21 @@ type Villager = {
   memberSince: string;
   balance: number;
   status: 'connected' | 'pending' | 'request_received' | 'blocked';
+  connectionId: string;
 };
 
 type VillagerRequest = {
   id: string;
   senderName: string;
   senderPhone: string;
+  memberSince: string;
+  connectionId: string;
+};
+
+type SentRequest = {
+  id: string;
+  receiverName: string;
+  receiverPhone: string;
   memberSince: string;
   connectionId: string;
 };
@@ -37,6 +46,7 @@ export default function VillagersScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [villagers, setVillagers] = useState<Villager[]>([]);
   const [pendingRequests, setPendingRequests] = useState<VillagerRequest[]>([]);
+  const [sentRequests, setSentRequests] = useState<SentRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
@@ -70,7 +80,8 @@ export default function VillagersScreen() {
           sender:sender_id(id, first_name, last_name, phone_number, minute_balance, created_at),
           receiver:receiver_id(id, first_name, last_name, phone_number, minute_balance, created_at)
         `)
-        .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`);
+        .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
+        .neq('status', 'deleted'); // Exclude deleted connections
 
       if (connectionsError) {
         console.error('Error fetching villager connections:', connectionsError);
@@ -78,10 +89,13 @@ export default function VillagersScreen() {
         return;
       }
 
-      // Separate accepted connections (villagers) from pending requests
+      // Separate different types of connections
       const acceptedConnections = (connections || []).filter(conn => conn.status === 'accepted');
       const incomingRequests = (connections || []).filter(conn => 
         conn.status === 'pending' && conn.receiver?.id === session.user.id
+      );
+      const outgoingRequests = (connections || []).filter(conn => 
+        conn.status === 'pending' && conn.sender?.id === session.user.id
       );
 
       // Transform accepted connections to villagers
@@ -102,7 +116,8 @@ export default function VillagersScreen() {
             year: 'numeric'
           }),
           balance: otherUser.minute_balance || 0,
-          status: 'connected' as const
+          status: 'connected' as const,
+          connectionId: connection.id
         };
       }).filter(Boolean) as Villager[];
 
@@ -124,8 +139,27 @@ export default function VillagersScreen() {
         };
       }).filter(Boolean) as VillagerRequest[];
 
+      // Transform outgoing requests
+      const sentRequestsData: SentRequest[] = outgoingRequests.map(connection => {
+        const receiver = connection.receiver;
+        if (!receiver) return null;
+
+        return {
+          id: receiver.id,
+          receiverName: `${receiver.first_name} ${receiver.last_name}`,
+          receiverPhone: receiver.phone_number || '',
+          memberSince: new Date(receiver.created_at).toLocaleDateString('sv-SE', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          }),
+          connectionId: connection.id
+        };
+      }).filter(Boolean) as SentRequest[];
+
       setVillagers(villagersData);
       setPendingRequests(requestsData);
+      setSentRequests(sentRequestsData);
     } catch (err) {
       console.error('Error fetching villagers:', err);
       setError('Ett fel uppstod vid hämtning av villagers');
@@ -163,7 +197,8 @@ export default function VillagersScreen() {
           phoneNumber: request.senderPhone,
           memberSince: request.memberSince,
           balance: 0, // Default balance for new connections
-          status: 'connected'
+          status: 'connected',
+          connectionId: request.connectionId
         };
         setVillagers(prev => [...prev, newVillager]);
       }
@@ -172,6 +207,44 @@ export default function VillagersScreen() {
     } finally {
       setProcessingRequestId(null);
     }
+  };
+
+  const handleRemoveVillager = async (villager: Villager) => {
+    Alert.alert(
+      'Ta bort villager',
+      `Är du säker på att du vill ta bort ${villager.name} som villager? Detta kan inte ångras.`,
+      [
+        {
+          text: 'Avbryt',
+          style: 'cancel',
+        },
+        {
+          text: 'Ta bort',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Update connection status to 'deleted' instead of removing
+              const { error } = await supabase
+                .from('villager_connections')
+                .update({ status: 'deleted' })
+                .eq('id', villager.connectionId);
+
+              if (error) {
+                console.error('Error removing villager:', error);
+                Alert.alert('Fel', 'Kunde inte ta bort villager. Försök igen.');
+                return;
+              }
+
+              // Remove from local state
+              setVillagers(prev => prev.filter(v => v.id !== villager.id));
+            } catch (err) {
+              console.error('Error removing villager:', err);
+              Alert.alert('Fel', 'Ett oväntat fel uppstod. Försök igen.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (!fontsLoaded) {
@@ -197,7 +270,10 @@ export default function VillagersScreen() {
         <MessageCircle size={24} color="#666" />
         <Text style={styles.actionButtonText}>SKICKA{'\n'}MEDDELANDE</Text>
       </Pressable>
-      <Pressable style={styles.actionButton}>
+      <Pressable 
+        style={styles.actionButton}
+        onPress={() => handleRemoveVillager(villager)}
+      >
         <UserX size={24} color="#666" />
         <Text style={styles.actionButtonText}>BLOCKERA{'\n'}OCH RADERA</Text>
       </Pressable>
@@ -207,9 +283,24 @@ export default function VillagersScreen() {
   const getHeaderTitle = () => {
     if (isLoading) return 'LADDAR VILLAGERS...';
     if (error) return 'FEL VID LADDNING';
-    if (villagers.length === 0 && pendingRequests.length === 0) return 'INGA VILLAGERS ÄNNU';
-    if (villagers.length === 1) return 'DU HAR 1 VILLAGER';
-    return `DU HAR ${villagers.length} VILLAGERS`;
+    
+    const totalItems = villagers.length + pendingRequests.length + sentRequests.length;
+    if (totalItems === 0) return 'INGA VILLAGERS ÄNNU';
+    
+    let title = '';
+    if (villagers.length > 0) {
+      title += `${villagers.length} VILLAGER${villagers.length > 1 ? 'S' : ''}`;
+    }
+    if (pendingRequests.length > 0) {
+      if (title) title += ' • ';
+      title += `${pendingRequests.length} FÖRFRÅGAN${pendingRequests.length > 1 ? 'AR' : ''}`;
+    }
+    if (sentRequests.length > 0) {
+      if (title) title += ' • ';
+      title += `${sentRequests.length} SKICKAD${sentRequests.length > 1 ? 'E' : ''}`;
+    }
+    
+    return title.toUpperCase();
   };
 
   return (
@@ -221,7 +312,7 @@ export default function VillagersScreen() {
         <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
       </View>
 
-      {!isLoading && !error && (villagers.length > 0 || pendingRequests.length > 0) && (
+      {!isLoading && !error && (villagers.length > 0 || pendingRequests.length > 0 || sentRequests.length > 0) && (
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
@@ -293,8 +384,28 @@ export default function VillagersScreen() {
               </View>
             )}
 
+            {/* Sent Requests Section */}
+            {sentRequests.length > 0 && (
+              <View style={styles.sentRequestsSection}>
+                <Text style={styles.sectionTitle}>SKICKADE FÖRFRÅGNINGAR</Text>
+                {sentRequests.map((request) => (
+                  <View key={request.id} style={styles.sentRequestCard}>
+                    <View style={styles.sentRequestInfo}>
+                      <Text style={styles.sentRequestName}>{request.receiverName}</Text>
+                      <Text style={styles.sentRequestDetails}>
+                        {request.receiverPhone} | Medlem sedan {request.memberSince}
+                      </Text>
+                      <Text style={styles.sentRequestStatus}>
+                        Väntar på svar
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
             {/* Villagers Section */}
-            {villagers.length === 0 && pendingRequests.length === 0 ? (
+            {villagers.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 ? (
               <View style={styles.centerContainer}>
                 <Text style={styles.emptyTitle}>Inga villagers än</Text>
                 <Text style={styles.emptyDescription}>
@@ -311,7 +422,7 @@ export default function VillagersScreen() {
               <>
                 {villagers.length > 0 && (
                   <View style={styles.villagersSection}>
-                    {pendingRequests.length > 0 && (
+                    {(pendingRequests.length > 0 || sentRequests.length > 0) && (
                       <Text style={styles.sectionTitle}>DINA VILLAGERS</Text>
                     )}
                     {filteredVillagers.map((villager) => (
@@ -462,6 +573,9 @@ const styles = StyleSheet.create({
   requestsSection: {
     marginBottom: 30,
   },
+  sentRequestsSection: {
+    marginBottom: 30,
+  },
   villagersSection: {
     flex: 1,
   },
@@ -528,6 +642,35 @@ const styles = StyleSheet.create({
     color: '#FF4444',
     fontSize: 14,
     fontFamily: 'Unbounded-SemiBold',
+  },
+  sentRequestCard: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+  },
+  sentRequestInfo: {
+    flex: 1,
+  },
+  sentRequestName: {
+    fontSize: 18,
+    color: '#6C757D',
+    fontFamily: 'Unbounded-SemiBold',
+    marginBottom: 5,
+  },
+  sentRequestDetails: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
+    marginBottom: 5,
+  },
+  sentRequestStatus: {
+    fontSize: 14,
+    color: '#FFA500',
+    fontFamily: 'Unbounded-Regular',
+    fontStyle: 'italic',
   },
   villagerCard: {
     backgroundColor: '#F8F8F8',
