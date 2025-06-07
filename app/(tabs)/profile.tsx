@@ -5,6 +5,7 @@ import { useEffect, useContext } from 'react';
 import { LogOut, User, Mail, Phone, MapPin, Calendar } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
+import AppFooter from '../../components/AppFooter';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -27,26 +28,10 @@ export default function ProfileScreen() {
   }
 
   const handleLogout = async () => {
-    Alert.alert(
-      'Logga ut',
-      'Är du säker på att du vill logga ut?',
-      [
-        {
-          text: 'Avbryt',
-          style: 'cancel',
-        },
-        {
-          text: 'Logga ut',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await supabase.auth.signOut();
-            if (!error) {
-              router.replace('/landingPage');
-            }
-          },
-        },
-      ]
-    );
+    const { error } = await supabase.auth.signOut();
+    if (!error) {
+      router.replace('/login');
+    }
   };
 
   // Mock user data - in a real app, this would come from the database
@@ -141,6 +126,8 @@ export default function ProfileScreen() {
         {/* Bottom spacing for footer */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      <AppFooter />
     </View>
   );
 }
