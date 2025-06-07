@@ -16,7 +16,7 @@ type Contact = {
   id: string;
   name: string;
   phoneNumber: string;
-  status: 'pending' | 'invited' | 'in_app' | 'connected';
+  status: 'pending' | 'invited' | 'in_app' | 'connected' | 'self';
   isExistingUser?: boolean;
   userId?: string;
 };
@@ -73,10 +73,10 @@ export default function InviteScreen() {
         }
       }
 
-      // Get current user's phone number for filtering
+      // Get current user's data for comparison and display
       const { data: currentUserData, error: userError } = await supabase
         .from('users')
-        .select('phone_number')
+        .select('phone_number, first_name, last_name')
         .eq('id', session?.user?.id)
         .single();
 
@@ -153,9 +153,15 @@ export default function InviteScreen() {
         .map(contact => {
           const normalized = normalizePhoneNumber(contact.phoneNumber);
           
-          // CRITICAL: Filter out current user's own phone number
+          // Check if this is the current user's phone number
           if (currentUserPhone && normalized === currentUserPhone) {
-            return null;
+            return {
+              id: 'self',
+              name: currentUserData ? `${currentUserData.first_name} ${currentUserData.last_name}` : contact.name,
+              phoneNumber: contact.phoneNumber,
+              status: 'self' as const,
+              isExistingUser: true,
+            };
           }
 
           const dbInfo = phoneStatusMap.get(normalized);
@@ -168,11 +174,11 @@ export default function InviteScreen() {
             isExistingUser: dbInfo?.isExistingUser || false,
           };
         })
-        .filter(Boolean) as Contact[]; // Remove null entries
+        .filter(Boolean) as Contact[];
 
       // Add any database contacts that aren't in device contacts (but not current user)
       phoneStatusMap.forEach((info, phoneNumber) => {
-        // CRITICAL: Skip current user's phone number
+        // Skip current user's phone number since we handle it above
         if (currentUserPhone && phoneNumber === currentUserPhone) {
           return;
         }
@@ -188,8 +194,10 @@ export default function InviteScreen() {
         }
       });
 
-      // Sort contacts: connected first, then by name
+      // Sort contacts: self first, then connected, then by name
       processedContacts.sort((a, b) => {
+        if (a.status === 'self') return -1;
+        if (b.status === 'self') return 1;
         if (a.status === 'connected' && b.status !== 'connected') return -1;
         if (b.status === 'connected' && a.status !== 'connected') return 1;
         return a.name.localeCompare(b.name);
@@ -217,7 +225,7 @@ export default function InviteScreen() {
   };
 
   const handleInviteContact = async (contact: Contact) => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || contact.status === 'self') return;
 
     try {
       const normalizedPhone = normalizePhoneNumber(contact.phoneNumber);
@@ -261,6 +269,8 @@ export default function InviteScreen() {
 
   const getStatusText = (contact: Contact) => {
     switch (contact.status) {
+      case 'self':
+        return 'Du';
       case 'connected':
         return 'Ansluten';
       case 'invited':
@@ -274,6 +284,8 @@ export default function InviteScreen() {
 
   const getStatusStyle = (contact: Contact) => {
     switch (contact.status) {
+      case 'self':
+        return styles.statusTextSelf;
       case 'connected':
         return styles.statusTextConnected;
       case 'invited':
@@ -284,7 +296,10 @@ export default function InviteScreen() {
   };
 
   const canInvite = (contact: Contact) => {
-    return contact.status === 'pending' || (contact.status === 'in_app' && contact.isExistingUser);
+    return contact.status !== 'self' && 
+           contact.status !== 'connected' && 
+           contact.status !== 'invited' &&
+           (contact.status === 'pending' || (contact.status === 'in_app' && contact.isExistingUser));
   };
 
   const filteredContacts = contacts.filter(contact =>
@@ -348,7 +363,7 @@ export default function InviteScreen() {
                 <View style={styles.contactInfo}>
                   <Text style={styles.contactName}>{contact.name}</Text>
                   <Text style={styles.contactPhone}>{contact.phoneNumber}</Text>
-                  {contact.isExistingUser && (
+                  {contact.isExistingUser && contact.status !== 'self' && (
                     <Text style={styles.existingUserBadge}>Använder appen</Text>
                   )}
                 </View>
@@ -537,6 +552,11 @@ const styles = StyleSheet.create({
     color: '#FF69B4',
     fontSize: 12,
     fontFamily: 'Unbounded-Regular',
+  },
+  statusTextSelf: {
+    color: '#FF69B4',
+    fontSize: 14,
+    fontFamily: 'Unbounded-SemiBold',
   },
   statusTextConnected: {
     color: '#4CAF50',
