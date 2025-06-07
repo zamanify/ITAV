@@ -2,9 +2,12 @@ import { View, Text, StyleSheet, TextInput, Pressable, Image, FlatList, Platform
 import { Link, router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { Share2, Check } from 'lucide-react-native';
 import * as Contacts from 'expo-contacts';
+import { supabase } from '@/lib/supabase';
+import { normalizePhoneNumber } from '@/lib/phone';
+import { AuthContext } from '@/contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -21,10 +24,13 @@ export default function OnboardingStep2() {
     'Unbounded-SemiBold': Unbounded_600SemiBold,
   });
 
+  const { session } = useContext(AuthContext);
   const [searchInput, setSearchInput] = useState('');
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [permissionStatus, setPermissionStatus] = useState<'undetermined' | 'granted' | 'denied'>('undetermined');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -57,12 +63,83 @@ export default function OnboardingStep2() {
     })();
   }, []);
 
-  if (!fontsLoaded) {
-    return null;
-  }
 
-  const handleNextStep = () => {
-    router.push('/onboarding/step3');
+  const handleNextStep = async () => {
+    if (!session?.user?.id || isSubmitting) return;
+
+    // If no contacts selected, just skip to next step
+    if (selectedContacts.length === 0) {
+      router.push('/onboarding/step3');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      // Process each selected contact
+      for (const contactId of selectedContacts) {
+        const contact = contacts.find(c => c.id === contactId);
+        if (!contact) continue;
+
+        const normalizedPhone = normalizePhoneNumber(contact.phoneNumber);
+
+        // Use the new RPC function to find user by phone number
+        const { data: user_id, error: rpcError } = await supabase.rpc('get_user_id_by_phone', {
+          p_phone_number: normalizedPhone
+        });
+
+        if (rpcError) {
+          console.error('Error calling RPC function:', rpcError);
+          setError('Ett fel uppstod vid sökning av användare.');
+          continue;
+        }
+
+        // If user_id is null, store an invite for later
+        if (!user_id) {
+          const { error: inviteError } = await supabase
+            .from('villager_invite')
+            .insert({
+              inviter_id: session.user.id,
+              phone_number: normalizedPhone,
+              status: 'pending'
+            });
+
+          if (inviteError && inviteError.code !== '23505') {
+            console.error('Error creating invite:', inviteError);
+            setError('Ett fel uppstod vid skapande av inbjudan.');
+          }
+          continue;
+        }
+
+        // Don't create connection to yourself
+        if (user_id === session.user.id) {
+          continue;
+        }
+
+        // Create villager connection
+        const { error: connectionError } = await supabase
+          .from('villager_connections')
+          .insert({
+            sender_id: session.user.id,
+            receiver_id: user_id,
+            status: 'pending'
+          })
+          .select()
+          .single();
+
+        if (connectionError && connectionError.code !== '23505') { // Ignore unique constraint violations
+          console.error('Error creating connection:', connectionError);
+        }
+      }
+
+      router.push('/onboarding/step3');
+    } catch (err) {
+      console.error('Error processing contacts:', err);
+      setError('Ett fel uppstod. Försök igen.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleShare = () => {
@@ -101,6 +178,16 @@ export default function OnboardingStep2() {
       </View>
     </Pressable>
   );
+
+  const getButtonText = () => {
+    if (isSubmitting) return 'Skapar kontakter...';
+    if (selectedContacts.length === 0) return 'Skippa';
+    return 'Lägg till';
+  };
+
+  if (!fontsLoaded) {
+    return null;
+  }
 
   return (
     <View style={styles.container}>
@@ -151,6 +238,10 @@ export default function OnboardingStep2() {
         </Pressable>
       </View>
 
+      {error && (
+        <Text style={styles.errorText}>{error}</Text>
+      )}
+
       {Platform.OS !== 'web' && (
         <FlatList
           data={filteredContacts}
@@ -162,10 +253,19 @@ export default function OnboardingStep2() {
       )}
 
       <Pressable 
-        style={styles.button}
+        style={[
+          styles.button,
+          isSubmitting && styles.buttonDisabled
+        ]}
         onPress={handleNextStep}
+        disabled={isSubmitting}
       >
-        <Text style={styles.buttonText}>Till steg 3</Text>
+        <Text style={[
+          styles.buttonText,
+          isSubmitting && styles.buttonTextDisabled
+        ]}>
+          {getButtonText()}
+        </Text>
       </Pressable>
     </View>
   );
@@ -322,9 +422,22 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
   },
+  buttonDisabled: {
+    backgroundColor: '#E5E5E5',
+  },
   buttonText: {
     color: 'white',
     fontSize: 16,
     fontFamily: 'Unbounded-SemiBold',
+  },
+  buttonTextDisabled: {
+    color: '#999',
+  },
+  errorText: {
+    color: '#FF0000',
+    fontSize: 14,
+    fontFamily: 'Unbounded-Regular',
+    textAlign: 'center',
+    marginBottom: 10,
   },
 });

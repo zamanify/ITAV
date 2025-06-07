@@ -6,6 +6,7 @@ import { SplashScreen } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { normalizePhoneNumber } from '@/lib/phone';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -64,24 +65,6 @@ export default function OnboardingStep1() {
       ...prev,
       [field]: ''
     }));
-  };
-
-  const normalizePhoneNumber = (phone: string): string => {
-    const cleaned = phone.replace(/[^\d+]/g, '');
-    
-    if (cleaned.startsWith('0')) {
-      return '+46' + cleaned.substring(1);
-    }
-    
-    if (cleaned.startsWith('46')) {
-      return '+' + cleaned;
-    }
-    
-    if (!cleaned.startsWith('+')) {
-      return '+46' + cleaned;
-    }
-    
-    return cleaned;
   };
 
   const validatePhoneNumber = (phone: string): boolean => {
@@ -151,29 +134,56 @@ export default function OnboardingStep1() {
       const normalizedPhone = normalizePhoneNumber(formData.mobile);
       const { firstName, lastName, email, password, streetAddress, postalCode, city } = formData;
 
+      // First, try to sign up the user
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
       });
 
-      if (signUpError) throw signUpError;
+      if (signUpError) {
+        if (signUpError.message.includes('already registered')) {
+          setFieldErrors({
+            email: 'Den här e-postadressen är redan registrerad'
+          });
+        } else {
+          setFieldErrors({
+            submit: 'Ett fel uppstod vid registrering. Försök igen.'
+          });
+        }
+        return;
+      }
 
       if (data.user) {
-        await supabase.from('users').upsert({
-          id: data.user.id,
-          first_name: firstName,
-          last_name: lastName,
-          email,
-          phone_number: normalizedPhone,
-          street_address: streetAddress,
-          zip_code: postalCode,
-          city: city
-        });
+        // Try to insert user data, but handle the case where it might already exist
+        const { error: insertError } = await supabase
+          .from('users')
+          .upsert({
+            id: data.user.id,
+            first_name: firstName,
+            last_name: lastName,
+            email,
+            phone_number: normalizedPhone,
+            street_address: streetAddress,
+            zip_code: postalCode,
+            city: city
+          }, {
+            onConflict: 'id'
+          });
+
+        if (insertError) {
+          console.error('Error inserting user data:', insertError);
+          setFieldErrors({
+            submit: 'Ett fel uppstod vid sparande av användardata. Försök igen.'
+          });
+          return;
+        }
+
         router.push('/onboarding/step2');
       }
     } catch (error) {
+      console.error('Unexpected error:', error);
       setFieldErrors({
-        submit: 'Ett fel uppstod. Försök igen.'
+        submit: 'Ett oväntat fel uppstod. Försök igen.'
       });
     } finally {
       setIsSubmitting(false);
@@ -283,9 +293,9 @@ export default function OnboardingStep1() {
                   onPress={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff color="#666\" size={24} />
+                    <EyeOff color="#666" size={24} />
                   ) : (
-                    <Eye color="#666\" size={24} />
+                    <Eye color="#666" size={24} />
                   )}
                 </Pressable>
               </View>
