@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
 import { useEffect, useState, useContext } from 'react';
-import { ArrowLeft, UserPlus, MessageCircle, UserX } from 'lucide-react-native';
+import { ArrowLeft, UserPlus, MessageCircle, UserX, Check, X } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../../components/AppFooter';
@@ -19,6 +19,14 @@ type Villager = {
   status: 'connected' | 'pending' | 'request_received' | 'blocked';
 };
 
+type VillagerRequest = {
+  id: string;
+  senderName: string;
+  senderPhone: string;
+  memberSince: string;
+  connectionId: string;
+};
+
 export default function VillagersScreen() {
   const [fontsLoaded] = useFonts({
     'Unbounded-Regular': Unbounded_400Regular,
@@ -28,8 +36,10 @@ export default function VillagersScreen() {
   const { session } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState('');
   const [villagers, setVillagers] = useState<Villager[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<VillagerRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -39,11 +49,11 @@ export default function VillagersScreen() {
 
   useEffect(() => {
     if (session?.user?.id) {
-      fetchVillagers();
+      fetchVillagersAndRequests();
     }
   }, [session?.user?.id]);
 
-  const fetchVillagers = async () => {
+  const fetchVillagersAndRequests = async () => {
     if (!session?.user?.id) return;
 
     try {
@@ -60,8 +70,7 @@ export default function VillagersScreen() {
           sender:sender_id(id, first_name, last_name, phone_number, minute_balance, created_at),
           receiver:receiver_id(id, first_name, last_name, phone_number, minute_balance, created_at)
         `)
-        .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
-        .eq('status', 'accepted');
+        .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`);
 
       if (connectionsError) {
         console.error('Error fetching villager connections:', connectionsError);
@@ -69,8 +78,14 @@ export default function VillagersScreen() {
         return;
       }
 
-      // Transform the data to get the other user in each connection
-      const villagersData: Villager[] = (connections || []).map(connection => {
+      // Separate accepted connections (villagers) from pending requests
+      const acceptedConnections = (connections || []).filter(conn => conn.status === 'accepted');
+      const incomingRequests = (connections || []).filter(conn => 
+        conn.status === 'pending' && conn.receiver?.id === session.user.id
+      );
+
+      // Transform accepted connections to villagers
+      const villagersData: Villager[] = acceptedConnections.map(connection => {
         const otherUser = connection.sender?.id === session.user.id 
           ? connection.receiver 
           : connection.sender;
@@ -91,12 +106,71 @@ export default function VillagersScreen() {
         };
       }).filter(Boolean) as Villager[];
 
+      // Transform incoming requests
+      const requestsData: VillagerRequest[] = incomingRequests.map(connection => {
+        const sender = connection.sender;
+        if (!sender) return null;
+
+        return {
+          id: sender.id,
+          senderName: `${sender.first_name} ${sender.last_name}`,
+          senderPhone: sender.phone_number || '',
+          memberSince: new Date(sender.created_at).toLocaleDateString('sv-SE', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          }),
+          connectionId: connection.id
+        };
+      }).filter(Boolean) as VillagerRequest[];
+
       setVillagers(villagersData);
+      setPendingRequests(requestsData);
     } catch (err) {
       console.error('Error fetching villagers:', err);
       setError('Ett fel uppstod vid hämtning av villagers');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRequestResponse = async (request: VillagerRequest, accept: boolean) => {
+    if (!session?.user?.id || processingRequestId === request.id) return;
+
+    try {
+      setProcessingRequestId(request.id);
+
+      const { error } = await supabase
+        .from('villager_connections')
+        .update({ 
+          status: accept ? 'accepted' : 'rejected' 
+        })
+        .eq('id', request.connectionId);
+
+      if (error) {
+        console.error('Error updating connection:', error);
+        return;
+      }
+
+      // Remove the request from pending list
+      setPendingRequests(prev => prev.filter(r => r.id !== request.id));
+
+      // If accepted, add to villagers list
+      if (accept) {
+        const newVillager: Villager = {
+          id: request.id,
+          name: request.senderName,
+          phoneNumber: request.senderPhone,
+          memberSince: request.memberSince,
+          balance: 0, // Default balance for new connections
+          status: 'connected'
+        };
+        setVillagers(prev => [...prev, newVillager]);
+      }
+    } catch (err) {
+      console.error('Error processing request:', err);
+    } finally {
+      setProcessingRequestId(null);
     }
   };
 
@@ -133,7 +207,7 @@ export default function VillagersScreen() {
   const getHeaderTitle = () => {
     if (isLoading) return 'LADDAR VILLAGERS...';
     if (error) return 'FEL VID LADDNING';
-    if (villagers.length === 0) return 'INGA VILLAGERS ÄNNU';
+    if (villagers.length === 0 && pendingRequests.length === 0) return 'INGA VILLAGERS ÄNNU';
     if (villagers.length === 1) return 'DU HAR 1 VILLAGER';
     return `DU HAR ${villagers.length} VILLAGERS`;
   };
@@ -147,7 +221,7 @@ export default function VillagersScreen() {
         <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
       </View>
 
-      {!isLoading && !error && villagers.length > 0 && (
+      {!isLoading && !error && (villagers.length > 0 || pendingRequests.length > 0) && (
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
@@ -167,46 +241,104 @@ export default function VillagersScreen() {
         ) : error ? (
           <View style={styles.centerContainer}>
             <Text style={styles.errorText}>{error}</Text>
-            <Pressable style={styles.retryButton} onPress={fetchVillagers}>
+            <Pressable style={styles.retryButton} onPress={fetchVillagersAndRequests}>
               <Text style={styles.retryButtonText}>Försök igen</Text>
-            </Pressable>
-          </View>
-        ) : villagers.length === 0 ? (
-          <View style={styles.centerContainer}>
-            <Text style={styles.emptyTitle}>Inga villagers än</Text>
-            <Text style={styles.emptyDescription}>
-              Du har inga anslutna villagers ännu. Börja med att bjuda in vänner eller skapa kontakter!
-            </Text>
-            <Pressable 
-              style={styles.inviteButton} 
-              onPress={() => router.push('/invite')}
-            >
-              <Text style={styles.inviteButtonText}>Bjud in villagers</Text>
             </Pressable>
           </View>
         ) : (
           <>
-            {filteredVillagers.map((villager) => (
-              <View key={villager.id} style={styles.villagerCard}>
-                <View style={styles.villagerInfo}>
-                  <Text style={styles.villagerName}>{villager.name}</Text>
-                  <Text style={styles.villagerDetails}>
-                    {villager.phoneNumber} | Medlem sedan {villager.memberSince}
-                  </Text>
-                  <Text style={styles.villagerBalance}>
-                    Saldo {villager.balance > 0 ? '+' : ''}{villager.balance} min
-                  </Text>
-                </View>
-                {renderVillagerActions(villager)}
+            {/* Pending Requests Section */}
+            {pendingRequests.length > 0 && (
+              <View style={styles.requestsSection}>
+                <Text style={styles.sectionTitle}>VÄNTANDE FÖRFRÅGNINGAR</Text>
+                {pendingRequests.map((request) => (
+                  <View key={request.id} style={styles.requestCard}>
+                    <View style={styles.requestInfo}>
+                      <Text style={styles.requestName}>{request.senderName}</Text>
+                      <Text style={styles.requestDetails}>
+                        {request.senderPhone} | Medlem sedan {request.memberSince}
+                      </Text>
+                      <Text style={styles.requestText}>
+                        Vill bli din villager
+                      </Text>
+                    </View>
+                    <View style={styles.requestActions}>
+                      <Pressable 
+                        style={[
+                          styles.requestButton, 
+                          styles.acceptButton,
+                          processingRequestId === request.id && styles.requestButtonDisabled
+                        ]}
+                        onPress={() => handleRequestResponse(request, true)}
+                        disabled={processingRequestId === request.id}
+                      >
+                        <Check size={20} color="white" />
+                        <Text style={styles.acceptButtonText}>Acceptera</Text>
+                      </Pressable>
+                      <Pressable 
+                        style={[
+                          styles.requestButton, 
+                          styles.rejectButton,
+                          processingRequestId === request.id && styles.requestButtonDisabled
+                        ]}
+                        onPress={() => handleRequestResponse(request, false)}
+                        disabled={processingRequestId === request.id}
+                      >
+                        <X size={20} color="#FF4444" />
+                        <Text style={styles.rejectButtonText}>Avvisa</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
               </View>
-            ))}
-            
-            {filteredVillagers.length === 0 && searchQuery && (
+            )}
+
+            {/* Villagers Section */}
+            {villagers.length === 0 && pendingRequests.length === 0 ? (
               <View style={styles.centerContainer}>
-                <Text style={styles.noResultsText}>
-                  Inga villagers matchar "{searchQuery}"
+                <Text style={styles.emptyTitle}>Inga villagers än</Text>
+                <Text style={styles.emptyDescription}>
+                  Du har inga anslutna villagers ännu. Börja med att bjuda in vänner eller skapa kontakter!
                 </Text>
+                <Pressable 
+                  style={styles.inviteButton} 
+                  onPress={() => router.push('/invite')}
+                >
+                  <Text style={styles.inviteButtonText}>Bjud in villagers</Text>
+                </Pressable>
               </View>
+            ) : (
+              <>
+                {villagers.length > 0 && (
+                  <View style={styles.villagersSection}>
+                    {pendingRequests.length > 0 && (
+                      <Text style={styles.sectionTitle}>DINA VILLAGERS</Text>
+                    )}
+                    {filteredVillagers.map((villager) => (
+                      <View key={villager.id} style={styles.villagerCard}>
+                        <View style={styles.villagerInfo}>
+                          <Text style={styles.villagerName}>{villager.name}</Text>
+                          <Text style={styles.villagerDetails}>
+                            {villager.phoneNumber} | Medlem sedan {villager.memberSince}
+                          </Text>
+                          <Text style={styles.villagerBalance}>
+                            Saldo {villager.balance > 0 ? '+' : ''}{villager.balance} min
+                          </Text>
+                        </View>
+                        {renderVillagerActions(villager)}
+                      </View>
+                    ))}
+                    
+                    {filteredVillagers.length === 0 && searchQuery && (
+                      <View style={styles.centerContainer}>
+                        <Text style={styles.noResultsText}>
+                          Inga villagers matchar "{searchQuery}"
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </>
             )}
           </>
         )}
@@ -319,6 +451,83 @@ const styles = StyleSheet.create({
     color: '#666',
     fontFamily: 'Unbounded-Regular',
     textAlign: 'center',
+  },
+  sectionTitle: {
+    fontSize: 14,
+    color: '#FF69B4',
+    fontFamily: 'Unbounded-SemiBold',
+    marginBottom: 15,
+    marginTop: 10,
+  },
+  requestsSection: {
+    marginBottom: 30,
+  },
+  villagersSection: {
+    flex: 1,
+  },
+  requestCard: {
+    backgroundColor: '#FFF8FC',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#FFE4F1',
+  },
+  requestInfo: {
+    marginBottom: 15,
+  },
+  requestName: {
+    fontSize: 18,
+    color: '#FF69B4',
+    fontFamily: 'Unbounded-SemiBold',
+    marginBottom: 5,
+  },
+  requestDetails: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
+    marginBottom: 5,
+  },
+  requestText: {
+    fontSize: 14,
+    color: '#FF69B4',
+    fontFamily: 'Unbounded-Regular',
+    fontStyle: 'italic',
+  },
+  requestActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  requestButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    gap: 8,
+  },
+  requestButtonDisabled: {
+    opacity: 0.6,
+  },
+  acceptButton: {
+    backgroundColor: '#4CAF50',
+  },
+  rejectButton: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#FF4444',
+  },
+  acceptButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontFamily: 'Unbounded-SemiBold',
+  },
+  rejectButtonText: {
+    color: '#FF4444',
+    fontSize: 14,
+    fontFamily: 'Unbounded-SemiBold',
   },
   villagerCard: {
     backgroundColor: '#F8F8F8',

@@ -247,6 +247,14 @@ export default function InviteScreen() {
         return a.name.localeCompare(b.name);
       });
 
+      console.log('Processed contacts:', processedContacts.map(c => ({
+        name: c.name,
+        phone: c.phoneNumber,
+        normalized: normalizePhoneNumber(c.phoneNumber),
+        status: c.status,
+        isExistingUser: c.isExistingUser
+      })));
+
       setContacts(processedContacts);
     } catch (err) {
       console.error('Error loading contacts:', err);
@@ -344,6 +352,8 @@ export default function InviteScreen() {
         return 'Ansluten';
       case 'invited':
         return 'Inbjuden';
+      case 'pending':
+        return 'Väntar på svar';
       case 'in_app':
         return 'Skicka vänförfrågan';
       case 'not_app_user':
@@ -361,12 +371,14 @@ export default function InviteScreen() {
         return styles.statusTextConnected;
       case 'invited':
         return styles.statusTextInvited;
+      case 'pending':
+        return styles.statusTextPending;
       case 'in_app':
         return styles.statusTextInApp;
       case 'not_app_user':
-        return styles.statusTextPending;
+        return styles.statusTextNotAppUser;
       default:
-        return styles.statusTextPending;
+        return styles.statusTextNotAppUser;
     }
   };
 
@@ -374,7 +386,8 @@ export default function InviteScreen() {
     return contact.status !== 'self' && 
            contact.status !== 'connected' && 
            contact.status !== 'invited' &&
-           (contact.status === 'pending' || contact.status === 'in_app' || contact.status === 'not_app_user');
+           contact.status !== 'pending' &&
+           (contact.status === 'in_app' || contact.status === 'not_app_user');
   };
 
   const filteredContacts = contacts.filter(contact =>
@@ -453,12 +466,12 @@ export default function InviteScreen() {
                   >
                     {invitingContactId === contact.id ? (
                       <>
-                        <ActivityIndicator size="small\" color="#FF69B4" />
+                        <ActivityIndicator size="small" color="#FF69B4" />
                         <Text style={[
                           styles.inviteButtonText,
                           styles.inviteButtonTextLoading
                         ]}>
-                          Bjuder...
+                          {contact.status === 'in_app' ? 'Skickar...' : 'Bjuder...'}
                         </Text>
                       </>
                     ) : (
@@ -672,12 +685,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Unbounded-Regular',
   },
+  statusTextPending: {
+    color: '#FFA500',
+    fontSize: 14,
+    fontFamily: 'Unbounded-Regular',
+  },
   statusTextInApp: {
     color: '#9370DB',
     fontSize: 14,
     fontFamily: 'Unbounded-Regular',
   },
-  statusTextPending: {
+  statusTextNotAppUser: {
     color: '#FF69B4',
     fontSize: 14,
     fontFamily: 'Unbounded-Regular',
