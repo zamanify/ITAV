@@ -244,6 +244,15 @@ export default function InviteScreen() {
           console.error('Error creating connection:', error);
           return;
         }
+
+        // Update local state - change status to 'pending' for connection request
+        setContacts(prevContacts => 
+          prevContacts.map(c => 
+            c.id === contact.id 
+              ? { ...c, status: 'pending' as const }
+              : c
+          )
+        );
       } else {
         // This is not an existing user, create an invite
         const { error } = await supabase
@@ -258,10 +267,18 @@ export default function InviteScreen() {
           console.error('Error creating invite:', error);
           return;
         }
+
+        // Update local state - change status to 'invited'
+        setContacts(prevContacts => 
+          prevContacts.map(c => 
+            c.id === contact.id 
+              ? { ...c, status: 'invited' as const }
+              : c
+          )
+        );
       }
 
-      // Refresh the contacts list
-      loadContacts();
+      // Don't reload contacts - we've already updated the local state
     } catch (err) {
       console.error('Error inviting contact:', err);
     }
