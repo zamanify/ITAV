@@ -18,6 +18,16 @@ This project uses Expo Router with Supabase authentication.
    npm run dev
    ```
 
+   Expo automatically opens the developer tools in a new browser window. If
+   this interrupts your workflow you can disable it with:
+   ```bash
+   npx expo start --no-open
+   ```
+   or set the environment variable:
+   ```bash
+   EXPO_NO_BROWSER=1 npx expo start
+   ```
+
 The app can be opened in the Expo web browser or on a connected device using the QR code.
 
 ## Notes
