@@ -43,6 +43,8 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
+    if (!isValid || isLoading) return;
+
     try {
       setError(null);
       setIsLoading(true);
@@ -97,6 +99,10 @@ export default function LoginScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
+            returnKeyType="next"
+            onSubmitEditing={() => {
+              // Focus password field when Enter is pressed
+            }}
           />
         </View>
 
@@ -111,13 +117,15 @@ export default function LoginScreen() {
               placeholderTextColor="#999"
               secureTextEntry={!showPassword}
               autoCapitalize="none"
+              returnKeyType="go"
+              onSubmitEditing={handleLogin}
             />
             <Pressable 
               style={styles.eyeButton}
               onPress={() => setShowPassword(!showPassword)}
             >
               {showPassword ? (
-                <EyeOff color="#666\" size={24} />
+                <EyeOff color="#666" size={24} />
               ) : (
                 <Eye color="#666" size={24} />
               )}
