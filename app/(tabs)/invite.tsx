@@ -403,19 +403,23 @@ export default function InviteScreen() {
                     disabled={invitingContactId === contact.id}
                   >
                     {invitingContactId === contact.id ? (
-                      <ActivityIndicator size="small\" color="#FF69B4" />
+                      <>
+                        <ActivityIndicator size="small" color="#FF69B4" />
+                        <Text style={[
+                          styles.inviteButtonText,
+                          styles.inviteButtonTextLoading
+                        ]}>
+                          Bjuder...
+                        </Text>
+                      </>
                     ) : (
-                      <UserPlus size={16} color="#FF69B4" />
+                      <>
+                        <UserPlus size={16} color="#FF69B4" />
+                        <Text style={styles.inviteButtonText}>
+                          {contact.isExistingUser ? 'Skicka förfrågan' : 'Bjud in'}
+                        </Text>
+                      </>
                     )}
-                    <Text style={[
-                      styles.inviteButtonText,
-                      invitingContactId === contact.id && styles.inviteButtonTextLoading
-                    ]}>
-                      {invitingContactId === contact.id 
-                        ? 'Bjuder in...' 
-                        : contact.isExistingUser ? 'Skicka förfrågan' : 'Bjud in'
-                      }
-                    </Text>
                   </Pressable>
                 ) : (
                   <Text style={getStatusStyle(contact)}>
@@ -586,7 +590,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    gap: 4,
+    gap: 6,
     minWidth: 120,
     justifyContent: 'center',
   },
@@ -602,6 +606,7 @@ const styles = StyleSheet.create({
   inviteButtonTextLoading: {
     color: '#FF69B4',
     opacity: 0.7,
+    marginLeft: 2, // Small spacing to the right of spinner
   },
   statusTextSelf: {
     color: '#FF69B4',
