@@ -15,7 +15,7 @@ export default function RootLayout() {
         }}>
         <Stack.Screen name="landingPage" />
         <Stack.Screen name="onboarding" />
-        {/*<Stack.Screen name="(tabs)" />*/}
+        <Stack.Screen name="(tabs)" />
       </Stack>
       <StatusBar style="auto" />
     </AuthProvider>
