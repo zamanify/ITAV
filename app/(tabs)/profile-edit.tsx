@@ -140,6 +140,7 @@ export default function EditProfileScreen() {
       .eq('id', session.user.id);
 
     if (userError) {
+      console.error('Error updating user data:', userError);
       setError('Kunde inte spara användardata');
       setIsSubmitting(false);
       return;
@@ -148,6 +149,7 @@ export default function EditProfileScreen() {
     const { error: authError } = await supabase.auth.updateUser({ email: formData.email });
 
     if (authError) {
+      console.error('Error updating auth user:', authError);
       setError('Kunde inte uppdatera e-post');
       setIsSubmitting(false);
       return;
