@@ -1,13 +1,26 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen, router } from 'expo-router';
-import { useEffect, useContext } from 'react';
+import { useEffect, useContext, useState } from 'react';
 import { LogOut, User, Mail, Phone, MapPin, Calendar } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../components/AppFooter';
 
 SplashScreen.preventAutoHideAsync();
+
+type UserData = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_number: string | null;
+  street_address: string | null;
+  zip_code: string | null;
+  city: string | null;
+  minute_balance: number;
+  created_at: string;
+};
 
 export default function ProfileScreen() {
   const [fontsLoaded] = useFonts({
@@ -16,6 +29,9 @@ export default function ProfileScreen() {
   });
 
   const { session } = useContext(AuthContext);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -23,26 +39,122 @@ export default function ProfileScreen() {
     }
   }, [fontsLoaded]);
 
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchUserData();
+    }
+  }, [session?.user?.id]);
+
+  const fetchUserData = async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching user data:', fetchError);
+        setError('Kunde inte hämta användardata');
+        return;
+      }
+
+      setUserData(data);
+    } catch (err) {
+      console.error('Error fetching user data:', err);
+      setError('Ett fel uppstod vid hämtning av användardata');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!fontsLoaded) {
     return null;
   }
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (!error) {
-      router.replace('/login');
-    }
+    Alert.alert(
+      'Logga ut',
+      'Är du säker på att du vill logga ut?',
+      [
+        {
+          text: 'Avbryt',
+          style: 'cancel',
+        },
+        {
+          text: 'Logga ut',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase.auth.signOut();
+            if (!error) {
+              router.replace('/landingPage');
+            }
+          },
+        },
+      ]
+    );
   };
 
-  // Mock user data - in a real app, this would come from the database
-  const userData = {
-    name: 'Zeke Tastas',
-    email: session?.user?.email || 'zeke@example.com',
-    phone: '+46 70 123 45 67',
-    address: 'Storgatan 123, 123 45 Stockholm',
-    memberSince: '28 maj 2025',
-    minuteBalance: 0,
+  const formatMemberSince = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('sv-SE', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
   };
+
+  const formatAddress = (streetAddress: string | null, zipCode: string | null, city: string | null) => {
+    const parts = [streetAddress, zipCode, city].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : 'Ingen adress angiven';
+  };
+
+  const formatPhoneNumber = (phone: string | null) => {
+    if (!phone) return 'Inget telefonnummer angivet';
+    
+    // Format +46XXXXXXXXX to +46 XX XXX XX XX
+    if (phone.startsWith('+46') && phone.length === 13) {
+      return `+46 ${phone.slice(3, 5)} ${phone.slice(5, 8)} ${phone.slice(8, 10)} ${phone.slice(10)}`;
+    }
+    
+    return phone;
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>DITT KONTO</Text>
+        </View>
+        <View style={styles.centerContainer}>
+          <Text style={styles.loadingText}>Laddar din profil...</Text>
+        </View>
+        <AppFooter />
+      </View>
+    );
+  }
+
+  if (error || !userData) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>DITT KONTO</Text>
+        </View>
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>{error || 'Kunde inte ladda användardata'}</Text>
+          <Pressable style={styles.retryButton} onPress={fetchUserData}>
+            <Text style={styles.retryButtonText}>Försök igen</Text>
+          </Pressable>
+        </View>
+        <AppFooter />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -56,18 +168,24 @@ export default function ProfileScreen() {
           <View style={styles.avatarContainer}>
             <User size={48} color="#FF69B4" strokeWidth={1.5} />
           </View>
-          <Text style={styles.userName}>{userData.name}</Text>
-          <Text style={styles.memberSince}>Medlem sedan {userData.memberSince}</Text>
+          <Text style={styles.userName}>
+            {userData.first_name} {userData.last_name}
+          </Text>
+          <Text style={styles.memberSince}>
+            Medlem sedan {formatMemberSince(userData.created_at)}
+          </Text>
         </View>
 
         {/* Balance Card */}
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>DITT SALDO</Text>
-          <Text style={styles.balanceValue}>{userData.minuteBalance} minuter</Text>
+          <Text style={styles.balanceValue}>
+            {userData.minute_balance > 0 ? '+' : ''}{userData.minute_balance} minuter
+          </Text>
           <Text style={styles.balanceDescription}>
-            {userData.minuteBalance === 0 
+            {userData.minute_balance === 0 
               ? 'Du har ett neutralt saldo' 
-              : userData.minuteBalance > 0 
+              : userData.minute_balance > 0 
                 ? 'Du har gjort fler tjänster än du fått'
                 : 'Du har fått fler tjänster än du gjort'
             }
@@ -90,7 +208,9 @@ export default function ProfileScreen() {
             <Phone size={20} color="#666" strokeWidth={1.5} />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Telefon</Text>
-              <Text style={styles.infoValue}>{userData.phone}</Text>
+              <Text style={styles.infoValue}>
+                {formatPhoneNumber(userData.phone_number)}
+              </Text>
             </View>
           </View>
 
@@ -98,7 +218,9 @@ export default function ProfileScreen() {
             <MapPin size={20} color="#666" strokeWidth={1.5} />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Adress</Text>
-              <Text style={styles.infoValue}>{userData.address}</Text>
+              <Text style={styles.infoValue}>
+                {formatAddress(userData.street_address, userData.zip_code, userData.city)}
+              </Text>
             </View>
           </View>
 
@@ -106,7 +228,9 @@ export default function ProfileScreen() {
             <Calendar size={20} color="#666" strokeWidth={1.5} />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Medlem sedan</Text>
-              <Text style={styles.infoValue}>{userData.memberSince}</Text>
+              <Text style={styles.infoValue}>
+                {formatMemberSince(userData.created_at)}
+              </Text>
             </View>
           </View>
         </View>
@@ -155,6 +279,35 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF4444',
+    fontFamily: 'Unbounded-Regular',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#FF69B4',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontFamily: 'Unbounded-SemiBold',
+  },
   profileHeader: {
     alignItems: 'center',
     marginBottom: 30,
@@ -175,6 +328,7 @@ const styles = StyleSheet.create({
     color: '#FF69B4',
     fontFamily: 'Unbounded-SemiBold',
     marginBottom: 4,
+    textAlign: 'center',
   },
   memberSince: {
     fontSize: 14,
@@ -239,6 +393,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     fontFamily: 'Unbounded-Regular',
+    lineHeight: 22,
   },
   actionSection: {
     gap: 16,
