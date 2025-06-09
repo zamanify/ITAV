@@ -68,26 +68,47 @@ export default function GroupsScreen() {
         return;
       }
 
-      // Get member counts for each group
+      // Get blocked user IDs to filter out from member counts
+      const [blockedByMeResult, blockedByThemResult] = await Promise.all([
+        supabase
+          .from('user_blocks')
+          .select('blocked_id')
+          .eq('blocker_id', session.user.id),
+        supabase
+          .from('user_blocks')
+          .select('blocker_id')
+          .eq('blocked_id', session.user.id)
+      ]);
+
+      const blockedByMe = new Set((blockedByMeResult.data || []).map(block => block.blocked_id));
+      const blockedByThem = new Set((blockedByThemResult.data || []).map(block => block.blocker_id));
+
+      // Get member counts for each group (excluding blocked users from count)
       const groupsWithCounts = await Promise.all(
         (groupMemberships || []).map(async (membership) => {
           const group = membership.group;
           if (!group) return null;
 
-          // Count members in this group
-          const { count: memberCount, error: countError } = await supabase
+          // Get all members of this group
+          const { data: allMembers, error: membersError } = await supabase
             .from('group_members')
-            .select('*', { count: 'exact', head: true })
+            .select('user_id')
             .eq('group_id', group.id);
 
-          if (countError) {
-            console.error('Error counting group members:', countError);
+          if (membersError) {
+            console.error('Error fetching group members:', membersError);
+            return null;
           }
+
+          // Count only non-blocked members
+          const nonBlockedMembers = (allMembers || []).filter(member => 
+            !blockedByMe.has(member.user_id) && !blockedByThem.has(member.user_id)
+          );
 
           return {
             id: group.id,
             name: group.name,
-            memberCount: memberCount || 0,
+            memberCount: nonBlockedMembers.length,
             createdAt: new Date(group.created_at).toLocaleDateString('sv-SE', {
               day: 'numeric',
               month: 'long',

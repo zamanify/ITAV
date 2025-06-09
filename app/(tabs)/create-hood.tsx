@@ -69,13 +69,33 @@ export default function CreateHoodScreen() {
         return;
       }
 
-      // Transform the data to get the other user in each connection
+      // Get blocked user IDs to filter out
+      const [blockedByMeResult, blockedByThemResult] = await Promise.all([
+        supabase
+          .from('user_blocks')
+          .select('blocked_id')
+          .eq('blocker_id', session.user.id),
+        supabase
+          .from('user_blocks')
+          .select('blocker_id')
+          .eq('blocked_id', session.user.id)
+      ]);
+
+      const blockedByMe = new Set((blockedByMeResult.data || []).map(block => block.blocked_id));
+      const blockedByThem = new Set((blockedByThemResult.data || []).map(block => block.blocker_id));
+
+      // Transform the data to get the other user in each connection, excluding blocked users
       const villagersData: Villager[] = (connections || []).map(connection => {
         const otherUser = connection.sender?.id === session.user.id 
           ? connection.receiver 
           : connection.sender;
 
         if (!otherUser) return null;
+
+        // Skip if user is blocked
+        if (blockedByMe.has(otherUser.id) || blockedByThem.has(otherUser.id)) {
+          return null;
+        }
 
         return {
           id: otherUser.id,
