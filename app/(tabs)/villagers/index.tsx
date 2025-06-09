@@ -496,14 +496,14 @@ export default function VillagersScreen() {
         style={styles.actionButton}
         onPress={() => handleAddToGroup(villager)}
       >
-        <UserPlus size={18} color="#666" />
+        <UserPlus size={16} color="#666" />
         <Text style={styles.actionButtonText}>LÄGG TILL{'\n'}I GRUPP</Text>
       </Pressable>
       <Pressable 
         style={styles.actionButton}
         onPress={() => handleSendMessage(villager)}
       >
-        <MessageCircle size={18} color="#666" />
+        <MessageCircle size={16} color="#666" />
         <Text style={styles.actionButtonText}>SKICKA{'\n'}MEDDELANDE</Text>
       </Pressable>
       <Pressable 
@@ -511,7 +511,7 @@ export default function VillagersScreen() {
         onPress={() => handleBlockVillager(villager)}
         disabled={processingBlockId === villager.id}
       >
-        <UserX size={18} color={processingBlockId === villager.id ? "#999" : "#666"} />
+        <UserX size={16} color={processingBlockId === villager.id ? "#999" : "#666"} />
         <Text style={[styles.actionButtonText, processingBlockId === villager.id && styles.actionButtonTextDisabled]}>
           {processingBlockId === villager.id ? 'BLOCKERAR...' : 'BLOCKERA'}
         </Text>
@@ -705,9 +705,11 @@ export default function VillagersScreen() {
                       <Text style={styles.sectionTitle}>DINA VILLAGERS</Text>
                     )}
                     {filteredVillagers.map((villager) => (
-                      <View key={villager.id} style={styles.villagerItem}>
-                        <View style={styles.villagerInfo}>
+                      <View key={villager.id} style={styles.villagerCard}>
+                        <View style={styles.villagerHeader}>
                           <Text style={styles.villagerName}>{villager.name}</Text>
+                        </View>
+                        <View style={styles.villagerDetails}>
                           <Text style={styles.villagerPhone}>{villager.phoneNumber}</Text>
                           <Text style={styles.villagerBalance}>
                             Saldo {villager.balance > 0 ? '+' : ''}{villager.balance} min
@@ -1025,47 +1027,54 @@ const styles = StyleSheet.create({
   unblockButtonTextDisabled: {
     color: '#999',
   },
-  // Compact villager item styles (like invite list)
-  villagerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+  // New improved villager card styles
+  villagerCard: {
+    backgroundColor: '#FFF8FC',
+    borderWidth: 1,
+    borderColor: '#FFE4F1',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
   },
-  villagerInfo: {
-    flex: 1,
+  villagerHeader: {
+    marginBottom: 8,
   },
   villagerName: {
-    fontSize: 16,
-    color: '#333',
-    fontFamily: 'Unbounded-Regular',
-    marginBottom: 4,
+    fontSize: 18,
+    color: '#FF69B4',
+    fontFamily: 'Unbounded-SemiBold',
+  },
+  villagerDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   villagerPhone: {
     fontSize: 14,
     color: '#666',
     fontFamily: 'Unbounded-Regular',
-    marginBottom: 2,
   },
   villagerBalance: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#FF69B4',
     fontFamily: 'Unbounded-Regular',
+    fontWeight: '600',
   },
   actionButtons: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: 8,
   },
   actionButton: {
+    flex: 1,
     alignItems: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: 'white',
     borderWidth: 1,
     borderColor: '#E5E5E5',
     borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    minWidth: 60,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
   },
   actionButtonDisabled: {
     opacity: 0.6,
@@ -1074,7 +1083,7 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: '#666',
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 4,
     fontFamily: 'Unbounded-Regular',
     lineHeight: 10,
   },
