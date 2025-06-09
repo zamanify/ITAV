@@ -496,14 +496,14 @@ export default function VillagersScreen() {
         style={styles.actionButton}
         onPress={() => handleAddToGroup(villager)}
       >
-        <UserPlus size={24} color="#666" />
+        <UserPlus size={18} color="#666" />
         <Text style={styles.actionButtonText}>LÄGG TILL{'\n'}I GRUPP</Text>
       </Pressable>
       <Pressable 
         style={styles.actionButton}
         onPress={() => handleSendMessage(villager)}
       >
-        <MessageCircle size={24} color="#666" />
+        <MessageCircle size={18} color="#666" />
         <Text style={styles.actionButtonText}>SKICKA{'\n'}MEDDELANDE</Text>
       </Pressable>
       <Pressable 
@@ -511,7 +511,7 @@ export default function VillagersScreen() {
         onPress={() => handleBlockVillager(villager)}
         disabled={processingBlockId === villager.id}
       >
-        <UserX size={24} color={processingBlockId === villager.id ? "#999" : "#666"} />
+        <UserX size={18} color={processingBlockId === villager.id ? "#999" : "#666"} />
         <Text style={[styles.actionButtonText, processingBlockId === villager.id && styles.actionButtonTextDisabled]}>
           {processingBlockId === villager.id ? 'BLOCKERAR...' : 'BLOCKERA'}
         </Text>
@@ -705,12 +705,10 @@ export default function VillagersScreen() {
                       <Text style={styles.sectionTitle}>DINA VILLAGERS</Text>
                     )}
                     {filteredVillagers.map((villager) => (
-                      <View key={villager.id} style={styles.villagerCard}>
+                      <View key={villager.id} style={styles.villagerItem}>
                         <View style={styles.villagerInfo}>
                           <Text style={styles.villagerName}>{villager.name}</Text>
-                          <Text style={styles.villagerDetails}>
-                            {villager.phoneNumber} | Medlem sedan {villager.memberSince}
-                          </Text>
+                          <Text style={styles.villagerPhone}>{villager.phoneNumber}</Text>
                           <Text style={styles.villagerBalance}>
                             Saldo {villager.balance > 0 ? '+' : ''}{villager.balance} min
                           </Text>
@@ -1027,52 +1025,58 @@ const styles = StyleSheet.create({
   unblockButtonTextDisabled: {
     color: '#999',
   },
-  villagerCard: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
+  // Compact villager item styles (like invite list)
+  villagerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
   },
   villagerInfo: {
-    marginBottom: 20,
+    flex: 1,
   },
   villagerName: {
-    fontSize: 18,
-    color: '#FF69B4',
-    fontFamily: 'Unbounded-SemiBold',
-    marginBottom: 5,
+    fontSize: 16,
+    color: '#333',
+    fontFamily: 'Unbounded-Regular',
+    marginBottom: 4,
   },
-  villagerDetails: {
+  villagerPhone: {
     fontSize: 14,
     color: '#666',
     fontFamily: 'Unbounded-Regular',
-    marginBottom: 5,
+    marginBottom: 2,
   },
   villagerBalance: {
-    fontSize: 14,
-    color: '#333',
+    fontSize: 12,
+    color: '#FF69B4',
     fontFamily: 'Unbounded-Regular',
   },
   actionButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
-    paddingTop: 20,
+    gap: 8,
   },
   actionButton: {
     alignItems: 'center',
-    flex: 1,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    minWidth: 60,
   },
   actionButtonDisabled: {
     opacity: 0.6,
   },
   actionButtonText: {
-    fontSize: 10,
+    fontSize: 8,
     color: '#666',
     textAlign: 'center',
-    marginTop: 5,
+    marginTop: 2,
     fontFamily: 'Unbounded-Regular',
+    lineHeight: 10,
   },
   actionButtonTextDisabled: {
     color: '#999',
