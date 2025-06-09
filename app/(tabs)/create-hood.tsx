@@ -261,31 +261,6 @@ export default function CreateHoodScreen() {
           )}
         </View>
 
-        {/* Show selected villagers summary */}
-        {selectedVillagers.length > 0 && (
-          <View style={styles.selectedSummary}>
-            <Text style={styles.selectedSummaryTitle}>
-              VALDA VILLAGERS ({selectedVillagers.length})
-            </Text>
-            {selectedVillagers.map(id => {
-              const villager = connectedVillagers.find(v => v.id === id);
-              if (!villager) return null;
-              
-              return (
-                <View key={villager.id} style={styles.selectedVillagerItem}>
-                  <Text style={styles.selectedVillagerName}>{villager.name}</Text>
-                  <Pressable 
-                    style={styles.removeButton}
-                    onPress={() => toggleVillagerSelection(villager.id)}
-                  >
-                    <Text style={styles.removeButtonText}>Ta bort</Text>
-                  </Pressable>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
         <View style={styles.spacer} />
       </ScrollView>
 
@@ -443,47 +418,6 @@ const styles = StyleSheet.create({
   checkCircleSelected: {
     backgroundColor: '#FF69B4',
     borderColor: '#FF69B4',
-  },
-  selectedSummary: {
-    marginTop: 20,
-    backgroundColor: '#FFF8FC',
-    borderRadius: 8,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: '#FFE4F1',
-  },
-  selectedSummaryTitle: {
-    fontSize: 12,
-    color: '#FF69B4',
-    fontFamily: 'Unbounded-SemiBold',
-    marginBottom: 10,
-  },
-  selectedVillagerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#FFE4F1',
-  },
-  selectedVillagerName: {
-    fontSize: 14,
-    color: '#333',
-    fontFamily: 'Unbounded-Regular',
-    flex: 1,
-  },
-  removeButton: {
-    backgroundColor: 'white',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FF69B4',
-  },
-  removeButtonText: {
-    fontSize: 12,
-    color: '#FF69B4',
-    fontFamily: 'Unbounded-Regular',
   },
   spacer: {
     height: 20,
