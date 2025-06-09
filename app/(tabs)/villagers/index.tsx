@@ -7,6 +7,7 @@ import { ArrowLeft, UserPlus, MessageCircle, UserX, Check, X } from 'lucide-reac
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../../components/AppFooter';
+import GroupSelectionModal from '../../../components/GroupSelectionModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -50,6 +51,8 @@ export default function VillagersScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+  const [groupModalVisible, setGroupModalVisible] = useState(false);
+  const [selectedVillager, setSelectedVillager] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -247,6 +250,16 @@ export default function VillagersScreen() {
     );
   };
 
+  const handleAddToGroup = (villager: Villager) => {
+    setSelectedVillager({ id: villager.id, name: villager.name });
+    setGroupModalVisible(true);
+  };
+
+  const handleCloseGroupModal = () => {
+    setGroupModalVisible(false);
+    setSelectedVillager(null);
+  };
+
   if (!fontsLoaded) {
     return null;
   }
@@ -262,7 +275,10 @@ export default function VillagersScreen() {
 
   const renderVillagerActions = (villager: Villager) => (
     <View style={styles.actionButtons}>
-      <Pressable style={styles.actionButton}>
+      <Pressable 
+        style={styles.actionButton}
+        onPress={() => handleAddToGroup(villager)}
+      >
         <UserPlus size={24} color="#666" />
         <Text style={styles.actionButtonText}>LÄGG TILL{'\n'}I GRUPP</Text>
       </Pressable>
@@ -454,6 +470,16 @@ export default function VillagersScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Group Selection Modal */}
+      {selectedVillager && (
+        <GroupSelectionModal
+          visible={groupModalVisible}
+          onClose={handleCloseGroupModal}
+          villagerId={selectedVillager.id}
+          villagerName={selectedVillager.name}
+        />
+      )}
 
       <AppFooter />
     </View>
