@@ -42,6 +42,7 @@ type BlockedVillager = {
   name: string;
   phoneNumber: string;
   memberSince: string;
+  balance: number;
   connectionId: string;
 };
 
@@ -187,6 +188,7 @@ export default function VillagersScreen() {
             month: 'long',
             year: 'numeric'
           }),
+          balance: receiver.minute_balance || 0,
           connectionId: connection.id
         };
       }).filter(Boolean) as BlockedVillager[];
@@ -275,6 +277,7 @@ export default function VillagersScreen() {
           name: villager.name,
           phoneNumber: villager.phoneNumber,
           memberSince: villager.memberSince,
+          balance: villager.balance,
           connectionId: villager.connectionId
         }]);
       } catch (err) {
@@ -324,10 +327,10 @@ export default function VillagersScreen() {
       try {
         setProcessingBlockId(blockedVillager.id);
 
-        // Delete the connection entirely when unblocking
+        // Update connection status back to 'accepted' instead of deleting
         const { error } = await supabase
           .from('villager_connections')
-          .delete()
+          .update({ status: 'accepted' })
           .eq('id', blockedVillager.connectionId);
 
         if (error) {
@@ -341,8 +344,17 @@ export default function VillagersScreen() {
           return;
         }
 
-        // Remove from blocked list
+        // Remove from blocked list and add back to villagers list
         setBlockedVillagers(prev => prev.filter(b => b.id !== blockedVillager.id));
+        setVillagers(prev => [...prev, {
+          id: blockedVillager.id,
+          name: blockedVillager.name,
+          phoneNumber: blockedVillager.phoneNumber,
+          memberSince: blockedVillager.memberSince,
+          balance: blockedVillager.balance,
+          status: 'connected',
+          connectionId: blockedVillager.connectionId
+        }]);
       } catch (err) {
         console.error('Error unblocking villager:', err);
         const errorMessage = 'Ett oväntat fel uppstod. Försök igen.';
@@ -359,7 +371,7 @@ export default function VillagersScreen() {
     // Use platform-appropriate confirmation dialog
     if (Platform.OS === 'web') {
       const confirmed = confirm(
-        `Är du säker på att du vill avblockera ${blockedVillager.name}? Ni kommer kunna lägga till varandra som villagers igen.`
+        `Är du säker på att du vill avblockera ${blockedVillager.name}? Ni kommer återställas som villagers och kunna se varandra i era listor igen.`
       );
       if (confirmed) {
         await performUnblock();
@@ -367,7 +379,7 @@ export default function VillagersScreen() {
     } else {
       Alert.alert(
         'Avblockera villager',
-        `Är du säker på att du vill avblockera ${blockedVillager.name}? Ni kommer kunna lägga till varandra som villagers igen.`,
+        `Är du säker på att du vill avblockera ${blockedVillager.name}? Ni kommer återställas som villagers och kunna se varandra i era listor igen.`,
         [
           {
             text: 'Avbryt',
