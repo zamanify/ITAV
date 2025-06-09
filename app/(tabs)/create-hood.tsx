@@ -230,7 +230,6 @@ export default function CreateHoodScreen() {
                 <View style={styles.contactInfo}>
                   <Text style={styles.contactName}>{villager.name}</Text>
                   <Text style={styles.contactPhone}>{villager.phoneNumber}</Text>
-                  <Text style={styles.existingUserBadge}>Ansluten villager</Text>
                 </View>
                 <Pressable 
                   style={[
@@ -369,13 +368,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     fontFamily: 'Unbounded-Regular',
-    marginBottom: 2,
-  },
-  existingUserBadge: {
-    fontSize: 12,
-    color: '#87CEEB',
-    fontFamily: 'Unbounded-Regular',
-    fontStyle: 'italic',
   },
   selectButton: {
     flexDirection: 'row',
