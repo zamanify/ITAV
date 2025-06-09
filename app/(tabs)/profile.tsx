@@ -237,7 +237,7 @@ export default function ProfileScreen() {
 
         {/* Action Buttons */}
         <View style={styles.actionSection}>
-          <Pressable style={styles.editButton}>
+          <Pressable style={styles.editButton} onPress={() => router.push('/profile-edit')}>
             <Text style={styles.editButtonText}>Redigera profil</Text>
           </Pressable>
 
