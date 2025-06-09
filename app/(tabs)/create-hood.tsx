@@ -207,57 +207,49 @@ export default function CreateHoodScreen() {
           <Text style={styles.errorText}>{error}</Text>
         )}
 
-        {/* Always show villagers list */}
+        {/* Villagers list - styled like invite view */}
         <View style={styles.villagersContainer}>
           {isLoading ? (
-            <View style={styles.loadingContainer}>
+            <View style={styles.centerContainer}>
               <Text style={styles.loadingText}>Laddar dina villagers...</Text>
             </View>
           ) : connectedVillagers.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyTitle}>Inga villagers att lägga till</Text>
-              <Text style={styles.emptyDescription}>
+            <View style={styles.centerContainer}>
+              <Text style={styles.emptyText}>Inga villagers att lägga till</Text>
+              <Text style={styles.permissionText}>
                 Du behöver ansluta till villagers först för att kunna lägga till dem i grupper.
               </Text>
             </View>
           ) : filteredVillagers.length === 0 && searchQuery ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyTitle}>Inga villagers matchar sökningen</Text>
-              <Text style={styles.emptyDescription}>
-                Försök med ett annat namn eller telefonnummer.
-              </Text>
+            <View style={styles.centerContainer}>
+              <Text style={styles.emptyText}>Inga villagers matchar "{searchQuery}"</Text>
             </View>
           ) : (
-            <View style={styles.villagersList}>
-              <Text style={styles.villagersListTitle}>
-                DINA ANSLUTNA VILLAGERS ({filteredVillagers.length})
-              </Text>
-              {filteredVillagers.map((villager) => (
-                <Pressable
-                  key={villager.id}
-                  style={styles.villagerItem}
+            filteredVillagers.map((villager) => (
+              <View key={villager.id} style={styles.contactItem}>
+                <View style={styles.contactInfo}>
+                  <Text style={styles.contactName}>{villager.name}</Text>
+                  <Text style={styles.contactPhone}>{villager.phoneNumber}</Text>
+                  <Text style={styles.existingUserBadge}>Ansluten villager</Text>
+                </View>
+                <Pressable 
+                  style={[
+                    styles.selectButton,
+                    selectedVillagers.includes(villager.id) && styles.selectButtonSelected
+                  ]}
                   onPress={() => toggleVillagerSelection(villager.id)}
                 >
-                  <View style={styles.villagerInfo}>
-                    <Text style={styles.villagerName}>{villager.name}</Text>
-                    <Text style={styles.villagerDetails}>
-                      {villager.phoneNumber} | Medlem sedan {villager.memberSince}
-                    </Text>
-                    <Text style={styles.villagerBalance}>
-                      Saldo {villager.balance > 0 ? '+' : ''}{villager.balance} min
-                    </Text>
-                  </View>
-                  <View style={[
-                    styles.checkCircle,
-                    selectedVillagers.includes(villager.id) && styles.checkCircleSelected
-                  ]}>
-                    {selectedVillagers.includes(villager.id) && (
+                  {selectedVillagers.includes(villager.id) ? (
+                    <>
                       <Check size={16} color="white" />
-                    )}
-                  </View>
+                      <Text style={styles.selectButtonTextSelected}>Vald</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.selectButtonText}>Välj</Text>
+                  )}
                 </Pressable>
-              ))}
-            </View>
+              </View>
+            ))
           )}
         </View>
 
@@ -300,7 +292,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   scrollContent: {
-    paddingBottom: 100, // Space for the fixed button
+    paddingBottom: 120, // Space for footer
   },
   sectionTitle: {
     fontSize: 14,
@@ -319,6 +311,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Unbounded-Regular',
     color: '#333',
+    marginBottom: 20,
   },
   errorText: {
     color: '#FF4444',
@@ -328,96 +321,88 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   villagersContainer: {
-    marginTop: 20,
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
-    minHeight: 200,
+    flex: 1,
   },
-  loadingContainer: {
-    padding: 20,
+  centerContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 200,
+    paddingVertical: 60,
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#666',
     fontFamily: 'Unbounded-Regular',
   },
-  emptyContainer: {
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 200,
-  },
-  emptyTitle: {
+  emptyText: {
     fontSize: 16,
     color: '#666',
-    fontFamily: 'Unbounded-SemiBold',
-    marginBottom: 8,
+    fontFamily: 'Unbounded-Regular',
     textAlign: 'center',
+    marginBottom: 10,
   },
-  emptyDescription: {
+  permissionText: {
     fontSize: 14,
     color: '#999',
     fontFamily: 'Unbounded-Regular',
     textAlign: 'center',
     lineHeight: 20,
   },
-  villagersList: {
-    flex: 1,
-  },
-  villagersListTitle: {
-    fontSize: 12,
-    color: '#666',
-    fontFamily: 'Unbounded-Regular',
-    padding: 15,
-    backgroundColor: '#F5F5F5',
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-  },
-  villagerItem: {
+  // Contact item styles matching invite view
+  contactItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
+    paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
   },
-  villagerInfo: {
+  contactInfo: {
     flex: 1,
   },
-  villagerName: {
+  contactName: {
     fontSize: 16,
     color: '#333',
     fontFamily: 'Unbounded-Regular',
     marginBottom: 4,
   },
-  villagerDetails: {
+  contactPhone: {
     fontSize: 14,
     color: '#666',
     fontFamily: 'Unbounded-Regular',
     marginBottom: 2,
   },
-  villagerBalance: {
+  existingUserBadge: {
     fontSize: 12,
-    color: '#999',
+    color: '#87CEEB',
     fontFamily: 'Unbounded-Regular',
+    fontStyle: 'italic',
   },
-  checkCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#FF69B4',
+  selectButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#FF69B4',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
+    minWidth: 80,
     justifyContent: 'center',
-    marginLeft: 12,
   },
-  checkCircleSelected: {
+  selectButtonSelected: {
     backgroundColor: '#FF69B4',
     borderColor: '#FF69B4',
+  },
+  selectButtonText: {
+    color: '#FF69B4',
+    fontSize: 12,
+    fontFamily: 'Unbounded-Regular',
+  },
+  selectButtonTextSelected: {
+    color: 'white',
+    fontSize: 12,
+    fontFamily: 'Unbounded-Regular',
   },
   spacer: {
     height: 20,
