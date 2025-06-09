@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Platform } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useCallback } from 'react';
 import { ArrowLeft, Share2, Check, UserPlus, X } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import VillagerSelectionModal from '../../components/VillagerSelectionModal';
@@ -58,6 +58,22 @@ export default function CreateOfferScreen() {
     }
   }, [preselectedHood]);
 
+  // Clear selections when screen loses focus (user navigates away)
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        // This cleanup function runs when the screen loses focus
+        if (!isSubmitting) {
+          // Only clear if not currently submitting (to avoid clearing during successful submission)
+          setSelectedVillagers([]);
+          setSelectedHoods([]);
+          setVillagerNames({});
+          setHoodNames({});
+        }
+      };
+    }, [isSubmitting])
+  );
+
   const fetchVillagerName = async (villagerId: string) => {
     try {
       const { data, error } = await supabase
@@ -107,6 +123,11 @@ export default function CreateOfferScreen() {
   }
 
   const handleBack = () => {
+    // Clear selections when user explicitly goes back
+    setSelectedVillagers([]);
+    setSelectedHoods([]);
+    setVillagerNames({});
+    setHoodNames({});
     router.back();
   };
 
@@ -142,6 +163,12 @@ export default function CreateOfferScreen() {
       // TODO: Handle villager-specific offers (not group offers)
       // This would require a separate table or mechanism to track individual recipients
 
+      // Clear selections after successful submission
+      setSelectedVillagers([]);
+      setSelectedHoods([]);
+      setVillagerNames({});
+      setHoodNames({});
+      
       router.back();
     } catch (err) {
       console.error('Error publishing offer:', err);
