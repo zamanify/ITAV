@@ -198,14 +198,7 @@ export default function GroupsScreen() {
             {filteredGroups.map((group) => (
               <View key={group.id} style={styles.groupCard}>
                 <View style={styles.groupInfo}>
-                  <View style={styles.groupHeader}>
-                    <Text style={styles.groupName}>{group.name}</Text>
-                    {group.isCreator && (
-                      <View style={styles.creatorBadge}>
-                        <Text style={styles.creatorBadgeText}>SKAPARE</Text>
-                      </View>
-                    )}
-                  </View>
+                  <Text style={styles.groupName}>{group.name}</Text>
                   <Text style={styles.groupDetails}>
                     {group.memberCount} medlemmar | Skapad {group.createdAt}
                   </Text>
@@ -342,27 +335,11 @@ const styles = StyleSheet.create({
   groupInfo: {
     marginBottom: 20,
   },
-  groupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
   groupName: {
     fontSize: 18,
     color: '#FF69B4',
     fontFamily: 'Unbounded-SemiBold',
-    flex: 1,
-  },
-  creatorBadge: {
-    backgroundColor: '#FF69B4',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  creatorBadgeText: {
-    fontSize: 10,
-    color: 'white',
-    fontFamily: 'Unbounded-Regular',
+    marginBottom: 5,
   },
   groupDetails: {
     fontSize: 14,
