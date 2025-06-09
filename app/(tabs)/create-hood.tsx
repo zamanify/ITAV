@@ -1,10 +1,11 @@
-import { View, Text, StyleSheet, TextInput, Pressable, Image, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, Image, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { ArrowLeft, Share2, Check, UserPlus } from 'lucide-react-native';
-import * as Contacts from 'expo-contacts';
+import { supabase } from '@/lib/supabase';
+import { AuthContext } from '@/contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -13,12 +14,7 @@ type Villager = {
   name: string;
   phoneNumber: string;
   memberSince: string;
-};
-
-type Contact = {
-  id: string;
-  name: string;
-  phoneNumber: string;
+  balance: number;
 };
 
 export default function CreateHoodScreen() {
@@ -27,48 +23,82 @@ export default function CreateHoodScreen() {
     'Unbounded-SemiBold': Unbounded_600SemiBold,
   });
 
+  const { session } = useContext(AuthContext);
   const [groupName, setGroupName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [selectedVillagers, setSelectedVillagers] = useState<string[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-
-  // Mock data for existing villagers
-  const existingVillagers: Villager[] = [
-    {
-      id: '1',
-      name: 'Sonny Fahlberg',
-      phoneNumber: '+4671727505',
-      memberSince: '30 maj 2025'
-    }
-  ];
+  const [connectedVillagers, setConnectedVillagers] = useState<Villager[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
-
-    if (Platform.OS !== 'web') {
-      (async () => {
-        const { status } = await Contacts.requestPermissionsAsync();
-        if (status === 'granted') {
-          const { data } = await Contacts.getContactsAsync({
-            fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
-          });
-
-          const formattedContacts = data
-            .filter(contact => contact.name && contact.phoneNumbers?.[0]?.number)
-            .map(contact => ({
-              id: contact.id,
-              name: contact.name || '',
-              phoneNumber: contact.phoneNumbers?.[0]?.number || '',
-            }));
-
-          setContacts(formattedContacts);
-        }
-      })();
-    }
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchConnectedVillagers();
+    }
+  }, [session?.user?.id]);
+
+  const fetchConnectedVillagers = async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Fetch villager connections with user details
+      const { data: connections, error: connectionsError } = await supabase
+        .from('villager_connections')
+        .select(`
+          id,
+          status,
+          created_at,
+          sender:sender_id(id, first_name, last_name, phone_number, minute_balance, created_at),
+          receiver:receiver_id(id, first_name, last_name, phone_number, minute_balance, created_at)
+        `)
+        .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
+        .eq('status', 'accepted');
+
+      if (connectionsError) {
+        console.error('Error fetching villager connections:', connectionsError);
+        setError('Kunde inte hämta dina villagers');
+        return;
+      }
+
+      // Transform the data to get the other user in each connection
+      const villagersData: Villager[] = (connections || []).map(connection => {
+        const otherUser = connection.sender?.id === session.user.id 
+          ? connection.receiver 
+          : connection.sender;
+
+        if (!otherUser) return null;
+
+        return {
+          id: otherUser.id,
+          name: `${otherUser.first_name} ${otherUser.last_name}`,
+          phoneNumber: otherUser.phone_number || '',
+          memberSince: new Date(otherUser.created_at).toLocaleDateString('sv-SE', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          }),
+          balance: otherUser.minute_balance || 0
+        };
+      }).filter(Boolean) as Villager[];
+
+      setConnectedVillagers(villagersData);
+    } catch (err) {
+      console.error('Error fetching connected villagers:', err);
+      setError('Ett fel uppstod vid hämtning av villagers');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (!fontsLoaded) {
     return null;
@@ -82,8 +112,59 @@ export default function CreateHoodScreen() {
     // Implement share functionality
   };
 
-  const handleCreateHood = () => {
-    router.back();
+  const handleCreateHood = async () => {
+    if (!session?.user?.id || !groupName.trim()) return;
+
+    try {
+      // Create the group
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .insert({
+          name: groupName.trim(),
+          created_by: session.user.id
+        })
+        .select()
+        .single();
+
+      if (groupError) {
+        console.error('Error creating group:', groupError);
+        setError('Kunde inte skapa gruppen');
+        return;
+      }
+
+      // Add the creator as a member
+      const { error: memberError } = await supabase
+        .from('group_members')
+        .insert({
+          group_id: groupData.id,
+          user_id: session.user.id
+        });
+
+      if (memberError) {
+        console.error('Error adding creator as member:', memberError);
+      }
+
+      // Add selected villagers as members
+      if (selectedVillagers.length > 0) {
+        const memberInserts = selectedVillagers.map(villagerId => ({
+          group_id: groupData.id,
+          user_id: villagerId
+        }));
+
+        const { error: membersError } = await supabase
+          .from('group_members')
+          .insert(memberInserts);
+
+        if (membersError) {
+          console.error('Error adding members:', membersError);
+        }
+      }
+
+      router.back();
+    } catch (err) {
+      console.error('Error creating hood:', err);
+      setError('Ett fel uppstod vid skapande av hood');
+    }
   };
 
   const toggleVillagerSelection = (villagerId: string) => {
@@ -94,14 +175,9 @@ export default function CreateHoodScreen() {
     );
   };
 
-  const filteredVillagers = existingVillagers.filter(villager =>
+  const filteredVillagers = connectedVillagers.filter(villager =>
     villager.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     villager.phoneNumber.includes(searchQuery)
-  );
-
-  const filteredContacts = contacts.filter(contact =>
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contact.phoneNumber.includes(searchQuery)
   );
 
   return (
@@ -135,18 +211,31 @@ export default function CreateHoodScreen() {
           placeholderTextColor="#999"
         />
 
-        {showResults && (searchQuery.length > 0) && (
+        {error && (
+          <Text style={styles.errorText}>{error}</Text>
+        )}
+
+        {showResults && searchQuery.length > 0 && (
           <View style={styles.resultsContainer}>
-            {filteredVillagers.length > 0 && (
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>Söker bland dina villagers...</Text>
+              </View>
+            ) : filteredVillagers.length > 0 ? (
               <View>
-                <Text style={styles.resultsSectionTitle}>BEFINTLIGA VILLAGERS</Text>
+                <Text style={styles.resultsSectionTitle}>DINA ANSLUTNA VILLAGERS</Text>
                 {filteredVillagers.map((villager) => (
                   <Pressable
                     key={villager.id}
                     style={styles.resultItem}
                     onPress={() => toggleVillagerSelection(villager.id)}
                   >
-                    <Text style={styles.resultName}>{villager.name}</Text>
+                    <View style={styles.villagerInfo}>
+                      <Text style={styles.resultName}>{villager.name}</Text>
+                      <Text style={styles.villagerDetails}>
+                        {villager.phoneNumber} | Medlem sedan {villager.memberSince}
+                      </Text>
+                    </View>
                     <View style={[
                       styles.checkCircle,
                       selectedVillagers.includes(villager.id) && styles.checkCircleSelected
@@ -158,21 +247,19 @@ export default function CreateHoodScreen() {
                   </Pressable>
                 ))}
               </View>
-            )}
-
-            {filteredContacts.length > 0 && (
-              <View>
-                <Text style={styles.resultsSectionTitle}>UR DIN ADRESSBOK</Text>
-                {filteredContacts.map((contact) => (
-                  <Pressable
-                    key={contact.id}
-                    style={styles.resultItem}
-                    onPress={() => toggleVillagerSelection(contact.id)}
-                  >
-                    <Text style={styles.resultName}>{contact.name}</Text>
-                    <UserPlus color="#666" size={20} />
-                  </Pressable>
-                ))}
+            ) : connectedVillagers.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyTitle}>Inga villagers att lägga till</Text>
+                <Text style={styles.emptyDescription}>
+                  Du behöver ansluta till villagers först för att kunna lägga till dem i grupper.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyTitle}>Inga villagers matchar sökningen</Text>
+                <Text style={styles.emptyDescription}>
+                  Försök med ett annat namn eller telefonnummer.
+                </Text>
               </View>
             )}
           </View>
@@ -187,14 +274,14 @@ export default function CreateHoodScreen() {
         </View>
 
         {selectedVillagers.map(id => {
-          const villager = existingVillagers.find(v => v.id === id);
+          const villager = connectedVillagers.find(v => v.id === id);
           if (!villager) return null;
           
           return (
             <View key={villager.id} style={styles.villagerItem}>
-              <View style={styles.villagerInfo}>
+              <View style={styles.villagerItemInfo}>
                 <Text style={styles.villagerName}>{villager.name}</Text>
-                <Text style={styles.villagerDetails}>
+                <Text style={styles.villagerItemDetails}>
                   {villager.phoneNumber} | Medlem sedan {villager.memberSince}
                 </Text>
               </View>
@@ -259,6 +346,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-Regular',
     color: '#333',
   },
+  errorText: {
+    color: '#FF4444',
+    fontSize: 14,
+    fontFamily: 'Unbounded-Regular',
+    marginTop: 10,
+    textAlign: 'center',
+  },
   resultsContainer: {
     backgroundColor: 'white',
     borderWidth: 1,
@@ -266,6 +360,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 4,
     maxHeight: 300,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
   },
   resultsSectionTitle: {
     fontSize: 12,
@@ -281,11 +384,37 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
   },
-  resultName: {
+  villagerInfo: {
     flex: 1,
+  },
+  resultName: {
     fontSize: 16,
     color: '#333',
     fontFamily: 'Unbounded-Regular',
+    marginBottom: 4,
+  },
+  villagerDetails: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
+  },
+  emptyContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 16,
+    color: '#666',
+    fontFamily: 'Unbounded-SemiBold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    fontSize: 14,
+    color: '#999',
+    fontFamily: 'Unbounded-Regular',
+    textAlign: 'center',
+    lineHeight: 20,
   },
   shareContainer: {
     flexDirection: 'row',
@@ -322,7 +451,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
   },
-  villagerInfo: {
+  villagerItemInfo: {
     flex: 1,
   },
   villagerName: {
@@ -331,7 +460,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-Regular',
     marginBottom: 4,
   },
-  villagerDetails: {
+  villagerItemDetails: {
     fontSize: 14,
     color: '#666',
     fontFamily: 'Unbounded-Regular',
