@@ -3,7 +3,7 @@ import { Link, router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext } from 'react';
-import { Share2, Check } from 'lucide-react-native';
+import { Check } from 'lucide-react-native';
 import * as Contacts from 'expo-contacts';
 import { supabase } from '@/lib/supabase';
 import { normalizePhoneNumber } from '@/lib/phone';
@@ -142,10 +142,6 @@ export default function OnboardingStep2() {
     }
   };
 
-  const handleShare = () => {
-    // Share functionality will be implemented later
-  };
-
   const toggleContactSelection = (contactId: string) => {
     setSelectedContacts(prev => 
       prev.includes(contactId) 
@@ -223,14 +219,6 @@ export default function OnboardingStep2() {
           onChangeText={setSearchInput}
           placeholderTextColor="#999"
         />
-      </View>
-
-      <View style={styles.shareContainer}>
-        <Share2 color="#666" size={20} />
-        <Text style={styles.shareText}>Gruppinbjudan</Text>
-        <Pressable style={styles.shareButton} onPress={handleShare}>
-          <Text style={styles.shareButtonText}>Dela</Text>
-        </Pressable>
       </View>
 
       {error && (
@@ -324,34 +312,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 15,
     fontSize: 16,
-    fontFamily: 'Unbounded-Regular',
-  },
-  shareContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  shareText: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 16,
-    color: '#666',
-    fontFamily: 'Unbounded-Regular',
-  },
-  shareButton: {
-    backgroundColor: '#FFF',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-  },
-  shareButtonText: {
-    color: '#666',
-    fontSize: 14,
     fontFamily: 'Unbounded-Regular',
   },
   contactsList: {

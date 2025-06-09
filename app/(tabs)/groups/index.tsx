@@ -1,9 +1,12 @@
-import { View, Text, StyleSheet, Pressable, Image, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import { ArrowLeft, Users, MessageCircle, Settings } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
+import { AuthContext } from '@/contexts/AuthContext';
+import AppFooter from '../../../components/AppFooter';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -12,28 +15,8 @@ type Group = {
   name: string;
   memberCount: number;
   createdAt: string;
+  isCreator: boolean;
 };
-
-const mockGroups: Group[] = [
-  {
-    id: '1',
-    name: 'Familjen',
-    memberCount: 5,
-    createdAt: '28 maj 2025'
-  },
-  {
-    id: '2',
-    name: 'Bästisarna',
-    memberCount: 3,
-    createdAt: '29 maj 2025'
-  },
-  {
-    id: '3',
-    name: 'Grannar',
-    memberCount: 8,
-    createdAt: '4 mars 2025'
-  }
-];
 
 export default function GroupsScreen() {
   const [fontsLoaded] = useFonts({
@@ -41,13 +24,110 @@ export default function GroupsScreen() {
     'Unbounded-SemiBold': Unbounded_600SemiBold,
   });
 
+  const { session } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState('');
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchGroups();
+    }
+  }, [session?.user?.id]);
+
+  const fetchGroups = async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Fetch groups where user is a member
+      const { data: groupMemberships, error: membershipsError } = await supabase
+        .from('group_members')
+        .select(`
+          group:group_id(
+            id,
+            name,
+            created_by,
+            created_at
+          )
+        `)
+        .eq('user_id', session.user.id);
+
+      if (membershipsError) {
+        console.error('Error fetching group memberships:', membershipsError);
+        setError('Kunde inte hämta dina hoods');
+        return;
+      }
+
+      // Get blocked user IDs to filter out from member counts
+      const [blockedByMeResult, blockedByThemResult] = await Promise.all([
+        supabase
+          .from('user_blocks')
+          .select('blocked_id')
+          .eq('blocker_id', session.user.id),
+        supabase
+          .from('user_blocks')
+          .select('blocker_id')
+          .eq('blocked_id', session.user.id)
+      ]);
+
+      const blockedByMe = new Set((blockedByMeResult.data || []).map(block => block.blocked_id));
+      const blockedByThem = new Set((blockedByThemResult.data || []).map(block => block.blocker_id));
+
+      // Get member counts for each group (excluding blocked users from count)
+      const groupsWithCounts = await Promise.all(
+        (groupMemberships || []).map(async (membership) => {
+          const group = membership.group;
+          if (!group) return null;
+
+          // Get all members of this group
+          const { data: allMembers, error: membersError } = await supabase
+            .from('group_members')
+            .select('user_id')
+            .eq('group_id', group.id);
+
+          if (membersError) {
+            console.error('Error fetching group members:', membersError);
+            return null;
+          }
+
+          // Count only non-blocked members
+          const nonBlockedMembers = (allMembers || []).filter(member => 
+            !blockedByMe.has(member.user_id) && !blockedByThem.has(member.user_id)
+          );
+
+          return {
+            id: group.id,
+            name: group.name,
+            memberCount: nonBlockedMembers.length,
+            createdAt: new Date(group.created_at).toLocaleDateString('sv-SE', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric'
+            }),
+            isCreator: group.created_by === session.user.id
+          };
+        })
+      );
+
+      const validGroups = groupsWithCounts.filter(Boolean) as Group[];
+      setGroups(validGroups);
+    } catch (err) {
+      console.error('Error fetching groups:', err);
+      setError('Ett fel uppstod vid hämtning av hoods');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (!fontsLoaded) {
     return null;
@@ -57,7 +137,7 @@ export default function GroupsScreen() {
     router.back();
   };
 
-  const filteredGroups = mockGroups.filter(group =>
+  const filteredGroups = groups.filter(group =>
     group.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -71,12 +151,22 @@ export default function GroupsScreen() {
         <MessageCircle size={24} color="#666" />
         <Text style={styles.actionButtonText}>SKICKA{'\n'}FÖRFRÅGAN</Text>
       </Pressable>
-      <Pressable style={styles.actionButton}>
-        <Settings size={24} color="#666" />
-        <Text style={styles.actionButtonText}>HANTERA{'\n'}GRUPP</Text>
-      </Pressable>
+      {group.isCreator && (
+        <Pressable style={styles.actionButton}>
+          <Settings size={24} color="#666" />
+          <Text style={styles.actionButtonText}>HANTERA{'\n'}GRUPP</Text>
+        </Pressable>
+      )}
     </View>
   );
+
+  const getHeaderTitle = () => {
+    if (isLoading) return 'LADDAR HOODS...';
+    if (error) return 'FEL VID LADDNING';
+    if (groups.length === 0) return 'INGA HOODS ÄNNU';
+    if (groups.length === 1) return 'DU HAR 1 HOOD';
+    return `DINA ${groups.length} HOODS`;
+  };
 
   return (
     <View style={styles.container}>
@@ -84,32 +174,72 @@ export default function GroupsScreen() {
         <Pressable onPress={handleBack} style={styles.backButton}>
           <ArrowLeft color="#FF69B4" size={24} />
         </Pressable>
-        <Text style={styles.headerTitle}>DINA HOODS</Text>
+        <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
       </View>
 
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Sök bland dina hoods"
-          placeholderTextColor="#999"
-        />
-      </View>
+      {!isLoading && !error && groups.length > 0 && (
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Sök bland dina hoods"
+            placeholderTextColor="#999"
+          />
+        </View>
+      )}
 
-      <ScrollView style={styles.content}>
-        {filteredGroups.map((group) => (
-          <View key={group.id} style={styles.groupCard}>
-            <View style={styles.groupInfo}>
-              <Text style={styles.groupName}>{group.name}</Text>
-              <Text style={styles.groupDetails}>
-                {group.memberCount} medlemmar | Skapad {group.createdAt}
-              </Text>
-            </View>
-            {renderGroupActions(group)}
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+        {isLoading ? (
+          <View style={styles.centerContainer}>
+            <Text style={styles.loadingText}>Laddar dina hoods...</Text>
           </View>
-        ))}
+        ) : error ? (
+          <View style={styles.centerContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <Pressable style={styles.retryButton} onPress={fetchGroups}>
+              <Text style={styles.retryButtonText}>Försök igen</Text>
+            </Pressable>
+          </View>
+        ) : groups.length === 0 ? (
+          <View style={styles.centerContainer}>
+            <Text style={styles.emptyTitle}>Inga hoods än</Text>
+            <Text style={styles.emptyDescription}>
+              Du är inte medlem i några hoods ännu. Skapa din första hood eller vänta på en inbjudan!
+            </Text>
+            <Pressable 
+              style={styles.createButton} 
+              onPress={() => router.push('/create-hood')}
+            >
+              <Text style={styles.createButtonText}>Skapa din första hood</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            {filteredGroups.map((group) => (
+              <View key={group.id} style={styles.groupCard}>
+                <View style={styles.groupInfo}>
+                  <Text style={styles.groupName}>{group.name}</Text>
+                  <Text style={styles.groupDetails}>
+                    {group.memberCount} medlemmar | Skapad {group.createdAt}
+                  </Text>
+                </View>
+                {renderGroupActions(group)}
+              </View>
+            ))}
+            
+            {filteredGroups.length === 0 && searchQuery && (
+              <View style={styles.centerContainer}>
+                <Text style={styles.noResultsText}>
+                  Inga hoods matchar "{searchQuery}"
+                </Text>
+              </View>
+            )}
+          </>
+        )}
       </ScrollView>
+
+      <AppFooter />
     </View>
   );
 }
@@ -133,6 +263,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#333',
     fontFamily: 'Unbounded-SemiBold',
+    flex: 1,
   },
   searchContainer: {
     paddingHorizontal: 20,
@@ -150,6 +281,71 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+  },
+  scrollContent: {
+    paddingBottom: 120, // Space for footer
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF4444',
+    fontFamily: 'Unbounded-Regular',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#FF69B4',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontFamily: 'Unbounded-SemiBold',
+  },
+  emptyTitle: {
+    fontSize: 24,
+    color: '#FF69B4',
+    fontFamily: 'Unbounded-SemiBold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    fontSize: 16,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 30,
+    paddingHorizontal: 20,
+  },
+  createButton: {
+    backgroundColor: '#FF69B4',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 25,
+  },
+  createButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontFamily: 'Unbounded-SemiBold',
+  },
+  noResultsText: {
+    fontSize: 16,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
+    textAlign: 'center',
   },
   groupCard: {
     backgroundColor: '#F8F8F8',

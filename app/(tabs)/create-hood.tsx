@@ -1,10 +1,11 @@
-import { View, Text, StyleSheet, TextInput, Pressable, Image, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, Image, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Share2, Check, UserPlus } from 'lucide-react-native';
-import * as Contacts from 'expo-contacts';
+import { useState, useEffect, useContext } from 'react';
+import { ArrowLeft, Check } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
+import { AuthContext } from '@/contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -13,12 +14,7 @@ type Villager = {
   name: string;
   phoneNumber: string;
   memberSince: string;
-};
-
-type Contact = {
-  id: string;
-  name: string;
-  phoneNumber: string;
+  balance: number;
 };
 
 export default function CreateHoodScreen() {
@@ -27,48 +23,101 @@ export default function CreateHoodScreen() {
     'Unbounded-SemiBold': Unbounded_600SemiBold,
   });
 
+  const { session } = useContext(AuthContext);
   const [groupName, setGroupName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showResults, setShowResults] = useState(false);
   const [selectedVillagers, setSelectedVillagers] = useState<string[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-
-  // Mock data for existing villagers
-  const existingVillagers: Villager[] = [
-    {
-      id: '1',
-      name: 'Sonny Fahlberg',
-      phoneNumber: '+4671727505',
-      memberSince: '30 maj 2025'
-    }
-  ];
+  const [connectedVillagers, setConnectedVillagers] = useState<Villager[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
-
-    if (Platform.OS !== 'web') {
-      (async () => {
-        const { status } = await Contacts.requestPermissionsAsync();
-        if (status === 'granted') {
-          const { data } = await Contacts.getContactsAsync({
-            fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
-          });
-
-          const formattedContacts = data
-            .filter(contact => contact.name && contact.phoneNumbers?.[0]?.number)
-            .map(contact => ({
-              id: contact.id,
-              name: contact.name || '',
-              phoneNumber: contact.phoneNumbers?.[0]?.number || '',
-            }));
-
-          setContacts(formattedContacts);
-        }
-      })();
-    }
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchConnectedVillagers();
+    }
+  }, [session?.user?.id]);
+
+  const fetchConnectedVillagers = async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Fetch villager connections with user details
+      const { data: connections, error: connectionsError } = await supabase
+        .from('villager_connections')
+        .select(`
+          id,
+          status,
+          created_at,
+          sender:sender_id(id, first_name, last_name, phone_number, minute_balance, created_at),
+          receiver:receiver_id(id, first_name, last_name, phone_number, minute_balance, created_at)
+        `)
+        .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
+        .eq('status', 'accepted');
+
+      if (connectionsError) {
+        console.error('Error fetching villager connections:', connectionsError);
+        setError('Kunde inte hämta dina villagers');
+        return;
+      }
+
+      // Get blocked user IDs to filter out
+      const [blockedByMeResult, blockedByThemResult] = await Promise.all([
+        supabase
+          .from('user_blocks')
+          .select('blocked_id')
+          .eq('blocker_id', session.user.id),
+        supabase
+          .from('user_blocks')
+          .select('blocker_id')
+          .eq('blocked_id', session.user.id)
+      ]);
+
+      const blockedByMe = new Set((blockedByMeResult.data || []).map(block => block.blocked_id));
+      const blockedByThem = new Set((blockedByThemResult.data || []).map(block => block.blocker_id));
+
+      // Transform the data to get the other user in each connection, excluding blocked users
+      const villagersData: Villager[] = (connections || []).map(connection => {
+        const otherUser = connection.sender?.id === session.user.id 
+          ? connection.receiver 
+          : connection.sender;
+
+        if (!otherUser) return null;
+
+        // Skip if user is blocked
+        if (blockedByMe.has(otherUser.id) || blockedByThem.has(otherUser.id)) {
+          return null;
+        }
+
+        return {
+          id: otherUser.id,
+          name: `${otherUser.first_name} ${otherUser.last_name}`,
+          phoneNumber: otherUser.phone_number || '',
+          memberSince: new Date(otherUser.created_at).toLocaleDateString('sv-SE', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          }),
+          balance: otherUser.minute_balance || 0
+        };
+      }).filter(Boolean) as Villager[];
+
+      setConnectedVillagers(villagersData);
+    } catch (err) {
+      console.error('Error fetching connected villagers:', err);
+      setError('Ett fel uppstod vid hämtning av villagers');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (!fontsLoaded) {
     return null;
@@ -78,12 +127,59 @@ export default function CreateHoodScreen() {
     router.back();
   };
 
-  const handleShare = () => {
-    // Implement share functionality
-  };
+  const handleCreateHood = async () => {
+    if (!session?.user?.id || !groupName.trim()) return;
 
-  const handleCreateHood = () => {
-    router.back();
+    try {
+      // Create the group
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .insert({
+          name: groupName.trim(),
+          created_by: session.user.id
+        })
+        .select()
+        .single();
+
+      if (groupError) {
+        console.error('Error creating group:', groupError);
+        setError('Kunde inte skapa gruppen');
+        return;
+      }
+
+      // Add the creator as a member
+      const { error: memberError } = await supabase
+        .from('group_members')
+        .insert({
+          group_id: groupData.id,
+          user_id: session.user.id
+        });
+
+      if (memberError) {
+        console.error('Error adding creator as member:', memberError);
+      }
+
+      // Add selected villagers as members
+      if (selectedVillagers.length > 0) {
+        const memberInserts = selectedVillagers.map(villagerId => ({
+          group_id: groupData.id,
+          user_id: villagerId
+        }));
+
+        const { error: membersError } = await supabase
+          .from('group_members')
+          .insert(memberInserts);
+
+        if (membersError) {
+          console.error('Error adding members:', membersError);
+        }
+      }
+
+      router.back();
+    } catch (err) {
+      console.error('Error creating hood:', err);
+      setError('Ett fel uppstod vid skapande av hood');
+    }
   };
 
   const toggleVillagerSelection = (villagerId: string) => {
@@ -94,14 +190,9 @@ export default function CreateHoodScreen() {
     );
   };
 
-  const filteredVillagers = existingVillagers.filter(villager =>
+  const filteredVillagers = connectedVillagers.filter(villager =>
     villager.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     villager.phoneNumber.includes(searchQuery)
-  );
-
-  const filteredContacts = contacts.filter(contact =>
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contact.phoneNumber.includes(searchQuery)
   );
 
   return (
@@ -113,7 +204,7 @@ export default function CreateHoodScreen() {
         <Text style={styles.headerTitle}>SKAPA HOOD</Text>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.sectionTitle}>DÖP DIN NYA GRUPP</Text>
         <TextInput
           style={styles.input}
@@ -127,83 +218,61 @@ export default function CreateHoodScreen() {
         <TextInput
           style={styles.input}
           value={searchQuery}
-          onChangeText={(text) => {
-            setSearchQuery(text);
-            setShowResults(text.length > 0);
-          }}
-          placeholder="Lägg till vän via namn eller mobil"
+          onChangeText={setSearchQuery}
+          placeholder="Sök bland dina villagers"
           placeholderTextColor="#999"
         />
 
-        {showResults && (searchQuery.length > 0) && (
-          <View style={styles.resultsContainer}>
-            {filteredVillagers.length > 0 && (
-              <View>
-                <Text style={styles.resultsSectionTitle}>BEFINTLIGA VILLAGERS</Text>
-                {filteredVillagers.map((villager) => (
-                  <Pressable
-                    key={villager.id}
-                    style={styles.resultItem}
-                    onPress={() => toggleVillagerSelection(villager.id)}
-                  >
-                    <Text style={styles.resultName}>{villager.name}</Text>
-                    <View style={[
-                      styles.checkCircle,
-                      selectedVillagers.includes(villager.id) && styles.checkCircleSelected
-                    ]}>
-                      {selectedVillagers.includes(villager.id) && (
-                        <Check size={16} color="white" />
-                      )}
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-
-            {filteredContacts.length > 0 && (
-              <View>
-                <Text style={styles.resultsSectionTitle}>UR DIN ADRESSBOK</Text>
-                {filteredContacts.map((contact) => (
-                  <Pressable
-                    key={contact.id}
-                    style={styles.resultItem}
-                    onPress={() => toggleVillagerSelection(contact.id)}
-                  >
-                    <Text style={styles.resultName}>{contact.name}</Text>
-                    <UserPlus color="#666" size={20} />
-                  </Pressable>
-                ))}
-              </View>
-            )}
-          </View>
+        {error && (
+          <Text style={styles.errorText}>{error}</Text>
         )}
 
-        <View style={styles.shareContainer}>
-          <Share2 color="#666" size={20} />
-          <Text style={styles.shareText}>Gruppinbjudan</Text>
-          <Pressable style={styles.shareButton} onPress={handleShare}>
-            <Text style={styles.shareButtonText}>Dela</Text>
-          </Pressable>
+        {/* Villagers list - styled like invite view */}
+        <View style={styles.villagersContainer}>
+          {isLoading ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.loadingText}>Laddar dina villagers...</Text>
+            </View>
+          ) : connectedVillagers.length === 0 ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.emptyText}>Inga villagers att lägga till</Text>
+              <Text style={styles.permissionText}>
+                Du behöver ansluta till villagers först för att kunna lägga till dem i grupper.
+              </Text>
+            </View>
+          ) : filteredVillagers.length === 0 && searchQuery ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.emptyText}>Inga villagers matchar "{searchQuery}"</Text>
+            </View>
+          ) : (
+            filteredVillagers.map((villager) => (
+              <View key={villager.id} style={styles.contactItem}>
+                <View style={styles.contactInfo}>
+                  <Text style={styles.contactName}>{villager.name}</Text>
+                  <Text style={styles.contactPhone}>{villager.phoneNumber}</Text>
+                </View>
+                <Pressable 
+                  style={[
+                    styles.selectButton,
+                    selectedVillagers.includes(villager.id) && styles.selectButtonSelected
+                  ]}
+                  onPress={() => toggleVillagerSelection(villager.id)}
+                >
+                  {selectedVillagers.includes(villager.id) ? (
+                    <>
+                      <Check size={16} color="white" />
+                      <Text style={styles.selectButtonTextSelected}>Vald</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.selectButtonText}>Välj</Text>
+                  )}
+                </Pressable>
+              </View>
+            ))
+          )}
         </View>
 
-        {selectedVillagers.map(id => {
-          const villager = existingVillagers.find(v => v.id === id);
-          if (!villager) return null;
-          
-          return (
-            <View key={villager.id} style={styles.villagerItem}>
-              <View style={styles.villagerInfo}>
-                <Text style={styles.villagerName}>{villager.name}</Text>
-                <Text style={styles.villagerDetails}>
-                  {villager.phoneNumber} | Medlem sedan {villager.memberSince}
-                </Text>
-              </View>
-              <View style={styles.checkCircle}>
-                <Check size={16} color="white" />
-              </View>
-            </View>
-          );
-        })}
+        <View style={styles.spacer} />
       </ScrollView>
 
       <Pressable 
@@ -241,6 +310,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
+  scrollContent: {
+    paddingBottom: 120, // Space for footer
+  },
   sectionTitle: {
     fontSize: 14,
     color: '#FF69B4',
@@ -258,102 +330,104 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Unbounded-Regular',
     color: '#333',
+    marginBottom: 20,
   },
-  resultsContainer: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
-    marginTop: 4,
-    maxHeight: 300,
-  },
-  resultsSectionTitle: {
-    fontSize: 12,
-    color: '#666',
-    fontFamily: 'Unbounded-Regular',
-    padding: 10,
-    backgroundColor: '#F5F5F5',
-  },
-  resultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-  },
-  resultName: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-    fontFamily: 'Unbounded-Regular',
-  },
-  shareContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    marginVertical: 20,
-  },
-  shareText: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 16,
-    color: '#666',
-    fontFamily: 'Unbounded-Regular',
-  },
-  shareButton: {
-    backgroundColor: '#FFF',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-  },
-  shareButtonText: {
-    color: '#666',
+  errorText: {
+    color: '#FF4444',
     fontSize: 14,
     fontFamily: 'Unbounded-Regular',
+    marginTop: 10,
+    textAlign: 'center',
   },
-  villagerItem: {
+  villagersContainer: {
+    flex: 1,
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  permissionText: {
+    fontSize: 14,
+    color: '#999',
+    fontFamily: 'Unbounded-Regular',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  // Contact item styles matching invite view
+  contactItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
   },
-  villagerInfo: {
+  contactInfo: {
     flex: 1,
   },
-  villagerName: {
+  contactName: {
     fontSize: 16,
     color: '#333',
     fontFamily: 'Unbounded-Regular',
     marginBottom: 4,
   },
-  villagerDetails: {
+  contactPhone: {
     fontSize: 14,
     color: '#666',
     fontFamily: 'Unbounded-Regular',
   },
-  checkCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FF69B4',
+  selectButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#FF69B4',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
+    minWidth: 80,
     justifyContent: 'center',
-    marginLeft: 12,
   },
-  checkCircleSelected: {
+  selectButtonSelected: {
     backgroundColor: '#FF69B4',
+    borderColor: '#FF69B4',
+  },
+  selectButtonText: {
+    color: '#FF69B4',
+    fontSize: 12,
+    fontFamily: 'Unbounded-Regular',
+  },
+  selectButtonTextSelected: {
+    color: 'white',
+    fontSize: 12,
+    fontFamily: 'Unbounded-Regular',
+  },
+  spacer: {
+    height: 20,
   },
   createButton: {
     backgroundColor: '#FF69B4',
     padding: 15,
     borderRadius: 25,
     alignItems: 'center',
-    margin: 20,
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
   },
   createButtonDisabled: {
     backgroundColor: '#E5E5E5',

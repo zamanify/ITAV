@@ -55,3 +55,5 @@ Simple as that!
 Removed dependencies in package.json
 
 "expo-camera": "~16.1.5",
+
+After editing `package.json`, run `npm install` to sync dependencies.
