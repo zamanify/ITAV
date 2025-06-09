@@ -54,8 +54,8 @@ export default function OnboardingStep1() {
     if (field === 'mobile') {
       processedValue = value.replace(/[^\d\s+]/g, '');
     } else if (field === 'email') {
-      // Trim whitespace from email input to prevent validation issues
-      processedValue = value.trim();
+      // Remove all whitespace characters from email input to prevent validation issues
+      processedValue = value.replace(/\s/g, '').trim();
     }
     
     setFormData(prev => ({
@@ -136,12 +136,12 @@ export default function OnboardingStep1() {
       const normalizedPhone = normalizePhoneNumber(formData.mobile);
       const { firstName, lastName, email, password, streetAddress, postalCode, city } = formData;
       
-      // Ensure email is trimmed before sending to Supabase
-      const trimmedEmail = email.trim();
+      // Ensure email has all whitespace removed before sending to Supabase
+      const cleanedEmail = email.replace(/\s/g, '').trim();
 
       // First, try to sign up the user
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email: trimmedEmail,
+        email: cleanedEmail,
         password,
       });
 
@@ -166,7 +166,7 @@ export default function OnboardingStep1() {
             id: data.user.id,
             first_name: firstName,
             last_name: lastName,
-            email: trimmedEmail,
+            email: cleanedEmail,
             phone_number: normalizedPhone,
             street_address: streetAddress,
             zip_code: postalCode,

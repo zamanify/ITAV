@@ -77,8 +77,8 @@ export default function EditProfileScreen() {
   };
 
   const handleInputChange = (field: keyof UserData, value: string) => {
-    // Trim whitespace from email input to prevent validation issues
-    const processedValue = field === 'email' ? value.trim() : value;
+    // Remove all whitespace characters from email input to prevent validation issues
+    const processedValue = field === 'email' ? value.replace(/\s/g, '').trim() : value;
     setFormData(prev => ({ ...prev, [field]: processedValue }));
     setFieldErrors(prev => ({ ...prev, [field]: '' }));
   };
@@ -129,13 +129,13 @@ export default function EditProfileScreen() {
     setError(null);
 
     const normalizedPhone = normalizePhoneNumber(formData.phone);
-    // Ensure email is trimmed before sending to Supabase
-    const trimmedEmail = formData.email.trim();
+    // Ensure email has all whitespace removed before sending to Supabase
+    const cleanedEmail = formData.email.replace(/\s/g, '').trim();
 
     const { error: userError } = await supabase
       .from('users')
       .update({
-        email: trimmedEmail,
+        email: cleanedEmail,
         phone_number: normalizedPhone,
         street_address: formData.streetAddress,
         zip_code: formData.postalCode,
@@ -150,7 +150,7 @@ export default function EditProfileScreen() {
       return;
     }
 
-    const { error: authError } = await supabase.auth.updateUser({ email: trimmedEmail });
+    const { error: authError } = await supabase.auth.updateUser({ email: cleanedEmail });
 
     if (authError) {
       console.error('Error updating auth user:', authError);
