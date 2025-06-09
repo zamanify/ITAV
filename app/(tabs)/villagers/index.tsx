@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../../components/AppFooter';
 import GroupSelectionModal from '../../../components/GroupSelectionModal';
+import VillagerMessageModal from '../../../components/VillagerMessageModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -64,6 +65,8 @@ export default function VillagersScreen() {
   const [groupModalVisible, setGroupModalVisible] = useState(false);
   const [selectedVillager, setSelectedVillager] = useState<{ id: string; name: string } | null>(null);
   const [processingBlockId, setProcessingBlockId] = useState<string | null>(null);
+  const [messageModalVisible, setMessageModalVisible] = useState(false);
+  const [selectedVillagerForMessage, setSelectedVillagerForMessage] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -459,6 +462,16 @@ export default function VillagersScreen() {
     setSelectedVillager(null);
   };
 
+  const handleSendMessage = (villager: Villager) => {
+    setSelectedVillagerForMessage({ id: villager.id, name: villager.name });
+    setMessageModalVisible(true);
+  };
+
+  const handleCloseMessageModal = () => {
+    setMessageModalVisible(false);
+    setSelectedVillagerForMessage(null);
+  };
+
   if (!fontsLoaded) {
     return null;
   }
@@ -486,7 +499,10 @@ export default function VillagersScreen() {
         <UserPlus size={24} color="#666" />
         <Text style={styles.actionButtonText}>LÄGG TILL{'\n'}I GRUPP</Text>
       </Pressable>
-      <Pressable style={styles.actionButton}>
+      <Pressable 
+        style={styles.actionButton}
+        onPress={() => handleSendMessage(villager)}
+      >
         <MessageCircle size={24} color="#666" />
         <Text style={styles.actionButtonText}>SKICKA{'\n'}MEDDELANDE</Text>
       </Pressable>
@@ -725,6 +741,15 @@ export default function VillagersScreen() {
           onClose={handleCloseGroupModal}
           villagerId={selectedVillager.id}
           villagerName={selectedVillager.name}
+        />
+      )}
+
+      {/* Message Modal */}
+      {selectedVillagerForMessage && (
+        <VillagerMessageModal
+          visible={messageModalVisible}
+          onClose={handleCloseMessageModal}
+          villager={selectedVillagerForMessage}
         />
       )}
 

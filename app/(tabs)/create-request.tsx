@@ -1,12 +1,14 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Platform } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { ArrowLeft, ChevronDown, X } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import VillagerSelectionModal from '../../components/VillagerSelectionModal';
 import HoodSelectionModal from '../../components/HoodSelectionModal';
+import { supabase } from '@/lib/supabase';
+import { AuthContext } from '@/contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -19,6 +21,10 @@ export default function CreateRequestScreen() {
     'Unbounded-SemiBold': Unbounded_600SemiBold,
   });
 
+  const { session } = useContext(AuthContext);
+  const params = useLocalSearchParams();
+  const preselectedVillager = params.preselectedVillager as string;
+
   const [message, setMessage] = useState('');
   const [timeType, setTimeType] = useState<TimeType>('flexible');
   const [startDate, setStartDate] = useState(new Date());
@@ -30,24 +36,44 @@ export default function CreateRequestScreen() {
   const [showHoodModal, setShowHoodModal] = useState(false);
   const [selectedVillagers, setSelectedVillagers] = useState<string[]>([]);
   const [selectedHoods, setSelectedHoods] = useState<string[]>([]);
-
-  const mockVillagers = {
-    '1': { name: 'Billie Jansson' },
-    '2': { name: 'Eija Skarsgård' },
-    '3': { name: 'Alexander Skarsgård' },
-  };
-
-  const mockHoods = {
-    '1': { name: 'Familjen' },
-    '2': { name: 'Bästisarna' },
-    '3': { name: 'Grannar' },
-  };
+  const [villagerNames, setVillagerNames] = useState<{ [key: string]: string }>({});
+  const [hoodNames, setHoodNames] = useState<{ [key: string]: string }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    if (preselectedVillager) {
+      setSelectedVillagers([preselectedVillager]);
+      fetchVillagerName(preselectedVillager);
+    }
+  }, [preselectedVillager]);
+
+  const fetchVillagerName = async (villagerId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('first_name, last_name')
+        .eq('id', villagerId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching villager name:', error);
+        return;
+      }
+
+      setVillagerNames(prev => ({
+        ...prev,
+        [villagerId]: `${data.first_name} ${data.last_name}`
+      }));
+    } catch (err) {
+      console.error('Error fetching villager name:', err);
+    }
+  };
 
   if (!fontsLoaded) {
     return null;
@@ -57,8 +83,44 @@ export default function CreateRequestScreen() {
     router.back();
   };
 
-  const handlePublish = () => {
-    router.back();
+  const handlePublish = async () => {
+    if (!session?.user?.id || isSubmitting || !message.trim() || !duration.trim()) return;
+
+    try {
+      setIsSubmitting(true);
+
+      // Create the request
+      const requestData = {
+        requester_id: session.user.id,
+        message: message.trim(),
+        is_offer: false,
+        status: 'open',
+        time_slot: timeType === 'specific' ? startDate.toISOString() : null,
+        flexible: timeType === 'flexible',
+        minutes_logged: parseInt(duration),
+        group_id: selectedHoods.length > 0 ? selectedHoods[0] : null, // For now, just use the first selected hood
+      };
+
+      const { data: request, error: requestError } = await supabase
+        .from('requests')
+        .insert(requestData)
+        .select()
+        .single();
+
+      if (requestError) {
+        console.error('Error creating request:', requestError);
+        return;
+      }
+
+      // TODO: Handle villager-specific requests (not group requests)
+      // This would require a separate table or mechanism to track individual recipients
+
+      router.back();
+    } catch (err) {
+      console.error('Error publishing request:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formatDate = (date: Date) => {
@@ -93,6 +155,8 @@ export default function CreateRequestScreen() {
   const removeHood = (hoodId: string) => {
     setSelectedHoods(prev => prev.filter(id => id !== hoodId));
   };
+
+  const isFormValid = message.trim() && duration.trim() && (selectedVillagers.length > 0 || selectedHoods.length > 0);
 
   return (
     <View style={styles.container}>
@@ -271,7 +335,7 @@ export default function CreateRequestScreen() {
               {selectedVillagers.map(id => (
                 <View key={id} style={styles.selectedItemTag}>
                   <Text style={styles.selectedItemName}>
-                    {mockVillagers[id as keyof typeof mockVillagers]?.name}
+                    {villagerNames[id] || 'Laddar...'}
                   </Text>
                   <Pressable 
                     style={styles.removeItemButton}
@@ -292,7 +356,7 @@ export default function CreateRequestScreen() {
               {selectedHoods.map(id => (
                 <View key={id} style={styles.selectedItemTag}>
                   <Text style={styles.selectedItemName}>
-                    {mockHoods[id as keyof typeof mockHoods]?.name}
+                    {hoodNames[id] || 'Laddar...'}
                   </Text>
                   <Pressable 
                     style={styles.removeItemButton}
@@ -324,11 +388,13 @@ export default function CreateRequestScreen() {
       </ScrollView>
 
       <Pressable 
-        style={[styles.publishButton, !message && styles.publishButtonDisabled]} 
+        style={[styles.publishButton, (!isFormValid || isSubmitting) && styles.publishButtonDisabled]} 
         onPress={handlePublish}
-        disabled={!message}
+        disabled={!isFormValid || isSubmitting}
       >
-        <Text style={styles.publishButtonText}>Publicera</Text>
+        <Text style={styles.publishButtonText}>
+          {isSubmitting ? 'Publicerar...' : 'Publicera'}
+        </Text>
       </Pressable>
     </View>
   );
