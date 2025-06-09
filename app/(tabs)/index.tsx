@@ -486,14 +486,13 @@ export default function Dashboard() {
               style={[styles.actionButton, styles.requestButton]}
               onPress={handleNavigateToCreateRequest}
             >
-              <Plus size={20} color="white" strokeWidth={2.5} />
               <Text style={styles.actionButtonText}>Ny förfrågan</Text>
             </Pressable>
             <Pressable 
               style={[styles.actionButton, styles.offerButton]}
               onPress={handleNavigateToCreateOffer}
             >
-              <Plus size={20} color="white" strokeWidth={2.5} />
+              <Plus size={16} color="white" strokeWidth={2.5} />
               <Text style={styles.actionButtonText}>Nytt erbjudande</Text>
             </Pressable>
           </View>
@@ -617,18 +616,18 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 16,
+    gap: 12,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 28,
-    gap: 8,
-    minHeight: 56,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    gap: 6,
+    minHeight: 48,
   },
   requestButton: {
     backgroundColor: 'rgba(255, 105, 180, 0.3)',
@@ -642,7 +641,7 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Unbounded-SemiBold',
     textAlign: 'center',
   },
