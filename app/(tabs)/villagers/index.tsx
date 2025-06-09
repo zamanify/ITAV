@@ -17,7 +17,7 @@ type Villager = {
   phoneNumber: string;
   memberSince: string;
   balance: number;
-  status: 'connected' | 'pending' | 'request_received' | 'blocked';
+  status: 'connected' | 'pending' | 'request_received';
   connectionId: string;
 };
 
@@ -43,7 +43,7 @@ type BlockedVillager = {
   phoneNumber: string;
   memberSince: string;
   balance: number;
-  connectionId: string;
+  blockId: string;
 };
 
 export default function VillagersScreen() {
@@ -84,7 +84,7 @@ export default function VillagersScreen() {
       setIsLoading(true);
       setError(null);
 
-      // Fetch villager connections with user details
+      // Fetch villager connections with user details, excluding blocked users
       const { data: connections, error: connectionsError } = await supabase
         .from('villager_connections')
         .select(`
@@ -95,7 +95,7 @@ export default function VillagersScreen() {
           receiver:receiver_id(id, first_name, last_name, phone_number, minute_balance, created_at)
         `)
         .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
-        .neq('status', 'deleted'); // Exclude deleted connections
+        .in('status', ['pending', 'accepted', 'rejected']);
 
       if (connectionsError) {
         console.error('Error fetching villager connections:', connectionsError);
@@ -103,16 +103,52 @@ export default function VillagersScreen() {
         return;
       }
 
+      // Fetch blocked users (users that current user has blocked)
+      const { data: blockedUsers, error: blockedError } = await supabase
+        .from('user_blocks')
+        .select(`
+          id,
+          blocked:blocked_id(id, first_name, last_name, phone_number, minute_balance, created_at)
+        `)
+        .eq('blocker_id', session.user.id);
+
+      if (blockedError) {
+        console.error('Error fetching blocked users:', blockedError);
+      }
+
+      // Get list of blocked user IDs to filter out from connections
+      const blockedUserIds = new Set((blockedUsers || []).map(block => block.blocked?.id).filter(Boolean));
+
+      // Also get users who have blocked the current user
+      const { data: blockingUsers, error: blockingError } = await supabase
+        .from('user_blocks')
+        .select('blocker_id')
+        .eq('blocked_id', session.user.id);
+
+      if (blockingError) {
+        console.error('Error fetching users who blocked current user:', blockingError);
+      }
+
+      const blockingUserIds = new Set((blockingUsers || []).map(block => block.blocker_id));
+
+      // Filter connections to exclude blocked relationships
+      const filteredConnections = (connections || []).filter(connection => {
+        const otherUserId = connection.sender?.id === session.user.id 
+          ? connection.receiver?.id 
+          : connection.sender?.id;
+        
+        return otherUserId && 
+               !blockedUserIds.has(otherUserId) && 
+               !blockingUserIds.has(otherUserId);
+      });
+
       // Separate different types of connections
-      const acceptedConnections = (connections || []).filter(conn => conn.status === 'accepted');
-      const incomingRequests = (connections || []).filter(conn => 
+      const acceptedConnections = filteredConnections.filter(conn => conn.status === 'accepted');
+      const incomingRequests = filteredConnections.filter(conn => 
         conn.status === 'pending' && conn.receiver?.id === session.user.id
       );
-      const outgoingRequests = (connections || []).filter(conn => 
+      const outgoingRequests = filteredConnections.filter(conn => 
         conn.status === 'pending' && conn.sender?.id === session.user.id
-      );
-      const blockedConnections = (connections || []).filter(conn => 
-        conn.status === 'blocked' && conn.sender?.id === session.user.id
       );
 
       // Transform accepted connections to villagers
@@ -174,22 +210,22 @@ export default function VillagersScreen() {
         };
       }).filter(Boolean) as SentRequest[];
 
-      // Transform blocked connections
-      const blockedData: BlockedVillager[] = blockedConnections.map(connection => {
-        const receiver = connection.receiver;
-        if (!receiver) return null;
+      // Transform blocked users
+      const blockedData: BlockedVillager[] = (blockedUsers || []).map(block => {
+        const blockedUser = block.blocked;
+        if (!blockedUser) return null;
 
         return {
-          id: receiver.id,
-          name: `${receiver.first_name} ${receiver.last_name}`,
-          phoneNumber: receiver.phone_number || '',
-          memberSince: new Date(receiver.created_at).toLocaleDateString('sv-SE', {
+          id: blockedUser.id,
+          name: `${blockedUser.first_name} ${blockedUser.last_name}`,
+          phoneNumber: blockedUser.phone_number || '',
+          memberSince: new Date(blockedUser.created_at).toLocaleDateString('sv-SE', {
             day: 'numeric',
             month: 'long',
             year: 'numeric'
           }),
-          balance: receiver.minute_balance || 0,
-          connectionId: connection.id
+          balance: blockedUser.minute_balance || 0,
+          blockId: block.id
         };
       }).filter(Boolean) as BlockedVillager[];
 
@@ -253,11 +289,13 @@ export default function VillagersScreen() {
       try {
         setProcessingBlockId(villager.id);
 
-        // Update connection status to 'blocked'
+        // Insert into user_blocks table
         const { error } = await supabase
-          .from('villager_connections')
-          .update({ status: 'blocked' })
-          .eq('id', villager.connectionId);
+          .from('user_blocks')
+          .insert({
+            blocker_id: session.user.id,
+            blocked_id: villager.id
+          });
 
         if (error) {
           console.error('Error blocking villager:', error);
@@ -278,8 +316,11 @@ export default function VillagersScreen() {
           phoneNumber: villager.phoneNumber,
           memberSince: villager.memberSince,
           balance: villager.balance,
-          connectionId: villager.connectionId
+          blockId: '' // Will be set when we fetch the block ID
         }]);
+
+        // Refresh to get the correct block ID
+        fetchVillagersAndRequests();
       } catch (err) {
         console.error('Error blocking villager:', err);
         const errorMessage = 'Ett oväntat fel uppstod. Försök igen.';
@@ -327,11 +368,12 @@ export default function VillagersScreen() {
       try {
         setProcessingBlockId(blockedVillager.id);
 
-        // Update connection status back to 'accepted' instead of deleting
+        // Delete from user_blocks table
         const { error } = await supabase
-          .from('villager_connections')
-          .update({ status: 'accepted' })
-          .eq('id', blockedVillager.connectionId);
+          .from('user_blocks')
+          .delete()
+          .eq('blocker_id', session.user.id)
+          .eq('blocked_id', blockedVillager.id);
 
         if (error) {
           console.error('Error unblocking villager:', error);
@@ -344,17 +386,30 @@ export default function VillagersScreen() {
           return;
         }
 
-        // Remove from blocked list and add back to villagers list
+        // Remove from blocked list
         setBlockedVillagers(prev => prev.filter(b => b.id !== blockedVillager.id));
-        setVillagers(prev => [...prev, {
-          id: blockedVillager.id,
-          name: blockedVillager.name,
-          phoneNumber: blockedVillager.phoneNumber,
-          memberSince: blockedVillager.memberSince,
-          balance: blockedVillager.balance,
-          status: 'connected',
-          connectionId: blockedVillager.connectionId
-        }]);
+
+        // Check if there's still a villager connection that should be restored
+        const { data: connection, error: connectionError } = await supabase
+          .from('villager_connections')
+          .select('id, status')
+          .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
+          .or(`sender_id.eq.${blockedVillager.id},receiver_id.eq.${blockedVillager.id}`)
+          .eq('status', 'accepted')
+          .maybeSingle();
+
+        if (!connectionError && connection) {
+          // Add back to villagers list if there's an accepted connection
+          setVillagers(prev => [...prev, {
+            id: blockedVillager.id,
+            name: blockedVillager.name,
+            phoneNumber: blockedVillager.phoneNumber,
+            memberSince: blockedVillager.memberSince,
+            balance: blockedVillager.balance,
+            status: 'connected',
+            connectionId: connection.id
+          }]);
+        }
       } catch (err) {
         console.error('Error unblocking villager:', err);
         const errorMessage = 'Ett oväntat fel uppstod. Försök igen.';
@@ -371,7 +426,7 @@ export default function VillagersScreen() {
     // Use platform-appropriate confirmation dialog
     if (Platform.OS === 'web') {
       const confirmed = confirm(
-        `Är du säker på att du vill avblockera ${blockedVillager.name}? Ni kommer återställas som villagers och kunna se varandra i era listor igen.`
+        `Är du säker på att du vill avblockera ${blockedVillager.name}? Ni kommer kunna se varandra i era listor igen om ni fortfarande är anslutna som villagers.`
       );
       if (confirmed) {
         await performUnblock();
@@ -379,7 +434,7 @@ export default function VillagersScreen() {
     } else {
       Alert.alert(
         'Avblockera villager',
-        `Är du säker på att du vill avblockera ${blockedVillager.name}? Ni kommer återställas som villagers och kunna se varandra i era listor igen.`,
+        `Är du säker på att du vill avblockera ${blockedVillager.name}? Ni kommer kunna se varandra i era listor igen om ni fortfarande är anslutna som villagers.`,
         [
           {
             text: 'Avbryt',
@@ -442,7 +497,7 @@ export default function VillagersScreen() {
       >
         <UserX size={24} color={processingBlockId === villager.id ? "#999" : "#666"} />
         <Text style={[styles.actionButtonText, processingBlockId === villager.id && styles.actionButtonTextDisabled]}>
-          {processingBlockId === villager.id ? 'BLOCKERAR...' : 'BLOCKERA\nOCH RADERA'}
+          {processingBlockId === villager.id ? 'BLOCKERAR...' : 'BLOCKERA'}
         </Text>
       </Pressable>
     </View>

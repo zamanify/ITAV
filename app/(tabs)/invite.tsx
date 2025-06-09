@@ -16,7 +16,7 @@ type Contact = {
   id: string;
   name: string;
   phoneNumber: string;
-  status: 'pending' | 'invited' | 'in_app' | 'connected' | 'self' | 'not_app_user';
+  status: 'pending' | 'invited' | 'in_app' | 'connected' | 'self' | 'not_app_user' | 'blocked_by_me' | 'blocked_by_them';
   isExistingUser?: boolean;
   userId?: string;
 };
@@ -110,6 +110,24 @@ export default function InviteScreen() {
         }
       });
 
+      // Get blocking relationships
+      const [blockedByMeResult, blockedByThemResult] = await Promise.all([
+        // Users blocked by current user
+        supabase
+          .from('user_blocks')
+          .select('blocked_id')
+          .eq('blocker_id', session?.user?.id),
+        
+        // Users who blocked current user
+        supabase
+          .from('user_blocks')
+          .select('blocker_id')
+          .eq('blocked_id', session?.user?.id)
+      ]);
+
+      const blockedByMe = new Set((blockedByMeResult.data || []).map(block => block.blocked_id));
+      const blockedByThem = new Set((blockedByThemResult.data || []).map(block => block.blocker_id));
+
       // Get existing invites and connections from database
       const [invitesResult, connectionsResult] = await Promise.all([
         // Get pending invites sent by current user
@@ -140,7 +158,7 @@ export default function InviteScreen() {
       const invites = invitesResult.data || [];
       const connections = connectionsResult.data || [];
 
-      // Create a detailed status map with priority: connections > invites > app users
+      // Create a detailed status map with priority: blocking > connections > invites > app users
       const detailedStatusMap = new Map<string, { 
         status: string; 
         name?: string; 
@@ -148,7 +166,26 @@ export default function InviteScreen() {
         userId?: string; 
       }>();
 
-      // First, add connections (highest priority)
+      // First, add blocking relationships (highest priority)
+      allAppUsersMap.forEach((userData, phoneNumber) => {
+        if (blockedByMe.has(userData.userId)) {
+          detailedStatusMap.set(phoneNumber, {
+            status: 'blocked_by_me',
+            name: userData.name,
+            isExistingUser: true,
+            userId: userData.userId
+          });
+        } else if (blockedByThem.has(userData.userId)) {
+          detailedStatusMap.set(phoneNumber, {
+            status: 'blocked_by_them',
+            name: userData.name,
+            isExistingUser: true,
+            userId: userData.userId
+          });
+        }
+      });
+
+      // Then, add connections (high priority) - only if not already blocked
       connections.forEach(connection => {
         const otherUser = connection.sender?.id === session?.user?.id 
           ? connection.receiver 
@@ -157,12 +194,15 @@ export default function InviteScreen() {
         if (otherUser?.phone_number) {
           const normalized = normalizePhoneNumber(otherUser.phone_number);
           const name = `${otherUser.first_name} ${otherUser.last_name}`;
-          detailedStatusMap.set(normalized, { 
-            status: connection.status === 'accepted' ? 'connected' : 'pending',
-            name,
-            isExistingUser: true,
-            userId: otherUser.id
-          });
+          
+          if (!detailedStatusMap.has(normalized)) {
+            detailedStatusMap.set(normalized, { 
+              status: connection.status === 'accepted' ? 'connected' : 'pending',
+              name,
+              isExistingUser: true,
+              userId: otherUser.id
+            });
+          }
         }
       });
 
@@ -178,7 +218,7 @@ export default function InviteScreen() {
         }
       });
 
-      // Finally, add app users who aren't connected or invited (lowest priority)
+      // Finally, add app users who aren't connected, invited, or blocked (lowest priority)
       allAppUsersMap.forEach((userData, phoneNumber) => {
         if (!detailedStatusMap.has(phoneNumber) && phoneNumber !== currentUserPhone) {
           detailedStatusMap.set(phoneNumber, {
@@ -346,6 +386,10 @@ export default function InviteScreen() {
         return 'Skicka vänförfrågan';
       case 'not_app_user':
         return 'Bjud in till appen';
+      case 'blocked_by_me':
+        return 'Blockerad av dig';
+      case 'blocked_by_them':
+        return 'Har blockerat dig';
       default:
         return contact.isExistingUser ? 'Skicka vänförfrågan' : 'Bjud in till appen';
     }
@@ -365,6 +409,10 @@ export default function InviteScreen() {
         return styles.statusTextInApp;
       case 'not_app_user':
         return styles.statusTextNotAppUser;
+      case 'blocked_by_me':
+        return styles.statusTextBlocked;
+      case 'blocked_by_them':
+        return styles.statusTextBlocked;
       default:
         return styles.statusTextNotAppUser;
     }
@@ -375,6 +423,8 @@ export default function InviteScreen() {
            contact.status !== 'connected' && 
            contact.status !== 'invited' &&
            contact.status !== 'pending' &&
+           contact.status !== 'blocked_by_me' &&
+           contact.status !== 'blocked_by_them' &&
            (contact.status === 'in_app' || contact.status === 'not_app_user');
   };
 
@@ -650,6 +700,11 @@ const styles = StyleSheet.create({
   },
   statusTextNotAppUser: {
     color: '#FF69B4',
+    fontSize: 14,
+    fontFamily: 'Unbounded-Regular',
+  },
+  statusTextBlocked: {
+    color: '#FF4444',
     fontSize: 14,
     fontFamily: 'Unbounded-Regular',
   },

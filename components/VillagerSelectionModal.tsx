@@ -10,7 +10,7 @@ type Villager = {
   phoneNumber: string;
   memberSince: string;
   balance: number;
-  status: 'connected' | 'pending' | 'request_received' | 'blocked';
+  status: 'connected' | 'pending' | 'request_received';
 };
 
 type Props = {
@@ -43,7 +43,7 @@ export default function VillagerSelectionModal({ visible, onClose, onSelectVilla
     try {
       setIsLoading(true);
 
-      // Fetch villager connections with user details
+      // Fetch villager connections with user details, excluding blocked users
       const { data: connections, error: connectionsError } = await supabase
         .from('villager_connections')
         .select(`
@@ -61,13 +61,33 @@ export default function VillagerSelectionModal({ visible, onClose, onSelectVilla
         return;
       }
 
-      // Transform the data to get the other user in each connection
+      // Get blocked user IDs to filter out
+      const [blockedByMeResult, blockedByThemResult] = await Promise.all([
+        supabase
+          .from('user_blocks')
+          .select('blocked_id')
+          .eq('blocker_id', session.user.id),
+        supabase
+          .from('user_blocks')
+          .select('blocker_id')
+          .eq('blocked_id', session.user.id)
+      ]);
+
+      const blockedByMe = new Set((blockedByMeResult.data || []).map(block => block.blocked_id));
+      const blockedByThem = new Set((blockedByThemResult.data || []).map(block => block.blocker_id));
+
+      // Transform the data to get the other user in each connection, excluding blocked users
       const villagersData: Villager[] = (connections || []).map(connection => {
         const otherUser = connection.sender?.id === session.user.id 
           ? connection.receiver 
           : connection.sender;
 
         if (!otherUser) return null;
+
+        // Skip if user is blocked
+        if (blockedByMe.has(otherUser.id) || blockedByThem.has(otherUser.id)) {
+          return null;
+        }
 
         return {
           id: otherUser.id,

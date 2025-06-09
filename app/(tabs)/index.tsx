@@ -123,15 +123,46 @@ export default function Dashboard() {
       }
 
       // Count villager connections (accepted connections where user is sender or receiver)
-      const { count: villagersCount, error: villagersError } = await supabase
+      // Exclude blocked relationships
+      const { data: connections, error: connectionsError } = await supabase
         .from('villager_connections')
-        .select('*', { count: 'exact', head: true })
+        .select(`
+          id,
+          sender_id,
+          receiver_id
+        `)
         .eq('status', 'accepted')
         .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`);
 
-      if (villagersError) {
-        console.error('Error fetching villagers count:', villagersError);
+      if (connectionsError) {
+        console.error('Error fetching villagers connections:', connectionsError);
       }
+
+      // Get blocked user IDs to filter out
+      const [blockedByMeResult, blockedByThemResult] = await Promise.all([
+        supabase
+          .from('user_blocks')
+          .select('blocked_id')
+          .eq('blocker_id', session.user.id),
+        supabase
+          .from('user_blocks')
+          .select('blocker_id')
+          .eq('blocked_id', session.user.id)
+      ]);
+
+      const blockedByMe = new Set((blockedByMeResult.data || []).map(block => block.blocked_id));
+      const blockedByThem = new Set((blockedByThemResult.data || []).map(block => block.blocker_id));
+
+      // Filter out blocked connections
+      const nonBlockedConnections = (connections || []).filter(connection => {
+        const otherUserId = connection.sender_id === session.user.id 
+          ? connection.receiver_id 
+          : connection.sender_id;
+        
+        return !blockedByMe.has(otherUserId) && !blockedByThem.has(otherUserId);
+      });
+
+      const villagersCount = nonBlockedConnections.length;
 
       // Count groups where user is a member
       const { count: hoodsCount, error: hoodsError } = await supabase
