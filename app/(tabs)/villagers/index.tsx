@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../../components/AppFooter';
 import GroupSelectionModal from '../../../components/GroupSelectionModal';
+import VillagerMessageModal from '../../../components/VillagerMessageModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -64,6 +65,8 @@ export default function VillagersScreen() {
   const [groupModalVisible, setGroupModalVisible] = useState(false);
   const [selectedVillager, setSelectedVillager] = useState<{ id: string; name: string } | null>(null);
   const [processingBlockId, setProcessingBlockId] = useState<string | null>(null);
+  const [messageModalVisible, setMessageModalVisible] = useState(false);
+  const [selectedVillagerForMessage, setSelectedVillagerForMessage] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -459,6 +462,16 @@ export default function VillagersScreen() {
     setSelectedVillager(null);
   };
 
+  const handleSendMessage = (villager: Villager) => {
+    setSelectedVillagerForMessage({ id: villager.id, name: villager.name });
+    setMessageModalVisible(true);
+  };
+
+  const handleCloseMessageModal = () => {
+    setMessageModalVisible(false);
+    setSelectedVillagerForMessage(null);
+  };
+
   if (!fontsLoaded) {
     return null;
   }
@@ -483,11 +496,14 @@ export default function VillagersScreen() {
         style={styles.actionButton}
         onPress={() => handleAddToGroup(villager)}
       >
-        <UserPlus size={24} color="#666" />
+        <UserPlus size={16} color="#666" />
         <Text style={styles.actionButtonText}>LÄGG TILL{'\n'}I GRUPP</Text>
       </Pressable>
-      <Pressable style={styles.actionButton}>
-        <MessageCircle size={24} color="#666" />
+      <Pressable 
+        style={styles.actionButton}
+        onPress={() => handleSendMessage(villager)}
+      >
+        <MessageCircle size={16} color="#666" />
         <Text style={styles.actionButtonText}>SKICKA{'\n'}MEDDELANDE</Text>
       </Pressable>
       <Pressable 
@@ -495,7 +511,7 @@ export default function VillagersScreen() {
         onPress={() => handleBlockVillager(villager)}
         disabled={processingBlockId === villager.id}
       >
-        <UserX size={24} color={processingBlockId === villager.id ? "#999" : "#666"} />
+        <UserX size={16} color={processingBlockId === villager.id ? "#999" : "#666"} />
         <Text style={[styles.actionButtonText, processingBlockId === villager.id && styles.actionButtonTextDisabled]}>
           {processingBlockId === villager.id ? 'BLOCKERAR...' : 'BLOCKERA'}
         </Text>
@@ -690,11 +706,11 @@ export default function VillagersScreen() {
                     )}
                     {filteredVillagers.map((villager) => (
                       <View key={villager.id} style={styles.villagerCard}>
-                        <View style={styles.villagerInfo}>
+                        <View style={styles.villagerHeader}>
                           <Text style={styles.villagerName}>{villager.name}</Text>
-                          <Text style={styles.villagerDetails}>
-                            {villager.phoneNumber} | Medlem sedan {villager.memberSince}
-                          </Text>
+                        </View>
+                        <View style={styles.villagerDetails}>
+                          <Text style={styles.villagerPhone}>{villager.phoneNumber}</Text>
                           <Text style={styles.villagerBalance}>
                             Saldo {villager.balance > 0 ? '+' : ''}{villager.balance} min
                           </Text>
@@ -725,6 +741,15 @@ export default function VillagersScreen() {
           onClose={handleCloseGroupModal}
           villagerId={selectedVillager.id}
           villagerName={selectedVillager.name}
+        />
+      )}
+
+      {/* Message Modal */}
+      {selectedVillagerForMessage && (
+        <VillagerMessageModal
+          visible={messageModalVisible}
+          onClose={handleCloseMessageModal}
+          villager={selectedVillagerForMessage}
         />
       )}
 
@@ -1002,52 +1027,65 @@ const styles = StyleSheet.create({
   unblockButtonTextDisabled: {
     color: '#999',
   },
+  // New improved villager card styles
   villagerCard: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
+    backgroundColor: '#FFF8FC',
+    borderWidth: 1,
+    borderColor: '#FFE4F1',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
   },
-  villagerInfo: {
-    marginBottom: 20,
+  villagerHeader: {
+    marginBottom: 8,
   },
   villagerName: {
     fontSize: 18,
     color: '#FF69B4',
     fontFamily: 'Unbounded-SemiBold',
-    marginBottom: 5,
   },
   villagerDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  villagerPhone: {
     fontSize: 14,
     color: '#666',
     fontFamily: 'Unbounded-Regular',
-    marginBottom: 5,
   },
   villagerBalance: {
     fontSize: 14,
-    color: '#333',
+    color: '#FF69B4',
     fontFamily: 'Unbounded-Regular',
+    fontWeight: '600',
   },
   actionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
-    paddingTop: 20,
+    gap: 8,
   },
   actionButton: {
-    alignItems: 'center',
     flex: 1,
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
   },
   actionButtonDisabled: {
     opacity: 0.6,
   },
   actionButtonText: {
-    fontSize: 10,
+    fontSize: 8,
     color: '#666',
     textAlign: 'center',
-    marginTop: 5,
+    marginTop: 4,
     fontFamily: 'Unbounded-Regular',
+    lineHeight: 10,
   },
   actionButtonTextDisabled: {
     color: '#999',
