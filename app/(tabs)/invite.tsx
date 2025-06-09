@@ -496,7 +496,7 @@ export default function InviteScreen() {
                   >
                     {invitingContactId === contact.id ? (
                       <>
-                        <ActivityIndicator size="small\" color="#FF69B4" />
+                        <ActivityIndicator size="small\" color=\"#FF69B4" />
                         <Text style={[
                           styles.inviteButtonText,
                           styles.inviteButtonTextLoading
