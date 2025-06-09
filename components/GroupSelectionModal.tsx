@@ -206,7 +206,7 @@ export default function GroupSelectionModal({ visible, onClose, villagerId, vill
                 >
                   {isAdding === group.id ? (
                     <>
-                      <ActivityIndicator size="small" color="#FF69B4" />
+                      <ActivityIndicator size="small\" color="#FF69B4" />
                       <Text style={styles.addButtonTextLoading}>Lägger till...</Text>
                     </>
                   ) : (
