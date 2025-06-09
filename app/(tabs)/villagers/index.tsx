@@ -386,7 +386,7 @@ export default function VillagersScreen() {
       >
         <UserX size={24} color={processingBlockId === villager.id ? "#999" : "#666"} />
         <Text style={[styles.actionButtonText, processingBlockId === villager.id && styles.actionButtonTextDisabled]}>
-          {processingBlockId === villager.id ? 'BLOCKERAR...' : 'BLOCKERA{\'\n'}OCH RADERA'}
+          {processingBlockId === villager.id ? 'BLOCKERAR...' : 'BLOCKERA\nOCH RADERA'}
         </Text>
       </Pressable>
     </View>
