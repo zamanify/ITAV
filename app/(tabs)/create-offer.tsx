@@ -146,7 +146,6 @@ export default function CreateOfferScreen() {
         time_slot: timeType === 'specific' ? startDate.toISOString() : null,
         flexible: timeType === 'flexible',
         minutes_logged: parseInt(duration),
-        group_id: selectedHoods.length > 0 ? selectedHoods[0] : null, // For now, just use the first selected hood
       };
 
       const { data: request, error: requestError } = await supabase
@@ -160,8 +159,37 @@ export default function CreateOfferScreen() {
         return;
       }
 
-      // TODO: Handle villager-specific offers (not group offers)
-      // This would require a separate table or mechanism to track individual recipients
+      // Create request-group associations
+      if (selectedHoods.length > 0) {
+        const groupInserts = selectedHoods.map(groupId => ({
+          request_id: request.id,
+          group_id: groupId
+        }));
+
+        const { error: groupError } = await supabase
+          .from('request_groups')
+          .insert(groupInserts);
+
+        if (groupError) {
+          console.error('Error creating request-group associations:', groupError);
+        }
+      }
+
+      // Create request-villager associations
+      if (selectedVillagers.length > 0) {
+        const villagerInserts = selectedVillagers.map(villagerId => ({
+          request_id: request.id,
+          user_id: villagerId
+        }));
+
+        const { error: villagerError } = await supabase
+          .from('request_villagers')
+          .insert(villagerInserts);
+
+        if (villagerError) {
+          console.error('Error creating request-villager associations:', villagerError);
+        }
+      }
 
       // Clear selections after successful submission
       setSelectedVillagers([]);
