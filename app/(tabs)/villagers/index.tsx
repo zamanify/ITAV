@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
@@ -247,95 +247,139 @@ export default function VillagersScreen() {
   const handleBlockVillager = async (villager: Villager) => {
     if (!session?.user?.id || processingBlockId === villager.id) return;
 
-    Alert.alert(
-      'Blockera villager',
-      `Är du säker på att du vill blockera ${villager.name}? Ni kommer båda att tas bort från varandras villager-listor och kan inte lägga till varandra igen förrän du avblockerar.`,
-      [
-        {
-          text: 'Avbryt',
-          style: 'cancel',
-        },
-        {
-          text: 'Blockera',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setProcessingBlockId(villager.id);
+    const performBlock = async () => {
+      try {
+        setProcessingBlockId(villager.id);
 
-              // Update connection status to 'blocked'
-              const { error } = await supabase
-                .from('villager_connections')
-                .update({ status: 'blocked' })
-                .eq('id', villager.connectionId);
+        // Update connection status to 'blocked'
+        const { error } = await supabase
+          .from('villager_connections')
+          .update({ status: 'blocked' })
+          .eq('id', villager.connectionId);
 
-              if (error) {
-                console.error('Error blocking villager:', error);
-                Alert.alert('Fel', 'Kunde inte blockera villager. Försök igen.');
-                return;
-              }
+        if (error) {
+          console.error('Error blocking villager:', error);
+          const errorMessage = 'Kunde inte blockera villager. Försök igen.';
+          if (Platform.OS === 'web') {
+            alert(errorMessage);
+          } else {
+            Alert.alert('Fel', errorMessage);
+          }
+          return;
+        }
 
-              // Remove from villagers list and add to blocked list
-              setVillagers(prev => prev.filter(v => v.id !== villager.id));
-              setBlockedVillagers(prev => [...prev, {
-                id: villager.id,
-                name: villager.name,
-                phoneNumber: villager.phoneNumber,
-                memberSince: villager.memberSince,
-                connectionId: villager.connectionId
-              }]);
-            } catch (err) {
-              console.error('Error blocking villager:', err);
-              Alert.alert('Fel', 'Ett oväntat fel uppstod. Försök igen.');
-            } finally {
-              setProcessingBlockId(null);
-            }
+        // Remove from villagers list and add to blocked list
+        setVillagers(prev => prev.filter(v => v.id !== villager.id));
+        setBlockedVillagers(prev => [...prev, {
+          id: villager.id,
+          name: villager.name,
+          phoneNumber: villager.phoneNumber,
+          memberSince: villager.memberSince,
+          connectionId: villager.connectionId
+        }]);
+      } catch (err) {
+        console.error('Error blocking villager:', err);
+        const errorMessage = 'Ett oväntat fel uppstod. Försök igen.';
+        if (Platform.OS === 'web') {
+          alert(errorMessage);
+        } else {
+          Alert.alert('Fel', errorMessage);
+        }
+      } finally {
+        setProcessingBlockId(null);
+      }
+    };
+
+    // Use platform-appropriate confirmation dialog
+    if (Platform.OS === 'web') {
+      const confirmed = confirm(
+        `Är du säker på att du vill blockera ${villager.name}? Ni kommer båda att tas bort från varandras villager-listor och kan inte lägga till varandra igen förrän du avblockerar.`
+      );
+      if (confirmed) {
+        await performBlock();
+      }
+    } else {
+      Alert.alert(
+        'Blockera villager',
+        `Är du säker på att du vill blockera ${villager.name}? Ni kommer båda att tas bort från varandras villager-listor och kan inte lägga till varandra igen förrän du avblockerar.`,
+        [
+          {
+            text: 'Avbryt',
+            style: 'cancel',
           },
-        },
-      ]
-    );
+          {
+            text: 'Blockera',
+            style: 'destructive',
+            onPress: performBlock,
+          },
+        ]
+      );
+    }
   };
 
   const handleUnblockVillager = async (blockedVillager: BlockedVillager) => {
     if (!session?.user?.id || processingBlockId === blockedVillager.id) return;
 
-    Alert.alert(
-      'Avblockera villager',
-      `Är du säker på att du vill avblockera ${blockedVillager.name}? Ni kommer kunna lägga till varandra som villagers igen.`,
-      [
-        {
-          text: 'Avbryt',
-          style: 'cancel',
-        },
-        {
-          text: 'Avblockera',
-          onPress: async () => {
-            try {
-              setProcessingBlockId(blockedVillager.id);
+    const performUnblock = async () => {
+      try {
+        setProcessingBlockId(blockedVillager.id);
 
-              // Delete the connection entirely when unblocking
-              const { error } = await supabase
-                .from('villager_connections')
-                .delete()
-                .eq('id', blockedVillager.connectionId);
+        // Delete the connection entirely when unblocking
+        const { error } = await supabase
+          .from('villager_connections')
+          .delete()
+          .eq('id', blockedVillager.connectionId);
 
-              if (error) {
-                console.error('Error unblocking villager:', error);
-                Alert.alert('Fel', 'Kunde inte avblockera villager. Försök igen.');
-                return;
-              }
+        if (error) {
+          console.error('Error unblocking villager:', error);
+          const errorMessage = 'Kunde inte avblockera villager. Försök igen.';
+          if (Platform.OS === 'web') {
+            alert(errorMessage);
+          } else {
+            Alert.alert('Fel', errorMessage);
+          }
+          return;
+        }
 
-              // Remove from blocked list
-              setBlockedVillagers(prev => prev.filter(b => b.id !== blockedVillager.id));
-            } catch (err) {
-              console.error('Error unblocking villager:', err);
-              Alert.alert('Fel', 'Ett oväntat fel uppstod. Försök igen.');
-            } finally {
-              setProcessingBlockId(null);
-            }
+        // Remove from blocked list
+        setBlockedVillagers(prev => prev.filter(b => b.id !== blockedVillager.id));
+      } catch (err) {
+        console.error('Error unblocking villager:', err);
+        const errorMessage = 'Ett oväntat fel uppstod. Försök igen.';
+        if (Platform.OS === 'web') {
+          alert(errorMessage);
+        } else {
+          Alert.alert('Fel', errorMessage);
+        }
+      } finally {
+        setProcessingBlockId(null);
+      }
+    };
+
+    // Use platform-appropriate confirmation dialog
+    if (Platform.OS === 'web') {
+      const confirmed = confirm(
+        `Är du säker på att du vill avblockera ${blockedVillager.name}? Ni kommer kunna lägga till varandra som villagers igen.`
+      );
+      if (confirmed) {
+        await performUnblock();
+      }
+    } else {
+      Alert.alert(
+        'Avblockera villager',
+        `Är du säker på att du vill avblockera ${blockedVillager.name}? Ni kommer kunna lägga till varandra som villagers igen.`,
+        [
+          {
+            text: 'Avbryt',
+            style: 'cancel',
           },
-        },
-      ]
-    );
+          {
+            text: 'Avblockera',
+            onPress: performUnblock,
+          },
+        ]
+      );
+    }
   };
 
   const handleAddToGroup = (villager: Villager) => {
