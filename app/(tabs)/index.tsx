@@ -168,20 +168,24 @@ export default function Dashboard() {
 
       // Get response counts for my requests/offers
       const myRequestIds = (myRequestsData || []).map(req => req.id);
-      const { data: responseCounts, error: responseError } = await supabase
-        .from('request_responses')
-        .select('request_id')
-        .in('request_id', myRequestIds);
+      let responseCountMap: Record<string, number> = {};
+      
+      if (myRequestIds.length > 0) {
+        const { data: responseCounts, error: responseError } = await supabase
+          .from('request_responses')
+          .select('request_id')
+          .in('request_id', myRequestIds);
 
-      if (responseError) {
-        console.error('Error fetching response counts:', responseError);
+        if (responseError) {
+          console.error('Error fetching response counts:', responseError);
+        } else {
+          // Count responses per request
+          responseCountMap = (responseCounts || []).reduce((acc, response) => {
+            acc[response.request_id] = (acc[response.request_id] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+        }
       }
-
-      // Count responses per request
-      const responseCountMap = (responseCounts || []).reduce((acc, response) => {
-        acc[response.request_id] = (acc[response.request_id] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
 
       // Process my requests and offers
       const processedMyRequests: RequestItem[] = [];
@@ -230,6 +234,7 @@ export default function Dashboard() {
       const groupIds = (groupMemberships || []).map(gm => gm.group_id);
 
       if (groupIds.length > 0) {
+        // Fetch requests through the request_groups junction table
         const { data: othersRequestsData, error: othersError } = await supabase
           .from('requests')
           .select(`
@@ -242,11 +247,12 @@ export default function Dashboard() {
             flexible,
             minutes_logged,
             created_at,
-            group_id,
             requester:requester_id(first_name, last_name, minute_balance),
-            group:group_id(name)
+            request_groups!inner(
+              group:group_id(name)
+            )
           `)
-          .in('group_id', groupIds)
+          .in('request_groups.group_id', groupIds)
           .neq('requester_id', session.user.id)
           .eq('status', 'open')
           .order('created_at', { ascending: false });
@@ -265,6 +271,9 @@ export default function Dashboard() {
           const createdAt = new Date(item.created_at);
           const senderName = `${item.requester.first_name} ${item.requester.last_name}`;
           
+          // Get group name from the junction table
+          const groupName = item.request_groups?.[0]?.group?.name;
+          
           const processedItem: ReceivedItem = {
             id: item.id,
             type: item.is_offer ? 'offer' : 'request',
@@ -282,7 +291,7 @@ export default function Dashboard() {
             urgency: 'NORMAL', // Mock data for now
             estimatedTime: item.minutes_logged || 0,
             balance: item.requester.minute_balance || 0,
-            groupName: item.group?.name,
+            groupName: groupName,
             senderId: item.requester_id
           };
 
