@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
 import { useEffect, useState, useContext } from 'react';
-import { ArrowLeft, UserPlus, MessageCircle, UserX, Check, X } from 'lucide-react-native';
+import { ArrowLeft, UserPlus, MessageCircle, UserX, Check, X, UserCheck } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../../components/AppFooter';
@@ -37,6 +37,14 @@ type SentRequest = {
   connectionId: string;
 };
 
+type BlockedVillager = {
+  id: string;
+  name: string;
+  phoneNumber: string;
+  memberSince: string;
+  connectionId: string;
+};
+
 export default function VillagersScreen() {
   const [fontsLoaded] = useFonts({
     'Unbounded-Regular': Unbounded_400Regular,
@@ -48,11 +56,13 @@ export default function VillagersScreen() {
   const [villagers, setVillagers] = useState<Villager[]>([]);
   const [pendingRequests, setPendingRequests] = useState<VillagerRequest[]>([]);
   const [sentRequests, setSentRequests] = useState<SentRequest[]>([]);
+  const [blockedVillagers, setBlockedVillagers] = useState<BlockedVillager[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
   const [groupModalVisible, setGroupModalVisible] = useState(false);
   const [selectedVillager, setSelectedVillager] = useState<{ id: string; name: string } | null>(null);
+  const [processingBlockId, setProcessingBlockId] = useState<string | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -99,6 +109,9 @@ export default function VillagersScreen() {
       );
       const outgoingRequests = (connections || []).filter(conn => 
         conn.status === 'pending' && conn.sender?.id === session.user.id
+      );
+      const blockedConnections = (connections || []).filter(conn => 
+        conn.status === 'blocked' && conn.sender?.id === session.user.id
       );
 
       // Transform accepted connections to villagers
@@ -160,9 +173,28 @@ export default function VillagersScreen() {
         };
       }).filter(Boolean) as SentRequest[];
 
+      // Transform blocked connections
+      const blockedData: BlockedVillager[] = blockedConnections.map(connection => {
+        const receiver = connection.receiver;
+        if (!receiver) return null;
+
+        return {
+          id: receiver.id,
+          name: `${receiver.first_name} ${receiver.last_name}`,
+          phoneNumber: receiver.phone_number || '',
+          memberSince: new Date(receiver.created_at).toLocaleDateString('sv-SE', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          }),
+          connectionId: connection.id
+        };
+      }).filter(Boolean) as BlockedVillager[];
+
       setVillagers(villagersData);
       setPendingRequests(requestsData);
       setSentRequests(sentRequestsData);
+      setBlockedVillagers(blockedData);
     } catch (err) {
       console.error('Error fetching villagers:', err);
       setError('Ett fel uppstod vid hämtning av villagers');
@@ -212,37 +244,93 @@ export default function VillagersScreen() {
     }
   };
 
-  const handleRemoveVillager = async (villager: Villager) => {
+  const handleBlockVillager = async (villager: Villager) => {
+    if (!session?.user?.id || processingBlockId === villager.id) return;
+
     Alert.alert(
-      'Ta bort villager',
-      `Är du säker på att du vill ta bort ${villager.name} som villager? Detta kan inte ångras.`,
+      'Blockera villager',
+      `Är du säker på att du vill blockera ${villager.name}? Ni kommer båda att tas bort från varandras villager-listor och kan inte lägga till varandra igen förrän du avblockerar.`,
       [
         {
           text: 'Avbryt',
           style: 'cancel',
         },
         {
-          text: 'Ta bort',
+          text: 'Blockera',
           style: 'destructive',
           onPress: async () => {
             try {
-              // Update connection status to 'deleted' instead of removing
+              setProcessingBlockId(villager.id);
+
+              // Update connection status to 'blocked'
               const { error } = await supabase
                 .from('villager_connections')
-                .update({ status: 'deleted' })
+                .update({ status: 'blocked' })
                 .eq('id', villager.connectionId);
 
               if (error) {
-                console.error('Error removing villager:', error);
-                Alert.alert('Fel', 'Kunde inte ta bort villager. Försök igen.');
+                console.error('Error blocking villager:', error);
+                Alert.alert('Fel', 'Kunde inte blockera villager. Försök igen.');
                 return;
               }
 
-              // Remove from local state
+              // Remove from villagers list and add to blocked list
               setVillagers(prev => prev.filter(v => v.id !== villager.id));
+              setBlockedVillagers(prev => [...prev, {
+                id: villager.id,
+                name: villager.name,
+                phoneNumber: villager.phoneNumber,
+                memberSince: villager.memberSince,
+                connectionId: villager.connectionId
+              }]);
             } catch (err) {
-              console.error('Error removing villager:', err);
+              console.error('Error blocking villager:', err);
               Alert.alert('Fel', 'Ett oväntat fel uppstod. Försök igen.');
+            } finally {
+              setProcessingBlockId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleUnblockVillager = async (blockedVillager: BlockedVillager) => {
+    if (!session?.user?.id || processingBlockId === blockedVillager.id) return;
+
+    Alert.alert(
+      'Avblockera villager',
+      `Är du säker på att du vill avblockera ${blockedVillager.name}? Ni kommer kunna lägga till varandra som villagers igen.`,
+      [
+        {
+          text: 'Avbryt',
+          style: 'cancel',
+        },
+        {
+          text: 'Avblockera',
+          onPress: async () => {
+            try {
+              setProcessingBlockId(blockedVillager.id);
+
+              // Delete the connection entirely when unblocking
+              const { error } = await supabase
+                .from('villager_connections')
+                .delete()
+                .eq('id', blockedVillager.connectionId);
+
+              if (error) {
+                console.error('Error unblocking villager:', error);
+                Alert.alert('Fel', 'Kunde inte avblockera villager. Försök igen.');
+                return;
+              }
+
+              // Remove from blocked list
+              setBlockedVillagers(prev => prev.filter(b => b.id !== blockedVillager.id));
+            } catch (err) {
+              console.error('Error unblocking villager:', err);
+              Alert.alert('Fel', 'Ett oväntat fel uppstod. Försök igen.');
+            } finally {
+              setProcessingBlockId(null);
             }
           },
         },
@@ -273,6 +361,11 @@ export default function VillagersScreen() {
     villager.phoneNumber.includes(searchQuery)
   );
 
+  const filteredBlockedVillagers = blockedVillagers.filter(villager =>
+    villager.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    villager.phoneNumber.includes(searchQuery)
+  );
+
   const renderVillagerActions = (villager: Villager) => (
     <View style={styles.actionButtons}>
       <Pressable 
@@ -287,11 +380,14 @@ export default function VillagersScreen() {
         <Text style={styles.actionButtonText}>SKICKA{'\n'}MEDDELANDE</Text>
       </Pressable>
       <Pressable 
-        style={styles.actionButton}
-        onPress={() => handleRemoveVillager(villager)}
+        style={[styles.actionButton, processingBlockId === villager.id && styles.actionButtonDisabled]}
+        onPress={() => handleBlockVillager(villager)}
+        disabled={processingBlockId === villager.id}
       >
-        <UserX size={24} color="#666" />
-        <Text style={styles.actionButtonText}>BLOCKERA{'\n'}OCH RADERA</Text>
+        <UserX size={24} color={processingBlockId === villager.id ? "#999" : "#666"} />
+        <Text style={[styles.actionButtonText, processingBlockId === villager.id && styles.actionButtonTextDisabled]}>
+          {processingBlockId === villager.id ? 'BLOCKERAR...' : 'BLOCKERA{'\n'}OCH RADERA'}
+        </Text>
       </Pressable>
     </View>
   );
@@ -300,7 +396,7 @@ export default function VillagersScreen() {
     if (isLoading) return 'LADDAR VILLAGERS...';
     if (error) return 'FEL VID LADDNING';
     
-    const totalItems = villagers.length + pendingRequests.length + sentRequests.length;
+    const totalItems = villagers.length + pendingRequests.length + sentRequests.length + blockedVillagers.length;
     if (totalItems === 0) return 'INGA VILLAGERS ÄNNU';
     
     let title = '';
@@ -315,6 +411,10 @@ export default function VillagersScreen() {
       if (title) title += ' • ';
       title += `${sentRequests.length} SKICKAD${sentRequests.length > 1 ? 'E' : ''}`;
     }
+    if (blockedVillagers.length > 0) {
+      if (title) title += ' • ';
+      title += `${blockedVillagers.length} BLOCKERAD${blockedVillagers.length > 1 ? 'E' : ''}`;
+    }
     
     return title.toUpperCase();
   };
@@ -328,7 +428,7 @@ export default function VillagersScreen() {
         <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
       </View>
 
-      {!isLoading && !error && (villagers.length > 0 || pendingRequests.length > 0 || sentRequests.length > 0) && (
+      {!isLoading && !error && (villagers.length > 0 || pendingRequests.length > 0 || sentRequests.length > 0 || blockedVillagers.length > 0) && (
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
@@ -420,8 +520,44 @@ export default function VillagersScreen() {
               </View>
             )}
 
+            {/* Blocked Villagers Section */}
+            {blockedVillagers.length > 0 && (
+              <View style={styles.blockedSection}>
+                <Text style={styles.sectionTitle}>BLOCKERADE VILLAGERS</Text>
+                {filteredBlockedVillagers.map((blockedVillager) => (
+                  <View key={blockedVillager.id} style={styles.blockedCard}>
+                    <View style={styles.blockedInfo}>
+                      <Text style={styles.blockedName}>{blockedVillager.name}</Text>
+                      <Text style={styles.blockedDetails}>
+                        {blockedVillager.phoneNumber} | Medlem sedan {blockedVillager.memberSince}
+                      </Text>
+                      <Text style={styles.blockedStatus}>
+                        Blockerad
+                      </Text>
+                    </View>
+                    <Pressable 
+                      style={[
+                        styles.unblockButton,
+                        processingBlockId === blockedVillager.id && styles.unblockButtonDisabled
+                      ]}
+                      onPress={() => handleUnblockVillager(blockedVillager)}
+                      disabled={processingBlockId === blockedVillager.id}
+                    >
+                      <UserCheck size={20} color={processingBlockId === blockedVillager.id ? "#999" : "#4CAF50"} />
+                      <Text style={[
+                        styles.unblockButtonText,
+                        processingBlockId === blockedVillager.id && styles.unblockButtonTextDisabled
+                      ]}>
+                        {processingBlockId === blockedVillager.id ? 'Avblockerar...' : 'Avblockera'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            )}
+
             {/* Villagers Section */}
-            {villagers.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 ? (
+            {villagers.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && blockedVillagers.length === 0 ? (
               <View style={styles.centerContainer}>
                 <Text style={styles.emptyTitle}>Inga villagers än</Text>
                 <Text style={styles.emptyDescription}>
@@ -438,7 +574,7 @@ export default function VillagersScreen() {
               <>
                 {villagers.length > 0 && (
                   <View style={styles.villagersSection}>
-                    {(pendingRequests.length > 0 || sentRequests.length > 0) && (
+                    {(pendingRequests.length > 0 || sentRequests.length > 0 || blockedVillagers.length > 0) && (
                       <Text style={styles.sectionTitle}>DINA VILLAGERS</Text>
                     )}
                     {filteredVillagers.map((villager) => (
@@ -602,6 +738,9 @@ const styles = StyleSheet.create({
   sentRequestsSection: {
     marginBottom: 30,
   },
+  blockedSection: {
+    marginBottom: 30,
+  },
   villagersSection: {
     flex: 1,
   },
@@ -698,6 +837,60 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-Regular',
     fontStyle: 'italic',
   },
+  blockedCard: {
+    backgroundColor: '#FFF5F5',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#FFE5E5',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  blockedInfo: {
+    flex: 1,
+  },
+  blockedName: {
+    fontSize: 18,
+    color: '#FF4444',
+    fontFamily: 'Unbounded-SemiBold',
+    marginBottom: 5,
+  },
+  blockedDetails: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
+    marginBottom: 5,
+  },
+  blockedStatus: {
+    fontSize: 14,
+    color: '#FF4444',
+    fontFamily: 'Unbounded-Regular',
+    fontStyle: 'italic',
+  },
+  unblockButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  unblockButtonDisabled: {
+    borderColor: '#E5E5E5',
+    opacity: 0.6,
+  },
+  unblockButtonText: {
+    color: '#4CAF50',
+    fontSize: 12,
+    fontFamily: 'Unbounded-Regular',
+  },
+  unblockButtonTextDisabled: {
+    color: '#999',
+  },
   villagerCard: {
     backgroundColor: '#F8F8F8',
     borderRadius: 12,
@@ -735,11 +928,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  actionButtonDisabled: {
+    opacity: 0.6,
+  },
   actionButtonText: {
     fontSize: 10,
     color: '#666',
     textAlign: 'center',
     marginTop: 5,
     fontFamily: 'Unbounded-Regular',
+  },
+  actionButtonTextDisabled: {
+    color: '#999',
   },
 });
