@@ -144,16 +144,16 @@ export default function GroupsScreen() {
   const renderGroupActions = (group: Group) => (
     <View style={styles.actionButtons}>
       <Pressable style={styles.actionButton}>
-        <Users size={24} color="#666" />
+        <Users size={16} color="#666" />
         <Text style={styles.actionButtonText}>VISA{'\n'}MEDLEMMAR</Text>
       </Pressable>
       <Pressable style={styles.actionButton}>
-        <MessageCircle size={24} color="#666" />
+        <MessageCircle size={16} color="#666" />
         <Text style={styles.actionButtonText}>SKICKA{'\n'}FÖRFRÅGAN</Text>
       </Pressable>
       {group.isCreator && (
         <Pressable style={styles.actionButton}>
-          <Settings size={24} color="#666" />
+          <Settings size={16} color="#666" />
           <Text style={styles.actionButtonText}>HANTERA{'\n'}GRUPP</Text>
         </Pressable>
       )}
@@ -172,7 +172,7 @@ export default function GroupsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={handleBack} style={styles.backButton}>
-          <ArrowLeft color="#FF69B4" size={24} />
+          <ArrowLeft color="#87CEEB" size={24} />
         </Pressable>
         <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
       </View>
@@ -218,10 +218,15 @@ export default function GroupsScreen() {
           <>
             {filteredGroups.map((group) => (
               <View key={group.id} style={styles.groupCard}>
-                <View style={styles.groupInfo}>
+                <View style={styles.groupHeader}>
                   <Text style={styles.groupName}>{group.name}</Text>
-                  <Text style={styles.groupDetails}>
-                    {group.memberCount} medlemmar | Skapad {group.createdAt}
+                </View>
+                <View style={styles.groupDetails}>
+                  <Text style={styles.groupMemberCount}>
+                    {group.memberCount} medlemmar
+                  </Text>
+                  <Text style={styles.groupCreatedDate}>
+                    Skapad {group.createdAt}
                   </Text>
                 </View>
                 {renderGroupActions(group)}
@@ -271,7 +276,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     borderWidth: 1,
-    borderColor: '#FF69B4',
+    borderColor: '#87CEEB',
     borderRadius: 8,
     padding: 15,
     fontSize: 16,
@@ -304,7 +309,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#FF69B4',
+    backgroundColor: '#87CEEB',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 20,
@@ -316,7 +321,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 24,
-    color: '#FF69B4',
+    color: '#87CEEB',
     fontFamily: 'Unbounded-SemiBold',
     marginBottom: 16,
     textAlign: 'center',
@@ -331,7 +336,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   createButton: {
-    backgroundColor: '#FF69B4',
+    backgroundColor: '#87CEEB',
     paddingHorizontal: 30,
     paddingVertical: 15,
     borderRadius: 25,
@@ -347,43 +352,61 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-Regular',
     textAlign: 'center',
   },
+  // New improved group card styles (blue theme)
   groupCard: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
+    backgroundColor: '#F8FCFF',
+    borderWidth: 1,
+    borderColor: '#E4F1FF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
   },
-  groupInfo: {
-    marginBottom: 20,
+  groupHeader: {
+    marginBottom: 8,
   },
   groupName: {
     fontSize: 18,
-    color: '#FF69B4',
+    color: '#87CEEB',
     fontFamily: 'Unbounded-SemiBold',
-    marginBottom: 5,
   },
   groupDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  groupMemberCount: {
     fontSize: 14,
     color: '#666',
     fontFamily: 'Unbounded-Regular',
-    marginBottom: 10,
+  },
+  groupCreatedDate: {
+    fontSize: 14,
+    color: '#87CEEB',
+    fontFamily: 'Unbounded-Regular',
+    fontWeight: '600',
   },
   actionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
-    paddingTop: 20,
+    gap: 8,
   },
   actionButton: {
-    alignItems: 'center',
     flex: 1,
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
   },
   actionButtonText: {
-    fontSize: 10,
+    fontSize: 8,
     color: '#666',
     textAlign: 'center',
-    marginTop: 5,
+    marginTop: 4,
     fontFamily: 'Unbounded-Regular',
+    lineHeight: 10,
   },
 });
