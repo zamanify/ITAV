@@ -49,18 +49,20 @@ export default function OnboardingStep1() {
   }
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
+    let processedValue = value;
+    
     if (field === 'mobile') {
-      const cleaned = value.replace(/[^\d\s+]/g, '');
-      setFormData(prev => ({
-        ...prev,
-        [field]: cleaned
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [field]: value
-      }));
+      processedValue = value.replace(/[^\d\s+]/g, '');
+    } else if (field === 'email') {
+      // Trim whitespace from email input to prevent validation issues
+      processedValue = value.trim();
     }
+    
+    setFormData(prev => ({
+      ...prev,
+      [field]: processedValue
+    }));
+    
     setFieldErrors(prev => ({
       ...prev,
       [field]: ''
@@ -133,10 +135,13 @@ export default function OnboardingStep1() {
     try {
       const normalizedPhone = normalizePhoneNumber(formData.mobile);
       const { firstName, lastName, email, password, streetAddress, postalCode, city } = formData;
+      
+      // Ensure email is trimmed before sending to Supabase
+      const trimmedEmail = email.trim();
 
       // First, try to sign up the user
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
+        email: trimmedEmail,
         password,
       });
 
@@ -161,7 +166,7 @@ export default function OnboardingStep1() {
             id: data.user.id,
             first_name: firstName,
             last_name: lastName,
-            email,
+            email: trimmedEmail,
             phone_number: normalizedPhone,
             street_address: streetAddress,
             zip_code: postalCode,
