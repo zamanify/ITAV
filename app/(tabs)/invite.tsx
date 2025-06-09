@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext } from 'react';
-import { ArrowLeft, Share2, UserPlus } from 'lucide-react-native';
+import { ArrowLeft, UserPlus } from 'lucide-react-native';
 import * as Contacts from 'expo-contacts';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -264,10 +264,6 @@ export default function InviteScreen() {
     router.back();
   };
 
-  const handleShare = () => {
-    // Share functionality will be implemented later
-  };
-
   const handleInviteContact = async (contact: Contact) => {
     if (!session?.user?.id || contact.status === 'self' || invitingContactId === contact.id) return;
 
@@ -406,14 +402,6 @@ export default function InviteScreen() {
           placeholderTextColor="#999"
         />
 
-        <View style={styles.shareContainer}>
-          <Share2 color="#666" size={20} />
-          <Text style={styles.shareText}>Gruppinbjudan</Text>
-          <Pressable style={styles.shareButton} onPress={handleShare}>
-            <Text style={styles.shareButtonText}>Dela</Text>
-          </Pressable>
-        </View>
-
         <ScrollView style={styles.contactsList} contentContainerStyle={styles.scrollContent}>
           {isLoading ? (
             <View style={styles.centerContainer}>
@@ -458,7 +446,7 @@ export default function InviteScreen() {
                   >
                     {invitingContactId === contact.id ? (
                       <>
-                        <ActivityIndicator size="small\" color="#FF69B4" />
+                        <ActivityIndicator size="small" color="#FF69B4" />
                         <Text style={[
                           styles.inviteButtonText,
                           styles.inviteButtonTextLoading
@@ -529,34 +517,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Unbounded-Regular',
     color: '#333',
-  },
-  shareContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    marginVertical: 20,
-  },
-  shareText: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 16,
-    color: '#666',
-    fontFamily: 'Unbounded-Regular',
-  },
-  shareButton: {
-    backgroundColor: '#FFF',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-  },
-  shareButtonText: {
-    color: '#666',
-    fontSize: 14,
-    fontFamily: 'Unbounded-Regular',
+    marginBottom: 20,
   },
   contactsList: {
     flex: 1,
