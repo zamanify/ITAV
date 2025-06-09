@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Alert, Platform } from 'react-native';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen, router } from 'expo-router';
 import { useEffect, useContext, useState } from 'react';
@@ -32,6 +32,7 @@ export default function ProfileScreen() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -78,26 +79,67 @@ export default function ProfileScreen() {
   }
 
   const handleLogout = async () => {
-    Alert.alert(
-      'Logga ut',
-      'Är du säker på att du vill logga ut?',
-      [
-        {
-          text: 'Avbryt',
-          style: 'cancel',
-        },
-        {
-          text: 'Logga ut',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await supabase.auth.signOut();
-            if (!error) {
-              router.replace('/landingPage');
-            }
+    if (isLoggingOut) return;
+
+    const performLogout = async () => {
+      try {
+        setIsLoggingOut(true);
+        
+        // Sign out from Supabase
+        const { error } = await supabase.auth.signOut();
+        
+        if (error) {
+          console.error('Logout error:', error);
+          if (Platform.OS === 'web') {
+            alert('Ett fel uppstod vid utloggning. Försök igen.');
+          } else {
+            Alert.alert('Fel', 'Ett fel uppstod vid utloggning. Försök igen.');
+          }
+          return;
+        }
+
+        // Clear any local state if needed
+        setUserData(null);
+        
+        // Navigate to landing page
+        // Use replace to prevent going back to authenticated screens
+        router.replace('/landingPage');
+        
+      } catch (err) {
+        console.error('Unexpected logout error:', err);
+        if (Platform.OS === 'web') {
+          alert('Ett oväntat fel uppstod. Försök igen.');
+        } else {
+          Alert.alert('Fel', 'Ett oväntat fel uppstod. Försök igen.');
+        }
+      } finally {
+        setIsLoggingOut(false);
+      }
+    };
+
+    // Use platform-appropriate confirmation dialog
+    if (Platform.OS === 'web') {
+      const confirmed = confirm('Är du säker på att du vill logga ut?');
+      if (confirmed) {
+        await performLogout();
+      }
+    } else {
+      Alert.alert(
+        'Logga ut',
+        'Är du säker på att du vill logga ut?',
+        [
+          {
+            text: 'Avbryt',
+            style: 'cancel',
           },
-        },
-      ]
-    );
+          {
+            text: 'Logga ut',
+            style: 'destructive',
+            onPress: performLogout,
+          },
+        ]
+      );
+    }
   };
 
   const formatMemberSince = (dateString: string) => {
@@ -241,9 +283,15 @@ export default function ProfileScreen() {
             <Text style={styles.editButtonText}>Redigera profil</Text>
           </Pressable>
 
-          <Pressable style={styles.logoutButton} onPress={handleLogout}>
-            <LogOut size={20} color="#FF4444" strokeWidth={1.5} />
-            <Text style={styles.logoutButtonText}>Logga ut</Text>
+          <Pressable 
+            style={[styles.logoutButton, isLoggingOut && styles.logoutButtonDisabled]} 
+            onPress={handleLogout}
+            disabled={isLoggingOut}
+          >
+            <LogOut size={20} color={isLoggingOut ? "#999" : "#FF4444"} strokeWidth={1.5} />
+            <Text style={[styles.logoutButtonText, isLoggingOut && styles.logoutButtonTextDisabled]}>
+              {isLoggingOut ? 'Loggar ut...' : 'Logga ut'}
+            </Text>
           </Pressable>
         </View>
 
@@ -421,10 +469,17 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 8,
   },
+  logoutButtonDisabled: {
+    borderColor: '#E5E5E5',
+    opacity: 0.6,
+  },
   logoutButtonText: {
     color: '#FF4444',
     fontSize: 16,
     fontFamily: 'Unbounded-SemiBold',
+  },
+  logoutButtonTextDisabled: {
+    color: '#999',
   },
   bottomSpacing: {
     height: 120, // Space for footer
