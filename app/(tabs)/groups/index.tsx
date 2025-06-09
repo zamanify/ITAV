@@ -7,6 +7,7 @@ import { ArrowLeft, Users, MessageCircle, Settings } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../../components/AppFooter';
+import GroupMembersModal from '../../../components/GroupMembersModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,6 +30,8 @@ export default function GroupsScreen() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [membersModalVisible, setMembersModalVisible] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -137,13 +140,26 @@ export default function GroupsScreen() {
     router.back();
   };
 
+  const handleViewMembers = (group: Group) => {
+    setSelectedGroup({ id: group.id, name: group.name });
+    setMembersModalVisible(true);
+  };
+
+  const handleCloseMembersModal = () => {
+    setMembersModalVisible(false);
+    setSelectedGroup(null);
+  };
+
   const filteredGroups = groups.filter(group =>
     group.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const renderGroupActions = (group: Group) => (
     <View style={styles.actionButtons}>
-      <Pressable style={styles.actionButton}>
+      <Pressable 
+        style={styles.actionButton}
+        onPress={() => handleViewMembers(group)}
+      >
         <Users size={16} color="#666" />
         <Text style={styles.actionButtonText}>VISA{'\n'}MEDLEMMAR</Text>
       </Pressable>
@@ -243,6 +259,16 @@ export default function GroupsScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Group Members Modal */}
+      {selectedGroup && (
+        <GroupMembersModal
+          visible={membersModalVisible}
+          onClose={handleCloseMembersModal}
+          groupId={selectedGroup.id}
+          groupName={selectedGroup.name}
+        />
+      )}
 
       <AppFooter />
     </View>
