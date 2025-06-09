@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext } from 'react';
-import { ArrowLeft, Share2, Check, UserPlus } from 'lucide-react-native';
+import { ArrowLeft, Check } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 
@@ -26,7 +26,6 @@ export default function CreateHoodScreen() {
   const { session } = useContext(AuthContext);
   const [groupName, setGroupName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showResults, setShowResults] = useState(false);
   const [selectedVillagers, setSelectedVillagers] = useState<string[]>([]);
   const [connectedVillagers, setConnectedVillagers] = useState<Villager[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -108,10 +107,6 @@ export default function CreateHoodScreen() {
     router.back();
   };
 
-  const handleShare = () => {
-    // Implement share functionality
-  };
-
   const handleCreateHood = async () => {
     if (!session?.user?.id || !groupName.trim()) return;
 
@@ -189,7 +184,7 @@ export default function CreateHoodScreen() {
         <Text style={styles.headerTitle}>SKAPA HOOD</Text>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.sectionTitle}>DÖP DIN NYA GRUPP</Text>
         <TextInput
           style={styles.input}
@@ -203,11 +198,8 @@ export default function CreateHoodScreen() {
         <TextInput
           style={styles.input}
           value={searchQuery}
-          onChangeText={(text) => {
-            setSearchQuery(text);
-            setShowResults(text.length > 0);
-          }}
-          placeholder="Lägg till vän via namn eller mobil"
+          onChangeText={setSearchQuery}
+          placeholder="Sök bland dina villagers"
           placeholderTextColor="#999"
         />
 
@@ -215,82 +207,86 @@ export default function CreateHoodScreen() {
           <Text style={styles.errorText}>{error}</Text>
         )}
 
-        {showResults && searchQuery.length > 0 && (
-          <View style={styles.resultsContainer}>
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Söker bland dina villagers...</Text>
-              </View>
-            ) : filteredVillagers.length > 0 ? (
-              <View>
-                <Text style={styles.resultsSectionTitle}>DINA ANSLUTNA VILLAGERS</Text>
-                {filteredVillagers.map((villager) => (
-                  <Pressable
-                    key={villager.id}
-                    style={styles.resultItem}
+        {/* Always show villagers list */}
+        <View style={styles.villagersContainer}>
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Laddar dina villagers...</Text>
+            </View>
+          ) : connectedVillagers.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyTitle}>Inga villagers att lägga till</Text>
+              <Text style={styles.emptyDescription}>
+                Du behöver ansluta till villagers först för att kunna lägga till dem i grupper.
+              </Text>
+            </View>
+          ) : filteredVillagers.length === 0 && searchQuery ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyTitle}>Inga villagers matchar sökningen</Text>
+              <Text style={styles.emptyDescription}>
+                Försök med ett annat namn eller telefonnummer.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.villagersList}>
+              <Text style={styles.villagersListTitle}>
+                DINA ANSLUTNA VILLAGERS ({filteredVillagers.length})
+              </Text>
+              {filteredVillagers.map((villager) => (
+                <Pressable
+                  key={villager.id}
+                  style={styles.villagerItem}
+                  onPress={() => toggleVillagerSelection(villager.id)}
+                >
+                  <View style={styles.villagerInfo}>
+                    <Text style={styles.villagerName}>{villager.name}</Text>
+                    <Text style={styles.villagerDetails}>
+                      {villager.phoneNumber} | Medlem sedan {villager.memberSince}
+                    </Text>
+                    <Text style={styles.villagerBalance}>
+                      Saldo {villager.balance > 0 ? '+' : ''}{villager.balance} min
+                    </Text>
+                  </View>
+                  <View style={[
+                    styles.checkCircle,
+                    selectedVillagers.includes(villager.id) && styles.checkCircleSelected
+                  ]}>
+                    {selectedVillagers.includes(villager.id) && (
+                      <Check size={16} color="white" />
+                    )}
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Show selected villagers summary */}
+        {selectedVillagers.length > 0 && (
+          <View style={styles.selectedSummary}>
+            <Text style={styles.selectedSummaryTitle}>
+              VALDA VILLAGERS ({selectedVillagers.length})
+            </Text>
+            {selectedVillagers.map(id => {
+              const villager = connectedVillagers.find(v => v.id === id);
+              if (!villager) return null;
+              
+              return (
+                <View key={villager.id} style={styles.selectedVillagerItem}>
+                  <Text style={styles.selectedVillagerName}>{villager.name}</Text>
+                  <Pressable 
+                    style={styles.removeButton}
                     onPress={() => toggleVillagerSelection(villager.id)}
                   >
-                    <View style={styles.villagerInfo}>
-                      <Text style={styles.resultName}>{villager.name}</Text>
-                      <Text style={styles.villagerDetails}>
-                        {villager.phoneNumber} | Medlem sedan {villager.memberSince}
-                      </Text>
-                    </View>
-                    <View style={[
-                      styles.checkCircle,
-                      selectedVillagers.includes(villager.id) && styles.checkCircleSelected
-                    ]}>
-                      {selectedVillagers.includes(villager.id) && (
-                        <Check size={16} color="white" />
-                      )}
-                    </View>
+                    <Text style={styles.removeButtonText}>Ta bort</Text>
                   </Pressable>
-                ))}
-              </View>
-            ) : connectedVillagers.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyTitle}>Inga villagers att lägga till</Text>
-                <Text style={styles.emptyDescription}>
-                  Du behöver ansluta till villagers först för att kunna lägga till dem i grupper.
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyTitle}>Inga villagers matchar sökningen</Text>
-                <Text style={styles.emptyDescription}>
-                  Försök med ett annat namn eller telefonnummer.
-                </Text>
-              </View>
-            )}
+                </View>
+              );
+            })}
           </View>
         )}
 
-        <View style={styles.shareContainer}>
-          <Share2 color="#666" size={20} />
-          <Text style={styles.shareText}>Gruppinbjudan</Text>
-          <Pressable style={styles.shareButton} onPress={handleShare}>
-            <Text style={styles.shareButtonText}>Dela</Text>
-          </Pressable>
-        </View>
-
-        {selectedVillagers.map(id => {
-          const villager = connectedVillagers.find(v => v.id === id);
-          if (!villager) return null;
-          
-          return (
-            <View key={villager.id} style={styles.villagerItem}>
-              <View style={styles.villagerItemInfo}>
-                <Text style={styles.villagerName}>{villager.name}</Text>
-                <Text style={styles.villagerItemDetails}>
-                  {villager.phoneNumber} | Medlem sedan {villager.memberSince}
-                </Text>
-              </View>
-              <View style={styles.checkCircle}>
-                <Check size={16} color="white" />
-              </View>
-            </View>
-          );
-        })}
+        <View style={styles.spacer} />
       </ScrollView>
 
       <Pressable 
@@ -328,6 +324,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
+  scrollContent: {
+    paddingBottom: 100, // Space for the fixed button
+  },
   sectionTitle: {
     fontSize: 14,
     color: '#FF69B4',
@@ -353,47 +352,21 @@ const styles = StyleSheet.create({
     marginTop: 10,
     textAlign: 'center',
   },
-  resultsContainer: {
+  villagersContainer: {
+    marginTop: 20,
     backgroundColor: 'white',
     borderWidth: 1,
     borderColor: '#E5E5E5',
     borderRadius: 8,
-    marginTop: 4,
-    maxHeight: 300,
+    minHeight: 200,
   },
   loadingContainer: {
     padding: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 200,
   },
   loadingText: {
-    fontSize: 14,
-    color: '#666',
-    fontFamily: 'Unbounded-Regular',
-  },
-  resultsSectionTitle: {
-    fontSize: 12,
-    color: '#666',
-    fontFamily: 'Unbounded-Regular',
-    padding: 10,
-    backgroundColor: '#F5F5F5',
-  },
-  resultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-  },
-  villagerInfo: {
-    flex: 1,
-  },
-  resultName: {
-    fontSize: 16,
-    color: '#333',
-    fontFamily: 'Unbounded-Regular',
-    marginBottom: 4,
-  },
-  villagerDetails: {
     fontSize: 14,
     color: '#666',
     fontFamily: 'Unbounded-Regular',
@@ -401,6 +374,8 @@ const styles = StyleSheet.create({
   emptyContainer: {
     padding: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 200,
   },
   emptyTitle: {
     fontSize: 16,
@@ -416,42 +391,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  shareContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  villagersList: {
+    flex: 1,
+  },
+  villagersListTitle: {
+    fontSize: 12,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
     padding: 15,
     backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    marginVertical: 20,
-  },
-  shareText: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 16,
-    color: '#666',
-    fontFamily: 'Unbounded-Regular',
-  },
-  shareButton: {
-    backgroundColor: '#FFF',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-  },
-  shareButtonText: {
-    color: '#666',
-    fontSize: 14,
-    fontFamily: 'Unbounded-Regular',
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
   },
   villagerItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 15,
+    padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
   },
-  villagerItemInfo: {
+  villagerInfo: {
     flex: 1,
   },
   villagerName: {
@@ -460,29 +419,84 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-Regular',
     marginBottom: 4,
   },
-  villagerItemDetails: {
+  villagerDetails: {
     fontSize: 14,
     color: '#666',
+    fontFamily: 'Unbounded-Regular',
+    marginBottom: 2,
+  },
+  villagerBalance: {
+    fontSize: 12,
+    color: '#999',
     fontFamily: 'Unbounded-Regular',
   },
   checkCircle: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#FF69B4',
+    borderWidth: 2,
+    borderColor: '#FF69B4',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
   },
   checkCircleSelected: {
     backgroundColor: '#FF69B4',
+    borderColor: '#FF69B4',
+  },
+  selectedSummary: {
+    marginTop: 20,
+    backgroundColor: '#FFF8FC',
+    borderRadius: 8,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#FFE4F1',
+  },
+  selectedSummaryTitle: {
+    fontSize: 12,
+    color: '#FF69B4',
+    fontFamily: 'Unbounded-SemiBold',
+    marginBottom: 10,
+  },
+  selectedVillagerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE4F1',
+  },
+  selectedVillagerName: {
+    fontSize: 14,
+    color: '#333',
+    fontFamily: 'Unbounded-Regular',
+    flex: 1,
+  },
+  removeButton: {
+    backgroundColor: 'white',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FF69B4',
+  },
+  removeButtonText: {
+    fontSize: 12,
+    color: '#FF69B4',
+    fontFamily: 'Unbounded-Regular',
+  },
+  spacer: {
+    height: 20,
   },
   createButton: {
     backgroundColor: '#FF69B4',
     padding: 15,
     borderRadius: 25,
     alignItems: 'center',
-    margin: 20,
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
   },
   createButtonDisabled: {
     backgroundColor: '#E5E5E5',
