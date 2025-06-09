@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../../components/AppFooter';
 import GroupMembersModal from '../../../components/GroupMembersModal';
+import GroupMessageModal from '../../../components/GroupMessageModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -32,6 +33,8 @@ export default function GroupsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [membersModalVisible, setMembersModalVisible] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<{ id: string; name: string } | null>(null);
+  const [messageModalVisible, setMessageModalVisible] = useState(false);
+  const [selectedGroupForMessage, setSelectedGroupForMessage] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -150,6 +153,16 @@ export default function GroupsScreen() {
     setSelectedGroup(null);
   };
 
+  const handleSendMessage = (group: Group) => {
+    setSelectedGroupForMessage({ id: group.id, name: group.name });
+    setMessageModalVisible(true);
+  };
+
+  const handleCloseMessageModal = () => {
+    setMessageModalVisible(false);
+    setSelectedGroupForMessage(null);
+  };
+
   const filteredGroups = groups.filter(group =>
     group.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -163,9 +176,12 @@ export default function GroupsScreen() {
         <Users size={16} color="#666" />
         <Text style={styles.actionButtonText}>VISA{'\n'}MEDLEMMAR</Text>
       </Pressable>
-      <Pressable style={styles.actionButton}>
+      <Pressable 
+        style={styles.actionButton}
+        onPress={() => handleSendMessage(group)}
+      >
         <MessageCircle size={16} color="#666" />
-        <Text style={styles.actionButtonText}>SKICKA{'\n'}FÖRFRÅGAN</Text>
+        <Text style={styles.actionButtonText}>SKICKA{'\n'}MEDDELANDE</Text>
       </Pressable>
       {group.isCreator && (
         <Pressable style={styles.actionButton}>
@@ -267,6 +283,15 @@ export default function GroupsScreen() {
           onClose={handleCloseMembersModal}
           groupId={selectedGroup.id}
           groupName={selectedGroup.name}
+        />
+      )}
+
+      {/* Group Message Modal */}
+      {selectedGroupForMessage && (
+        <GroupMessageModal
+          visible={messageModalVisible}
+          onClose={handleCloseMessageModal}
+          group={selectedGroupForMessage}
         />
       )}
 

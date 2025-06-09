@@ -23,6 +23,7 @@ export default function CreateOfferScreen() {
   const { session } = useContext(AuthContext);
   const params = useLocalSearchParams();
   const preselectedVillager = params.preselectedVillager as string;
+  const preselectedHood = params.preselectedHood as string;
 
   const [message, setMessage] = useState('');
   const [timeType, setTimeType] = useState<TimeType>('flexible');
@@ -50,6 +51,13 @@ export default function CreateOfferScreen() {
     }
   }, [preselectedVillager]);
 
+  useEffect(() => {
+    if (preselectedHood) {
+      setSelectedHoods([preselectedHood]);
+      fetchHoodName(preselectedHood);
+    }
+  }, [preselectedHood]);
+
   const fetchVillagerName = async (villagerId: string) => {
     try {
       const { data, error } = await supabase
@@ -69,6 +77,28 @@ export default function CreateOfferScreen() {
       }));
     } catch (err) {
       console.error('Error fetching villager name:', err);
+    }
+  };
+
+  const fetchHoodName = async (hoodId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('groups')
+        .select('name')
+        .eq('id', hoodId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching hood name:', error);
+        return;
+      }
+
+      setHoodNames(prev => ({
+        ...prev,
+        [hoodId]: data.name
+      }));
+    } catch (err) {
+      console.error('Error fetching hood name:', err);
     }
   };
 
