@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen, router } from 'expo-router';
 import { useEffect, useState, useContext } from 'react';
-import { Plus, MessageCircle, Eye, Users } from 'lucide-react-native';
+import { Plus, MessageCircle, Eye, Users, CheckCircle } from 'lucide-react-native';
 import RequestOfferModal from '../../components/RequestOfferModal';
 import AppFooter from '../../components/AppFooter';
 import { supabase } from '@/lib/supabase';
@@ -23,6 +23,8 @@ type RequestItem = {
   estimatedTime: number;
   flexible: boolean;
   timeSlot?: string;
+  completedDate?: string;
+  responderName?: string;
 };
 
 type ReceivedItem = {
@@ -61,6 +63,8 @@ export default function Dashboard() {
   });
   const [myRequests, setMyRequests] = useState<RequestItem[]>([]);
   const [myOffers, setMyOffers] = useState<RequestItem[]>([]);
+  const [completedRequests, setCompletedRequests] = useState<RequestItem[]>([]);
+  const [completedOffers, setCompletedOffers] = useState<RequestItem[]>([]);
   const [othersRequests, setOthersRequests] = useState<ReceivedItem[]>([]);
   const [othersOffers, setOthersOffers] = useState<ReceivedItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -146,7 +150,7 @@ export default function Dashboard() {
         console.error('Error fetching hoods count:', hoodsError);
       }
 
-      // Fetch my requests and offers
+      // Fetch my requests and offers (including completed ones)
       const { data: myRequestsData, error: myRequestsError } = await supabase
         .from('requests')
         .select(`
@@ -157,7 +161,11 @@ export default function Dashboard() {
           time_slot,
           flexible,
           minutes_logged,
-          created_at
+          created_at,
+          accepted_responder:accepted_responder_id(
+            first_name,
+            last_name
+          )
         `)
         .eq('requester_id', session.user.id)
         .order('created_at', { ascending: false });
@@ -190,9 +198,15 @@ export default function Dashboard() {
       // Process my requests and offers
       const processedMyRequests: RequestItem[] = [];
       const processedMyOffers: RequestItem[] = [];
+      const processedCompletedRequests: RequestItem[] = [];
+      const processedCompletedOffers: RequestItem[] = [];
 
       (myRequestsData || []).forEach(item => {
         const createdAt = new Date(item.created_at);
+        const responderName = item.accepted_responder 
+          ? `${item.accepted_responder.first_name} ${item.accepted_responder.last_name}`
+          : undefined;
+
         const processedItem: RequestItem = {
           id: item.id,
           type: item.is_offer ? 'offer' : 'request',
@@ -211,13 +225,24 @@ export default function Dashboard() {
           status: item.status,
           estimatedTime: item.minutes_logged || 0,
           flexible: item.flexible,
-          timeSlot: item.time_slot
+          timeSlot: item.time_slot,
+          responderName: responderName
         };
 
-        if (item.is_offer) {
-          processedMyOffers.push(processedItem);
+        if (item.status === 'completed') {
+          // Add to completed section
+          if (item.is_offer) {
+            processedCompletedOffers.push(processedItem);
+          } else {
+            processedCompletedRequests.push(processedItem);
+          }
         } else {
-          processedMyRequests.push(processedItem);
+          // Add to active section
+          if (item.is_offer) {
+            processedMyOffers.push(processedItem);
+          } else {
+            processedMyRequests.push(processedItem);
+          }
         }
       });
 
@@ -366,6 +391,8 @@ export default function Dashboard() {
 
       setMyRequests(processedMyRequests);
       setMyOffers(processedMyOffers);
+      setCompletedRequests(processedCompletedRequests);
+      setCompletedOffers(processedCompletedOffers);
       setOthersRequests(processedOthersRequests);
       setOthersOffers(processedOthersOffers);
 
@@ -496,6 +523,30 @@ export default function Dashboard() {
     </LinearGradient>
   );
 
+  const renderCompletedItem = (item: RequestItem, isOffer: boolean = false) => (
+    <View key={item.id} style={isOffer ? styles.completedOfferContainer : styles.completedRequestContainer}>
+      <View style={styles.completedHeader}>
+        <View style={styles.completedTitleRow}>
+          <CheckCircle size={16} color={isOffer ? "#87CEEB" : "#FF69B4"} />
+          <Text style={isOffer ? styles.completedOfferTitle : styles.completedRequestTitle}>
+            KLART {item.type === 'request' ? 'FÖRFRÅGAN' : 'ERBJUDANDE'}
+          </Text>
+        </View>
+        <Text style={isOffer ? styles.completedOfferDate : styles.completedRequestDate}>
+          {item.date}, {item.time}
+        </Text>
+      </View>
+      <Text style={isOffer ? styles.completedOfferMessage : styles.completedRequestMessage} numberOfLines={2}>
+        {item.message}
+      </Text>
+      <View style={styles.completedDetails}>
+        <Text style={isOffer ? styles.completedOfferDetail : styles.completedRequestDetail}>
+          {item.estimatedTime} min • {item.responderName ? `Med ${item.responderName}` : 'Genomfört'}
+        </Text>
+      </View>
+    </View>
+  );
+
   const renderOthersItem = (item: ReceivedItem, isOffer: boolean = false) => (
     <View key={item.id} style={isOffer ? styles.othersOfferContainer : styles.othersRequestContainer}>
       <View style={styles.othersItemHeader}>
@@ -618,8 +669,31 @@ export default function Dashboard() {
             </View>
           )}
 
+          {/* Completed Requests Section */}
+          {(completedRequests.length > 0 || completedOffers.length > 0) && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>GENOMFÖRDA ÄRENDEN</Text>
+              
+              {/* Completed Requests */}
+              {completedRequests.length > 0 && (
+                <View style={styles.subsection}>
+                  <Text style={styles.subsectionTitle}>KLARA FÖRFRÅGNINGAR</Text>
+                  {completedRequests.map(item => renderCompletedItem(item, false))}
+                </View>
+              )}
+
+              {/* Completed Offers */}
+              {completedOffers.length > 0 && (
+                <View style={styles.subsection}>
+                  <Text style={styles.subsectionTitle}>KLARA ERBJUDANDEN</Text>
+                  {completedOffers.map(item => renderCompletedItem(item, true))}
+                </View>
+              )}
+            </View>
+          )}
+
           {/* Empty State */}
-          {!isLoading && myRequests.length === 0 && myOffers.length === 0 && othersRequests.length === 0 && othersOffers.length === 0 && (
+          {!isLoading && myRequests.length === 0 && myOffers.length === 0 && othersRequests.length === 0 && othersOffers.length === 0 && completedRequests.length === 0 && completedOffers.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateTitle}>Välkommen till It Takes a Village!</Text>
               <Text style={styles.emptyStateText}>
@@ -749,6 +823,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-SemiBold',
     marginBottom: 16,
     letterSpacing: 0.5,
+  },
+  subsection: {
+    marginBottom: 20,
+  },
+  subsectionTitle: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Unbounded-SemiBold',
+    marginBottom: 12,
+    letterSpacing: 0.3,
   },
   // My Requests Styles
   myRequestContainer: {
@@ -887,6 +971,85 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontFamily: 'Unbounded-SemiBold',
+  },
+  // Completed Items Styles
+  completedRequestContainer: {
+    backgroundColor: '#F0F8F0',
+    borderWidth: 1,
+    borderColor: '#D4E6D4',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  completedOfferContainer: {
+    backgroundColor: '#F0F8FF',
+    borderWidth: 1,
+    borderColor: '#D6EFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  completedHeader: {
+    marginBottom: 8,
+  },
+  completedTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  completedRequestTitle: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontFamily: 'Unbounded-SemiBold',
+    letterSpacing: 0.3,
+  },
+  completedOfferTitle: {
+    fontSize: 12,
+    color: '#87CEEB',
+    fontFamily: 'Unbounded-SemiBold',
+    letterSpacing: 0.3,
+  },
+  completedRequestDate: {
+    fontSize: 11,
+    color: '#4CAF50',
+    fontFamily: 'Unbounded-Regular',
+    opacity: 0.8,
+  },
+  completedOfferDate: {
+    fontSize: 11,
+    color: '#87CEEB',
+    fontFamily: 'Unbounded-Regular',
+    opacity: 0.8,
+  },
+  completedRequestMessage: {
+    fontSize: 14,
+    color: '#333',
+    fontFamily: 'Unbounded-Regular',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  completedOfferMessage: {
+    fontSize: 14,
+    color: '#333',
+    fontFamily: 'Unbounded-Regular',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  completedDetails: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+    paddingTop: 8,
+  },
+  completedRequestDetail: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontFamily: 'Unbounded-Regular',
+  },
+  completedOfferDetail: {
+    fontSize: 12,
+    color: '#87CEEB',
+    fontFamily: 'Unbounded-Regular',
   },
   // Others' Requests Styles
   othersRequestContainer: {
