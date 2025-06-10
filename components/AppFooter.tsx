@@ -17,7 +17,7 @@ export default function AppFooter() {
       id: 'villagers',
       icon: Users,
       label: 'DINA\nVILLAGERS',
-      onPress: () => router.push('/villagers'),
+      onPress: () => router.push('/villagers/index'),
     },
     {
       id: 'invite',
@@ -29,7 +29,7 @@ export default function AppFooter() {
       id: 'groups',
       icon: Home,
       label: 'DINA\nHOODS',
-      onPress: () => router.push('/groups'),
+      onPress: () => router.push('/groups/index'),
     },
     {
       id: 'create-hood',

@@ -16,13 +16,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="villagers"
+        name="villagers/index"
         options={{
           href: null, // This hides the tab from the tab bar
         }}
       />
       <Tabs.Screen
-        name="groups"
+        name="groups/index"
         options={{
           href: null, // This hides the tab from the tab bar
         }}
