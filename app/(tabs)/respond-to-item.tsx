@@ -289,7 +289,7 @@ export default function RespondToItemScreen() {
       >
         {isSubmitting ? (
           <>
-            <ActivityIndicator size="small" color="white" />
+            <ActivityIndicator size="small\" color="white" />
             <Text style={styles.sendButtonText}>Skickar...</Text>
           </>
         ) : (
