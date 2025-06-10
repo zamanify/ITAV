@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, Pressable, Image, ScrollView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen, router } from 'expo-router';
-import { useEffect, useState, useContext } from 'react';
+import { SplashScreen, router, useFocusEffect } from 'expo-router';
+import { useEffect, useState, useContext, useCallback } from 'react';
 import { Plus, MessageCircle, Eye, Users, CircleCheck as CheckCircle } from 'lucide-react-native';
 import RequestOfferModal from '../../components/RequestOfferModal';
 import AppFooter from '../../components/AppFooter';
@@ -75,11 +75,14 @@ export default function Dashboard() {
     }
   }, [fontsLoaded]);
 
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchDashboardData();
-    }
-  }, [session?.user?.id]);
+  // Auto-refresh dashboard when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (session?.user?.id) {
+        fetchDashboardData();
+      }
+    }, [session?.user?.id])
+  );
 
   const fetchDashboardData = async () => {
     if (!session?.user?.id) return;
@@ -174,21 +177,32 @@ export default function Dashboard() {
         console.error('Error fetching my requests:', myRequestsError);
       }
 
-      // Get response counts for my requests/offers
+      // Get response counts for my requests/offers - IMPROVED QUERY
       const myRequestIds = (myRequestsData || []).map(req => req.id);
       let responseCountMap: Record<string, number> = {};
       
       if (myRequestIds.length > 0) {
-        const { data: responseCounts, error: responseError } = await supabase
+        // Get all responses for my requests, excluding blocked users
+        const { data: allResponses, error: responseError } = await supabase
           .from('request_responses')
-          .select('request_id')
-          .in('request_id', myRequestIds);
+          .select(`
+            request_id,
+            responder_id,
+            status
+          `)
+          .in('request_id', myRequestIds)
+          .eq('status', 'accepted'); // Only count accepted responses
 
         if (responseError) {
           console.error('Error fetching response counts:', responseError);
         } else {
+          // Filter out responses from blocked users and count
+          const filteredResponses = (allResponses || []).filter(response => 
+            !blockedByMe.has(response.responder_id) && !blockedByThem.has(response.responder_id)
+          );
+
           // Count responses per request
-          responseCountMap = (responseCounts || []).reduce((acc, response) => {
+          responseCountMap = filteredResponses.reduce((acc, response) => {
             acc[response.request_id] = (acc[response.request_id] || 0) + 1;
             return acc;
           }, {} as Record<string, number>);
@@ -221,7 +235,7 @@ export default function Dashboard() {
             minute: '2-digit'
           }),
           views: Math.floor(Math.random() * 20) + 1, // Mock data for now
-          responses: responseCountMap[item.id] || 0,
+          responses: responseCountMap[item.id] || 0, // Use the improved count
           status: item.status,
           estimatedTime: item.minutes_logged || 0,
           flexible: item.flexible,
@@ -420,6 +434,11 @@ export default function Dashboard() {
     setModalVisible(true);
   };
 
+  const formatMinuteBalance = (balance: number) => {
+    if (balance === 0) return '0 min';
+    return `${balance > 0 ? '+' : ''}${balance} min`;
+  };
+
   const handleSeeResponses = (requestId: string, status: string) => {
     if (status === 'accepted') {
       router.push({
@@ -432,11 +451,6 @@ export default function Dashboard() {
         params: { requestId }
       });
     }
-  };
-
-  const formatMinuteBalance = (balance: number) => {
-    if (balance === 0) return '0 min';
-    return `${balance > 0 ? '+' : ''}${balance} min`;
   };
 
   const renderMyRequestItem = (item: RequestItem) => (
