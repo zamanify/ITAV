@@ -48,6 +48,12 @@ export default function RespondToItemScreen() {
     }
   }, [fontsLoaded]);
 
+  // Reset message when itemId changes (new request/offer selected)
+  useEffect(() => {
+    setResponseMessage('');
+    setError(null);
+  }, [itemId]);
+
   useEffect(() => {
     if (session?.user?.id && itemId) {
       fetchRequestData();
@@ -289,7 +295,7 @@ export default function RespondToItemScreen() {
       >
         {isSubmitting ? (
           <>
-            <ActivityIndicator size="small\" color="white" />
+            <ActivityIndicator size="small" color="white" />
             <Text style={styles.sendButtonText}>Skickar...</Text>
           </>
         ) : (
