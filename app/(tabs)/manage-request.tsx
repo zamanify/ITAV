@@ -139,7 +139,11 @@ export default function ManageRequestScreen() {
           }
         }
 
-        Alert.alert('Ärende avbrutet', 'Ärendet har återgått till öppen status.');
+        if (Platform.OS === 'web') {
+          alert('Ärende avbrutet. Ärendet har återgått till öppen status.');
+        } else {
+          Alert.alert('Ärende avbrutet', 'Ärendet har återgått till öppen status.');
+        }
         router.replace('/(tabs)'); // Go back to dashboard
 
       } catch (err) {
@@ -174,6 +178,20 @@ export default function ManageRequestScreen() {
       try {
         setIsProcessing(true);
 
+        // Determine who pays whom based on request type
+        let fromUserId: string;
+        let toUserId: string;
+
+        if (requestData.is_offer) {
+          // For offers: the person who accepted the offer (responder) pays the person who made the offer (requester)
+          fromUserId = requestData.responder.id; // Responder pays
+          toUserId = requestData.requester_id; // Requester receives
+        } else {
+          // For requests: the person who requested help (requester) pays the person who helped (responder)
+          fromUserId = requestData.requester_id; // Requester pays
+          toUserId = requestData.responder.id; // Responder receives
+        }
+
         // 1. Update request status to 'completed'
         const { error: updateRequestError } = await supabase
           .from('requests')
@@ -186,27 +204,29 @@ export default function ManageRequestScreen() {
           return;
         }
 
-        // 2. Create a transaction
-        const { error: transactionError } = await supabase
-          .from('transactions')
-          .insert({
-            from_user: requestData.requester_id, // The one who requested help
-            to_user: requestData.responder.id, // The one who helped
-            minutes: requestData.minutes_logged,
-            related_request: requestData.id
-          });
+        // 2. Use the database function to handle the balance transfer
+        const { error: transferError } = await supabase.rpc('transfer_minutes', {
+          p_from_user_id: fromUserId,
+          p_to_user_id: toUserId,
+          p_minutes: requestData.minutes_logged,
+          p_request_id: requestData.id
+        });
 
-        if (transactionError) {
-          console.error('Error creating transaction:', transactionError);
-          setError('Kunde inte skapa transaktionen. Försök igen.');
+        if (transferError) {
+          console.error('Error transferring minutes:', transferError);
+          setError('Kunde inte överföra saldo. Försök igen.');
           return;
         }
 
-        // 3. Update minute balances for both users (this is handled by a database trigger on transactions table)
-        //    No explicit client-side update needed here if trigger is set up.
-        //    Assuming a trigger exists that updates users.minute_balance based on transactions.
+        const transferMessage = requestData.is_offer 
+          ? `${requestData.minutes_logged} minuter har överförts från ${requestData.responder.first_name} till dig.`
+          : `${requestData.minutes_logged} minuter har överförts från dig till ${requestData.responder.first_name}.`;
 
-        Alert.alert('Ärende klart!', 'Saldo har överförts.');
+        if (Platform.OS === 'web') {
+          alert(`Ärende klart! ${transferMessage}`);
+        } else {
+          Alert.alert('Ärende klart!', transferMessage);
+        }
         router.replace('/(tabs)'); // Go back to dashboard
 
       } catch (err) {
@@ -217,15 +237,19 @@ export default function ManageRequestScreen() {
       }
     };
 
+    const actionText = requestData.is_offer 
+      ? `${requestData.responder.first_name} kommer att betala dig ${requestData.minutes_logged} minuter`
+      : `Du kommer att betala ${requestData.responder.first_name} ${requestData.minutes_logged} minuter`;
+
     if (Platform.OS === 'web') {
-      const confirmed = confirm(`Är du säker på att du vill markera detta ärende som klart? ${requestData.minutes_logged} minuter kommer att överföras.`);
+      const confirmed = confirm(`Är du säker på att du vill markera detta ärende som klart? ${actionText}.`);
       if (confirmed) {
         await performComplete();
       }
     } else {
       Alert.alert(
         'Markera som klart',
-        `Är du säker på att du vill markera detta ärende som klart? ${requestData.minutes_logged} minuter kommer att överföras.`,
+        `Är du säker på att du vill markera detta ärende som klart? ${actionText}.`,
         [
           { text: 'Nej', style: 'cancel' },
           { text: 'Ja', onPress: performComplete },
@@ -243,6 +267,16 @@ export default function ManageRequestScreen() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const getTransferDescription = () => {
+    if (!requestData || !requestData.responder) return '';
+
+    if (requestData.is_offer) {
+      return `När du markerar som klart kommer ${requestData.responder.first_name} att betala dig ${requestData.minutes_logged} minuter.`;
+    } else {
+      return `När du markerar som klart kommer du att betala ${requestData.responder.first_name} ${requestData.minutes_logged} minuter.`;
+    }
   };
 
   if (isLoading) {
@@ -332,6 +366,16 @@ export default function ManageRequestScreen() {
         ) : (
           <View style={styles.noResponderContainer}>
             <Text style={styles.noResponderText}>Ingen villager vald ännu.</Text>
+          </View>
+        )}
+
+        {/* Transfer Information */}
+        {requestData.responder && (
+          <View style={styles.transferInfoContainer}>
+            <Text style={styles.transferInfoTitle}>SALDOÖVERFÖRING</Text>
+            <Text style={styles.transferInfoText}>
+              {getTransferDescription()}
+            </Text>
           </View>
         )}
 
@@ -540,6 +584,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
     fontFamily: 'Unbounded-Regular',
+  },
+  transferInfoContainer: {
+    backgroundColor: '#F0F8FF',
+    borderWidth: 1,
+    borderColor: '#E4F1FF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+  },
+  transferInfoTitle: {
+    fontSize: 14,
+    color: '#87CEEB',
+    fontFamily: 'Unbounded-SemiBold',
+    marginBottom: 8,
+  },
+  transferInfoText: {
+    fontSize: 14,
+    color: '#333',
+    fontFamily: 'Unbounded-Regular',
+    lineHeight: 20,
   },
   spacer: {
     height: 20,
