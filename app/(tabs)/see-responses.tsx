@@ -14,7 +14,8 @@ type ResponseData = {
   message: string;
   status: string;
   created_at: string;
-  responder: {
+  responder_id: string;
+  responder?: {
     id: string;
     first_name: string;
     last_name: string;
@@ -49,6 +50,7 @@ export default function SeeResponsesScreen() {
   const [requestData, setRequestData] = useState<RequestData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -68,6 +70,7 @@ export default function SeeResponsesScreen() {
     try {
       setIsLoading(true);
       setError(null);
+      setDebugInfo('Starting fetch...');
 
       // Fetch the original request/offer data
       const { data: requestData, error: requestError } = await supabase
@@ -80,28 +83,17 @@ export default function SeeResponsesScreen() {
       if (requestError) {
         console.error('Error fetching request data:', requestError);
         setError('Kunde inte hämta förfrågan');
+        setDebugInfo(`Request error: ${requestError.message}`);
         return;
       }
 
       setRequestData(requestData);
+      setDebugInfo(`Request found: ${requestData.message}, is_offer: ${requestData.is_offer}`);
 
-      // Fetch all responses to this request
+      // SIMPLIFIED QUERY - First try without joining user data
       const { data: responsesData, error: responsesError } = await supabase
         .from('request_responses')
-        .select(`
-          id,
-          message,
-          status,
-          created_at,
-          responder:responder_id(
-            id,
-            first_name,
-            last_name,
-            phone_number,
-            minute_balance,
-            created_at
-          )
-        `)
+        .select('id, message, status, created_at, responder_id')
         .eq('request_id', requestId)
         .eq('status', 'accepted')
         .order('created_at', { ascending: false });
@@ -109,36 +101,79 @@ export default function SeeResponsesScreen() {
       if (responsesError) {
         console.error('Error fetching responses:', responsesError);
         setError('Kunde inte hämta svar');
+        setDebugInfo(`Responses error: ${responsesError.message}`);
         return;
       }
 
-      // Get blocked user IDs to filter out
-      const [blockedByMeResult, blockedByThemResult] = await Promise.all([
-        supabase
-          .from('user_blocks')
-          .select('blocked_id')
-          .eq('blocker_id', session.user.id),
-        supabase
-          .from('user_blocks')
-          .select('blocker_id')
-          .eq('blocked_id', session.user.id)
-      ]);
+      setDebugInfo(`Found ${responsesData?.length || 0} responses without user data`);
 
-      const blockedByMe = new Set((blockedByMeResult.data || []).map(block => block.blocked_id));
-      const blockedByThem = new Set((blockedByThemResult.data || []).map(block => block.blocker_id));
+      if (responsesData && responsesData.length > 0) {
+        // Now try to fetch user data separately for each response
+        const responsesWithUserData = await Promise.all(
+          responsesData.map(async (response) => {
+            try {
+              const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('id, first_name, last_name, phone_number, minute_balance, created_at')
+                .eq('id', response.responder_id)
+                .single();
 
-      // Filter out responses from blocked users
-      const filteredResponses = (responsesData || []).filter(response => {
-        const responderId = response.responder?.id;
-        return responderId && 
-               !blockedByMe.has(responderId) && 
-               !blockedByThem.has(responderId);
-      });
+              if (userError) {
+                console.error(`Error fetching user data for ${response.responder_id}:`, userError);
+                setDebugInfo(prev => prev + `\nUser fetch error for ${response.responder_id}: ${userError.message}`);
+                return {
+                  ...response,
+                  responder: undefined
+                };
+              }
 
-      setResponses(filteredResponses);
+              return {
+                ...response,
+                responder: userData
+              };
+            } catch (err) {
+              console.error(`Error in user data fetch for ${response.responder_id}:`, err);
+              return {
+                ...response,
+                responder: undefined
+              };
+            }
+          })
+        );
+
+        // Get blocked user IDs to filter out
+        const [blockedByMeResult, blockedByThemResult] = await Promise.all([
+          supabase
+            .from('user_blocks')
+            .select('blocked_id')
+            .eq('blocker_id', session.user.id),
+          supabase
+            .from('user_blocks')
+            .select('blocker_id')
+            .eq('blocked_id', session.user.id)
+        ]);
+
+        const blockedByMe = new Set((blockedByMeResult.data || []).map(block => block.blocked_id));
+        const blockedByThem = new Set((blockedByThemResult.data || []).map(block => block.blocker_id));
+
+        // Filter out responses from blocked users
+        const filteredResponses = responsesWithUserData.filter(response => {
+          const responderId = response.responder_id;
+          return responderId && 
+                 !blockedByMe.has(responderId) && 
+                 !blockedByThem.has(responderId);
+        });
+
+        setDebugInfo(prev => prev + `\nFiltered to ${filteredResponses.length} responses after blocking check`);
+        setResponses(filteredResponses);
+      } else {
+        setResponses([]);
+      }
+
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Ett fel uppstod vid hämtning av data');
+      setDebugInfo(`Catch error: ${err}`);
     } finally {
       setIsLoading(false);
     }
@@ -158,7 +193,7 @@ export default function SeeResponsesScreen() {
       params: {
         responseId: response.id,
         requestId: requestId,
-        responderId: response.responder.id
+        responderId: response.responder_id
       }
     });
   };
@@ -211,6 +246,7 @@ export default function SeeResponsesScreen() {
         </View>
         <View style={styles.centerContainer}>
           <Text style={styles.errorText}>{error || 'Kunde inte ladda data'}</Text>
+          <Text style={styles.debugText}>{debugInfo}</Text>
           <Pressable style={styles.retryButton} onPress={fetchResponsesAndRequest}>
             <Text style={styles.retryButtonText}>Försök igen</Text>
           </Pressable>
@@ -229,6 +265,14 @@ export default function SeeResponsesScreen() {
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+        {/* Debug Info */}
+        {debugInfo && (
+          <View style={styles.debugContainer}>
+            <Text style={styles.debugTitle}>DEBUG INFO:</Text>
+            <Text style={styles.debugText}>{debugInfo}</Text>
+          </View>
+        )}
+
         {/* Original Request/Offer Summary */}
         <View style={styles.originalRequestContainer}>
           <Text style={styles.originalRequestTitle}>
@@ -269,7 +313,10 @@ export default function SeeResponsesScreen() {
                     </View>
                     <View style={styles.responderDetails}>
                       <Text style={styles.responderName}>
-                        {response.responder.first_name} {response.responder.last_name}
+                        {response.responder 
+                          ? `${response.responder.first_name} ${response.responder.last_name}`
+                          : `Användare ${response.responder_id.slice(0, 8)}...`
+                        }
                       </Text>
                       <Text style={styles.responseDate}>
                         <Clock size={12} color="#666" />
@@ -279,13 +326,16 @@ export default function SeeResponsesScreen() {
                   </View>
                   <View style={styles.balanceIndicator}>
                     <Text style={styles.balanceText}>
-                      {response.responder.minute_balance > 0 ? '+' : ''}{response.responder.minute_balance} min
+                      {response.responder 
+                        ? `${response.responder.minute_balance > 0 ? '+' : ''}${response.responder.minute_balance} min`
+                        : 'N/A'
+                      }
                     </Text>
                   </View>
                 </View>
                 
                 <Text style={styles.responsePreview} numberOfLines={2}>
-                  {response.message}
+                  {response.message || 'Inget meddelande'}
                 </Text>
                 
                 <View style={styles.responseFooter}>
@@ -348,6 +398,25 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-Regular',
     textAlign: 'center',
     marginBottom: 20,
+  },
+  debugContainer: {
+    backgroundColor: '#F0F0F0',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  debugTitle: {
+    fontSize: 12,
+    color: '#666',
+    fontFamily: 'Unbounded-SemiBold',
+    marginBottom: 5,
+  },
+  debugText: {
+    fontSize: 10,
+    color: '#666',
+    fontFamily: 'Unbounded-Regular',
+    textAlign: 'center',
+    marginBottom: 10,
   },
   retryButton: {
     backgroundColor: '#FF69B4',
