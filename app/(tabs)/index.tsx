@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen, router } from 'expo-router';
 import { useEffect, useState, useContext } from 'react';
-import { Plus, MessageCircle, Eye, Users, CheckCircle } from 'lucide-react-native';
+import { Plus, MessageCircle, Eye, Users, CircleCheck as CheckCircle } from 'lucide-react-native';
 import RequestOfferModal from '../../components/RequestOfferModal';
 import AppFooter from '../../components/AppFooter';
 import { supabase } from '@/lib/supabase';
