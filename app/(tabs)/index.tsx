@@ -221,7 +221,9 @@ export default function Dashboard() {
         }
       });
 
-      // Fetch others' requests and offers (from groups I'm in)
+      // Fetch others' requests and offers from BOTH groups AND direct villager requests
+      
+      // 1. Get group memberships
       const { data: groupMemberships, error: groupError } = await supabase
         .from('group_members')
         .select('group_id')
@@ -233,9 +235,10 @@ export default function Dashboard() {
 
       const groupIds = (groupMemberships || []).map(gm => gm.group_id);
 
+      // 2. Fetch requests through groups
+      let groupRequestsData: any[] = [];
       if (groupIds.length > 0) {
-        // Fetch requests through the request_groups junction table
-        const { data: othersRequestsData, error: othersError } = await supabase
+        const { data, error: groupRequestsError } = await supabase
           .from('requests')
           .select(`
             id,
@@ -257,54 +260,103 @@ export default function Dashboard() {
           .eq('status', 'open')
           .order('created_at', { ascending: false });
 
-        if (othersError) {
-          console.error('Error fetching others requests:', othersError);
+        if (groupRequestsError) {
+          console.error('Error fetching group requests:', groupRequestsError);
+        } else {
+          groupRequestsData = data || [];
         }
-
-        // Process others' requests and offers
-        const processedOthersRequests: ReceivedItem[] = [];
-        const processedOthersOffers: ReceivedItem[] = [];
-
-        (othersRequestsData || []).forEach(item => {
-          if (!item.requester) return;
-
-          const createdAt = new Date(item.created_at);
-          const senderName = `${item.requester.first_name} ${item.requester.last_name}`;
-          
-          // Get group name from the junction table
-          const groupName = item.request_groups?.[0]?.group?.name;
-          
-          const processedItem: ReceivedItem = {
-            id: item.id,
-            type: item.is_offer ? 'offer' : 'request',
-            senderName: senderName.toUpperCase(),
-            message: item.message,
-            date: createdAt.toLocaleDateString('sv-SE', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long'
-            }).toUpperCase(),
-            time: createdAt.toLocaleTimeString('sv-SE', {
-              hour: '2-digit',
-              minute: '2-digit'
-            }),
-            urgency: 'NORMAL', // Mock data for now
-            estimatedTime: item.minutes_logged || 0,
-            balance: item.requester.minute_balance || 0,
-            groupName: groupName,
-            senderId: item.requester_id
-          };
-
-          if (item.is_offer) {
-            processedOthersOffers.push(processedItem);
-          } else {
-            processedOthersRequests.push(processedItem);
-          }
-        });
-
-        setOthersRequests(processedOthersRequests);
-        setOthersOffers(processedOthersOffers);
       }
+
+      // 3. Fetch requests through direct villager connections
+      const { data: villagerRequestsData, error: villagerRequestsError } = await supabase
+        .from('requests')
+        .select(`
+          id,
+          requester_id,
+          message,
+          is_offer,
+          status,
+          time_slot,
+          flexible,
+          minutes_logged,
+          created_at,
+          requester:requester_id(first_name, last_name, minute_balance),
+          request_villagers!inner(
+            user_id
+          )
+        `)
+        .eq('request_villagers.user_id', session.user.id)
+        .neq('requester_id', session.user.id)
+        .eq('status', 'open')
+        .order('created_at', { ascending: false });
+
+      if (villagerRequestsError) {
+        console.error('Error fetching villager requests:', villagerRequestsError);
+      }
+
+      // 4. Combine and deduplicate requests from both sources
+      const allOthersRequests = [...groupRequestsData];
+      
+      // Add villager requests that aren't already in group requests
+      (villagerRequestsData || []).forEach(villagerRequest => {
+        const alreadyExists = allOthersRequests.some(groupRequest => 
+          groupRequest.id === villagerRequest.id
+        );
+        if (!alreadyExists) {
+          allOthersRequests.push(villagerRequest);
+        }
+      });
+
+      // 5. Filter out requests from blocked users
+      const filteredOthersRequests = allOthersRequests.filter(request => {
+        const requesterId = request.requester_id;
+        return !blockedByMe.has(requesterId) && !blockedByThem.has(requesterId);
+      });
+
+      // Process others' requests and offers
+      const processedOthersRequests: ReceivedItem[] = [];
+      const processedOthersOffers: ReceivedItem[] = [];
+
+      filteredOthersRequests.forEach(item => {
+        if (!item.requester) return;
+
+        const createdAt = new Date(item.created_at);
+        const senderName = `${item.requester.first_name} ${item.requester.last_name}`;
+        
+        // Get group name if this request came from groups
+        const groupName = item.request_groups?.[0]?.group?.name;
+        
+        const processedItem: ReceivedItem = {
+          id: item.id,
+          type: item.is_offer ? 'offer' : 'request',
+          senderName: senderName.toUpperCase(),
+          message: item.message,
+          date: createdAt.toLocaleDateString('sv-SE', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long'
+          }).toUpperCase(),
+          time: createdAt.toLocaleTimeString('sv-SE', {
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          urgency: 'NORMAL', // Mock data for now
+          estimatedTime: item.minutes_logged || 0,
+          balance: item.requester.minute_balance || 0,
+          groupName: groupName,
+          senderId: item.requester_id
+        };
+
+        if (item.is_offer) {
+          processedOthersOffers.push(processedItem);
+        } else {
+          processedOthersRequests.push(processedItem);
+        }
+      });
+
+      // Sort by creation date (most recent first)
+      processedOthersRequests.sort((a, b) => new Date(b.date + ' ' + b.time).getTime() - new Date(a.date + ' ' + a.time).getTime());
+      processedOthersOffers.sort((a, b) => new Date(b.date + ' ' + b.time).getTime() - new Date(a.date + ' ' + a.time).getTime());
 
       setUserStats({
         minuteBalance: userData?.minute_balance || 0,
@@ -314,6 +366,8 @@ export default function Dashboard() {
 
       setMyRequests(processedMyRequests);
       setMyOffers(processedMyOffers);
+      setOthersRequests(processedOthersRequests);
+      setOthersOffers(processedOthersOffers);
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
