@@ -50,7 +50,6 @@ export default function SeeResponsesScreen() {
   const [requestData, setRequestData] = useState<RequestData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -70,7 +69,6 @@ export default function SeeResponsesScreen() {
     try {
       setIsLoading(true);
       setError(null);
-      setDebugInfo('Starting fetch...');
 
       // Fetch the original request/offer data
       const { data: requestData, error: requestError } = await supabase
@@ -83,12 +81,10 @@ export default function SeeResponsesScreen() {
       if (requestError) {
         console.error('Error fetching request data:', requestError);
         setError('Kunde inte hämta förfrågan');
-        setDebugInfo(`Request error: ${requestError.message}`);
         return;
       }
 
       setRequestData(requestData);
-      setDebugInfo(`Request found: ${requestData.message}, is_offer: ${requestData.is_offer}`);
 
       // SIMPLIFIED QUERY - First try without joining user data
       const { data: responsesData, error: responsesError } = await supabase
@@ -101,11 +97,8 @@ export default function SeeResponsesScreen() {
       if (responsesError) {
         console.error('Error fetching responses:', responsesError);
         setError('Kunde inte hämta svar');
-        setDebugInfo(`Responses error: ${responsesError.message}`);
         return;
       }
-
-      setDebugInfo(`Found ${responsesData?.length || 0} responses without user data`);
 
       if (responsesData && responsesData.length > 0) {
         // Now try to fetch user data separately for each response
@@ -120,7 +113,6 @@ export default function SeeResponsesScreen() {
 
               if (userError) {
                 console.error(`Error fetching user data for ${response.responder_id}:`, userError);
-                setDebugInfo(prev => prev + `\nUser fetch error for ${response.responder_id}: ${userError.message}`);
                 return {
                   ...response,
                   responder: undefined
@@ -164,7 +156,6 @@ export default function SeeResponsesScreen() {
                  !blockedByThem.has(responderId);
         });
 
-        setDebugInfo(prev => prev + `\nFiltered to ${filteredResponses.length} responses after blocking check`);
         setResponses(filteredResponses);
       } else {
         setResponses([]);
@@ -173,7 +164,6 @@ export default function SeeResponsesScreen() {
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Ett fel uppstod vid hämtning av data');
-      setDebugInfo(`Catch error: ${err}`);
     } finally {
       setIsLoading(false);
     }
@@ -246,7 +236,6 @@ export default function SeeResponsesScreen() {
         </View>
         <View style={styles.centerContainer}>
           <Text style={styles.errorText}>{error || 'Kunde inte ladda data'}</Text>
-          <Text style={styles.debugText}>{debugInfo}</Text>
           <Pressable style={styles.retryButton} onPress={fetchResponsesAndRequest}>
             <Text style={styles.retryButtonText}>Försök igen</Text>
           </Pressable>
@@ -265,14 +254,6 @@ export default function SeeResponsesScreen() {
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        {/* Debug Info */}
-        {debugInfo && (
-          <View style={styles.debugContainer}>
-            <Text style={styles.debugTitle}>DEBUG INFO:</Text>
-            <Text style={styles.debugText}>{debugInfo}</Text>
-          </View>
-        )}
-
         {/* Original Request/Offer Summary */}
         <View style={styles.originalRequestContainer}>
           <Text style={styles.originalRequestTitle}>
@@ -398,25 +379,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-Regular',
     textAlign: 'center',
     marginBottom: 20,
-  },
-  debugContainer: {
-    backgroundColor: '#F0F0F0',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  debugTitle: {
-    fontSize: 12,
-    color: '#666',
-    fontFamily: 'Unbounded-SemiBold',
-    marginBottom: 5,
-  },
-  debugText: {
-    fontSize: 10,
-    color: '#666',
-    fontFamily: 'Unbounded-Regular',
-    textAlign: 'center',
-    marginBottom: 10,
   },
   retryButton: {
     backgroundColor: '#FF69B4',
