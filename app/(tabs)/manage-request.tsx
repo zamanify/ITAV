@@ -192,19 +192,8 @@ export default function ManageRequestScreen() {
           toUserId = requestData.responder.id; // Responder receives
         }
 
-        // 1. Update request status to 'completed'
-        const { error: updateRequestError } = await supabase
-          .from('requests')
-          .update({ status: 'completed' })
-          .eq('id', requestId);
-
-        if (updateRequestError) {
-          console.error('Error completing request:', updateRequestError);
-          setError('Kunde inte markera ärendet som klart. Försök igen.');
-          return;
-        }
-
-        // 2. Use the database function to handle the balance transfer
+        // 1. First, use the database function to handle the balance transfer
+        // This must be done BEFORE updating the request status to 'completed'
         const { error: transferError } = await supabase.rpc('transfer_minutes', {
           p_from_user_id: fromUserId,
           p_to_user_id: toUserId,
@@ -215,6 +204,18 @@ export default function ManageRequestScreen() {
         if (transferError) {
           console.error('Error transferring minutes:', transferError);
           setError('Kunde inte överföra saldo. Försök igen.');
+          return;
+        }
+
+        // 2. Only after successful transfer, update request status to 'completed'
+        const { error: updateRequestError } = await supabase
+          .from('requests')
+          .update({ status: 'completed' })
+          .eq('id', requestId);
+
+        if (updateRequestError) {
+          console.error('Error completing request:', updateRequestError);
+          setError('Kunde inte markera ärendet som klart. Försök igen.');
           return;
         }
 
@@ -390,7 +391,7 @@ export default function ManageRequestScreen() {
           disabled={isProcessing}
         >
           {isProcessing ? (
-            <ActivityIndicator size="small\" color="white" />
+            <ActivityIndicator size="small" color="white" />
           ) : (
             <CheckCircle size={20} color="white" />
           )}
@@ -405,7 +406,7 @@ export default function ManageRequestScreen() {
           disabled={isProcessing}
         >
           {isProcessing ? (
-            <ActivityIndicator size="small\" color="#FF4444" />
+            <ActivityIndicator size="small" color="#FF4444" />
           ) : (
             <XCircle size={20} color="#FF4444" />
           )}
