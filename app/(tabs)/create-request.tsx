@@ -61,21 +61,29 @@ export default function CreateRequestScreen() {
     }
   }, [preselectedHood]);
 
-  // Clear selections when screen loses focus (user navigates away)
+  // Reset form when screen gains focus (user navigates to it)
   useFocusEffect(
     useCallback(() => {
-      return () => {
-        // This cleanup function runs when the screen loses focus
-        if (!isSubmitting) {
-          // Only clear if not currently submitting (to avoid clearing during successful submission)
-          setSelectedVillagers([]);
-          setSelectedHoods([]);
-          setVillagerNames({});
-          setHoodNames({});
-        }
-      };
-    }, [isSubmitting])
+      // Only reset if not coming from preselected params and not currently submitting
+      if (!preselectedVillager && !preselectedHood && !isSubmitting) {
+        resetForm();
+      }
+    }, [preselectedVillager, preselectedHood, isSubmitting])
   );
+
+  const resetForm = () => {
+    setMessage('');
+    setTimeType('flexible');
+    setStartDate(new Date());
+    setShowStartPicker(false);
+    setDuration('');
+    setPriority('Normal');
+    setShowPriorityPicker(false);
+    setSelectedVillagers([]);
+    setSelectedHoods([]);
+    setVillagerNames({});
+    setHoodNames({});
+  };
 
   const fetchVillagerName = async (villagerId: string) => {
     try {
@@ -126,11 +134,6 @@ export default function CreateRequestScreen() {
   }
 
   const handleBack = () => {
-    // Clear selections when user explicitly goes back
-    setSelectedVillagers([]);
-    setSelectedHoods([]);
-    setVillagerNames({});
-    setHoodNames({});
     router.back();
   };
 
@@ -194,11 +197,8 @@ export default function CreateRequestScreen() {
         }
       }
 
-      // Clear selections after successful submission
-      setSelectedVillagers([]);
-      setSelectedHoods([]);
-      setVillagerNames({});
-      setHoodNames({});
+      // Reset form after successful submission
+      resetForm();
       
       router.back();
     } catch (err) {
