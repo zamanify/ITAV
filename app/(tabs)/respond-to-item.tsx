@@ -172,7 +172,7 @@ export default function RespondToItemScreen() {
   const getActionText = () => {
     return itemType === 'request' 
       ? 'ERBJUD DIN HJÄLP'
-      : 'TA EMOT HJÄLPEN';
+      : 'Ja, klart jag tar denna!';
   };
 
   if (isLoading) {
@@ -289,7 +289,7 @@ export default function RespondToItemScreen() {
       >
         {isSubmitting ? (
           <>
-            <ActivityIndicator size="small\" color="white" />
+            <ActivityIndicator size="small" color="white" />
             <Text style={styles.sendButtonText}>Skickar...</Text>
           </>
         ) : (
