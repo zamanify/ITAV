@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext } from 'react';
-import { ArrowLeft, User, MessageCircle, CheckCircle, XCircle } from 'lucide-react-native';
+import { ArrowLeft, User, MessageCircle, CircleCheck as CheckCircle, Circle as XCircle } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 
@@ -346,7 +346,7 @@ export default function ManageRequestScreen() {
           disabled={isProcessing}
         >
           {isProcessing ? (
-            <ActivityIndicator size="small" color="white" />
+            <ActivityIndicator size="small\" color="white" />
           ) : (
             <CheckCircle size={20} color="white" />
           )}
@@ -361,7 +361,7 @@ export default function ManageRequestScreen() {
           disabled={isProcessing}
         >
           {isProcessing ? (
-            <ActivityIndicator size="small" color="#FF4444" />
+            <ActivityIndicator size="small\" color="#FF4444" />
           ) : (
             <XCircle size={20} color="#FF4444" />
           )}
