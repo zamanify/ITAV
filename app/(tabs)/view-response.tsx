@@ -136,23 +136,50 @@ export default function ViewResponseScreen() {
       try {
         setIsSelecting(true);
 
-        // Update the request status to 'accepted' and mark it as completed
-        const { error: updateError } = await supabase
+        // 1. Update the request status to 'accepted' and set the accepted_responder_id
+        const { error: updateRequestError } = await supabase
           .from('requests')
-          .update({ 
-            status: 'accepted'
+          .update({
+            status: 'accepted',
+            accepted_responder_id: responseData.responder.id // Set the selected responder
           })
           .eq('id', requestId)
           .eq('requester_id', session.user.id);
 
-        if (updateError) {
-          console.error('Error updating request status:', updateError);
+        if (updateRequestError) {
+          console.error('Error updating request status:', updateRequestError);
           setError('Kunde inte välja denna person. Försök igen.');
           return;
         }
 
-        // Navigate back to the main dashboard or responses list
-        router.push('/(tabs)');
+        // 2. Update all other responses for this request to 'rejected'
+        const { error: updateOtherResponsesError } = await supabase
+          .from('request_responses')
+          .update({ status: 'rejected' })
+          .eq('request_id', requestId)
+          .neq('id', responseId); // Exclude the currently selected response
+
+        if (updateOtherResponsesError) {
+          console.error('Error updating other responses:', updateOtherResponsesError);
+          // Decide if this error should prevent navigation or just be logged
+        }
+
+        // 3. Ensure the selected response is marked as 'accepted' (it should be already, but for clarity)
+        const { error: updateSelectedResponseError } = await supabase
+          .from('request_responses')
+          .update({ status: 'accepted' })
+          .eq('id', responseId);
+
+        if (updateSelectedResponseError) {
+          console.error('Error updating selected response status:', updateSelectedResponseError);
+        }
+
+        // Navigate to the new manage-request screen
+        router.replace({
+          pathname: '/manage-request',
+          params: { requestId: requestId }
+        });
+
       } catch (err) {
         console.error('Error selecting responder:', err);
         setError('Ett fel uppstod vid val av person');
@@ -327,7 +354,7 @@ export default function ViewResponseScreen() {
         >
           {isSelecting ? (
             <>
-              <ActivityIndicator size="small\" color="white" />
+              <ActivityIndicator size="small" color="white" />
               <Text style={styles.selectButtonText}>Väljer...</Text>
             </>
           ) : (

@@ -393,11 +393,18 @@ export default function Dashboard() {
     setModalVisible(true);
   };
 
-  const handleSeeResponses = (requestId: string) => {
-    router.push({
-      pathname: '/see-responses',
-      params: { requestId }
-    });
+  const handleSeeResponses = (requestId: string, status: string) => {
+    if (status === 'accepted') {
+      router.push({
+        pathname: '/manage-request',
+        params: { requestId }
+      });
+    } else {
+      router.push({
+        pathname: '/see-responses',
+        params: { requestId }
+      });
+    }
   };
 
   const formatMinuteBalance = (balance: number) => {
@@ -435,9 +442,11 @@ export default function Dashboard() {
         </View>
         <Pressable 
           style={styles.seeAnswersButton}
-          onPress={() => handleSeeResponses(item.id)}
+          onPress={() => handleSeeResponses(item.id, item.status)}
         >
-          <Text style={styles.seeAnswersButtonText}>Se svar</Text>
+          <Text style={styles.seeAnswersButtonText}>
+            {item.status === 'accepted' ? 'Hantera ärende' : 'Se svar'}
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -477,9 +486,11 @@ export default function Dashboard() {
         </View>
         <Pressable 
           style={styles.seeOfferAnswersButton}
-          onPress={() => handleSeeResponses(item.id)}
+          onPress={() => handleSeeResponses(item.id, item.status)}
         >
-          <Text style={styles.seeOfferAnswersButtonText}>Se svar</Text>
+          <Text style={styles.seeOfferAnswersButtonText}>
+            {item.status === 'accepted' ? 'Hantera ärende' : 'Se svar'}
+          </Text>
         </Pressable>
       </View>
     </LinearGradient>
