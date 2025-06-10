@@ -393,6 +393,13 @@ export default function Dashboard() {
     setModalVisible(true);
   };
 
+  const handleSeeResponses = (requestId: string) => {
+    router.push({
+      pathname: '/see-responses',
+      params: { requestId }
+    });
+  };
+
   const formatMinuteBalance = (balance: number) => {
     if (balance === 0) return '0 min';
     return `${balance > 0 ? '+' : ''}${balance} min`;
@@ -426,7 +433,10 @@ export default function Dashboard() {
           </View>
           <Text style={styles.statsLabel}>SVAR</Text>
         </View>
-        <Pressable style={styles.seeAnswersButton}>
+        <Pressable 
+          style={styles.seeAnswersButton}
+          onPress={() => handleSeeResponses(item.id)}
+        >
           <Text style={styles.seeAnswersButtonText}>Se svar</Text>
         </Pressable>
       </View>
@@ -465,7 +475,10 @@ export default function Dashboard() {
           </View>
           <Text style={styles.offerStatsLabel}>SVAR</Text>
         </View>
-        <Pressable style={styles.seeOfferAnswersButton}>
+        <Pressable 
+          style={styles.seeOfferAnswersButton}
+          onPress={() => handleSeeResponses(item.id)}
+        >
           <Text style={styles.seeOfferAnswersButtonText}>Se svar</Text>
         </Pressable>
       </View>
