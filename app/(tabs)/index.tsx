@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen, router } from 'expo-router';
 import { useEffect, useState, useContext } from 'react';
-import { Plus, MessageCircle, Eye, Users } from 'lucide-react-native';
+import { Plus, MessageCircle, Eye, Users, CheckCircle } from 'lucide-react-native';
 import RequestOfferModal from '../../components/RequestOfferModal';
 import AppFooter from '../../components/AppFooter';
 import { supabase } from '@/lib/supabase';
@@ -61,6 +61,8 @@ export default function Dashboard() {
   });
   const [myRequests, setMyRequests] = useState<RequestItem[]>([]);
   const [myOffers, setMyOffers] = useState<RequestItem[]>([]);
+  const [completedRequests, setCompletedRequests] = useState<RequestItem[]>([]);
+  const [completedOffers, setCompletedOffers] = useState<RequestItem[]>([]);
   const [othersRequests, setOthersRequests] = useState<ReceivedItem[]>([]);
   const [othersOffers, setOthersOffers] = useState<ReceivedItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -146,7 +148,7 @@ export default function Dashboard() {
         console.error('Error fetching hoods count:', hoodsError);
       }
 
-      // Fetch my requests and offers
+      // Fetch my requests and offers (both active and completed)
       const { data: myRequestsData, error: myRequestsError } = await supabase
         .from('requests')
         .select(`
@@ -187,9 +189,11 @@ export default function Dashboard() {
         }
       }
 
-      // Process my requests and offers
+      // Process my requests and offers, separating active from completed
       const processedMyRequests: RequestItem[] = [];
       const processedMyOffers: RequestItem[] = [];
+      const processedCompletedRequests: RequestItem[] = [];
+      const processedCompletedOffers: RequestItem[] = [];
 
       (myRequestsData || []).forEach(item => {
         const createdAt = new Date(item.created_at);
@@ -214,10 +218,19 @@ export default function Dashboard() {
           timeSlot: item.time_slot
         };
 
-        if (item.is_offer) {
-          processedMyOffers.push(processedItem);
+        // Separate completed from active items
+        if (item.status === 'completed') {
+          if (item.is_offer) {
+            processedCompletedOffers.push(processedItem);
+          } else {
+            processedCompletedRequests.push(processedItem);
+          }
         } else {
-          processedMyRequests.push(processedItem);
+          if (item.is_offer) {
+            processedMyOffers.push(processedItem);
+          } else {
+            processedMyRequests.push(processedItem);
+          }
         }
       });
 
@@ -366,6 +379,8 @@ export default function Dashboard() {
 
       setMyRequests(processedMyRequests);
       setMyOffers(processedMyOffers);
+      setCompletedRequests(processedCompletedRequests);
+      setCompletedOffers(processedCompletedOffers);
       setOthersRequests(processedOthersRequests);
       setOthersOffers(processedOthersOffers);
 
@@ -496,6 +511,41 @@ export default function Dashboard() {
     </LinearGradient>
   );
 
+  const renderCompletedItem = (item: RequestItem) => (
+    <View key={item.id} style={[
+      item.type === 'request' ? styles.completedRequestContainer : styles.completedOfferContainer
+    ]}>
+      <View style={styles.completedHeader}>
+        <View style={styles.completedTitleRow}>
+          <CheckCircle size={16} color={item.type === 'request' ? '#4CAF50' : '#87CEEB'} />
+          <Text style={[
+            styles.completedTitle,
+            item.type === 'request' ? styles.completedRequestTitle : styles.completedOfferTitle
+          ]}>
+            KLART: {item.type === 'request' ? 'FÖRFRÅGAN' : 'ERBJUDANDE'}
+          </Text>
+        </View>
+        <Text style={[
+          styles.completedDate,
+          item.type === 'request' ? styles.completedRequestDate : styles.completedOfferDate
+        ]}>
+          {item.date}, {item.time}
+        </Text>
+      </View>
+      <Text style={styles.completedMessage} numberOfLines={2}>
+        {item.message}
+      </Text>
+      <View style={styles.completedFooter}>
+        <Text style={[
+          styles.completedValue,
+          item.type === 'request' ? styles.completedRequestValue : styles.completedOfferValue
+        ]}>
+          {item.estimatedTime} min överförda
+        </Text>
+      </View>
+    </View>
+  );
+
   const renderOthersItem = (item: ReceivedItem, isOffer: boolean = false) => (
     <View key={item.id} style={isOffer ? styles.othersOfferContainer : styles.othersRequestContainer}>
       <View style={styles.othersItemHeader}>
@@ -529,6 +579,8 @@ export default function Dashboard() {
       )}
     </View>
   );
+
+  const hasCompletedItems = completedRequests.length > 0 || completedOffers.length > 0;
 
   return (
     <View style={styles.container}>
@@ -618,8 +670,17 @@ export default function Dashboard() {
             </View>
           )}
 
+          {/* Completed Requests and Offers Section */}
+          {hasCompletedItems && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>KLARA ÄRENDEN</Text>
+              {completedRequests.map(renderCompletedItem)}
+              {completedOffers.map(renderCompletedItem)}
+            </View>
+          )}
+
           {/* Empty State */}
-          {!isLoading && myRequests.length === 0 && myOffers.length === 0 && othersRequests.length === 0 && othersOffers.length === 0 && (
+          {!isLoading && myRequests.length === 0 && myOffers.length === 0 && othersRequests.length === 0 && othersOffers.length === 0 && !hasCompletedItems && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateTitle}>Välkommen till It Takes a Village!</Text>
               <Text style={styles.emptyStateText}>
@@ -887,6 +948,77 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontFamily: 'Unbounded-SemiBold',
+  },
+  // Completed Items Styles
+  completedRequestContainer: {
+    backgroundColor: '#F0F8F0',
+    borderWidth: 1,
+    borderColor: '#D4E6D4',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  completedOfferContainer: {
+    backgroundColor: '#F0F8FF',
+    borderWidth: 1,
+    borderColor: '#D6EFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  completedHeader: {
+    marginBottom: 8,
+  },
+  completedTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  completedTitle: {
+    fontSize: 12,
+    fontFamily: 'Unbounded-SemiBold',
+    letterSpacing: 0.5,
+  },
+  completedRequestTitle: {
+    color: '#4CAF50',
+  },
+  completedOfferTitle: {
+    color: '#87CEEB',
+  },
+  completedDate: {
+    fontSize: 11,
+    fontFamily: 'Unbounded-Regular',
+    opacity: 0.8,
+  },
+  completedRequestDate: {
+    color: '#4CAF50',
+  },
+  completedOfferDate: {
+    color: '#87CEEB',
+  },
+  completedMessage: {
+    fontSize: 14,
+    color: '#333',
+    fontFamily: 'Unbounded-Regular',
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  completedFooter: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+    paddingTop: 8,
+  },
+  completedValue: {
+    fontSize: 12,
+    fontFamily: 'Unbounded-Regular',
+    fontWeight: '600',
+  },
+  completedRequestValue: {
+    color: '#4CAF50',
+  },
+  completedOfferValue: {
+    color: '#87CEEB',
   },
   // Others' Requests Styles
   othersRequestContainer: {
