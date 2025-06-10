@@ -391,7 +391,7 @@ export default function ManageRequestScreen() {
           disabled={isProcessing}
         >
           {isProcessing ? (
-            <ActivityIndicator size="small" color="white" />
+            <ActivityIndicator size="small\" color="white" />
           ) : (
             <CheckCircle size={20} color="white" />
           )}
@@ -406,7 +406,7 @@ export default function ManageRequestScreen() {
           disabled={isProcessing}
         >
           {isProcessing ? (
-            <ActivityIndicator size="small" color="#FF4444" />
+            <ActivityIndicator size="small\" color="#FF4444" />
           ) : (
             <XCircle size={20} color="#FF4444" />
           )}
