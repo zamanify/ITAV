@@ -295,7 +295,7 @@ export default function OnboardingStep1() {
                   {showPassword ? (
                     <EyeOff color="#666\" size={16} />
                   ) : (
-                    <Eye color="#666" size={16} />
+                    <Eye color="#666\" size={16} />
                   )}
                 </Pressable>
               </View>
