@@ -354,7 +354,7 @@ export default function ViewResponseScreen() {
         >
           {isSelecting ? (
             <>
-              <ActivityIndicator size="small" color="white" />
+              <ActivityIndicator size="small\" color="white" />
               <Text style={styles.selectButtonText}>Väljer...</Text>
             </>
           ) : (
