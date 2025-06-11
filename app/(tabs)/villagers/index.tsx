@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platform, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
@@ -60,6 +60,7 @@ export default function VillagersScreen() {
   const [sentRequests, setSentRequests] = useState<SentRequest[]>([]);
   const [blockedVillagers, setBlockedVillagers] = useState<BlockedVillager[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
   const [groupModalVisible, setGroupModalVisible] = useState(false);
@@ -241,6 +242,17 @@ export default function VillagersScreen() {
       setError('Ett fel uppstod vid hämtning av villagers');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchVillagersAndRequests();
+    } catch (error) {
+      console.error('Error refreshing villagers:', error);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -567,7 +579,13 @@ export default function VillagersScreen() {
         </View>
       )}
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {isLoading ? (
           <View style={styles.centerContainer}>
             <Text style={styles.loadingText}>Laddar dina villagers...</Text>
