@@ -61,6 +61,24 @@ export default function CreateRequestScreen() {
     }
   }, [preselectedHood]);
 
+  // Fetch names for all selected villagers whenever the selection changes
+  useEffect(() => {
+    selectedVillagers.forEach(villagerId => {
+      if (!villagerNames[villagerId]) {
+        fetchVillagerName(villagerId);
+      }
+    });
+  }, [selectedVillagers]);
+
+  // Fetch names for all selected hoods whenever the selection changes
+  useEffect(() => {
+    selectedHoods.forEach(hoodId => {
+      if (!hoodNames[hoodId]) {
+        fetchHoodName(hoodId);
+      }
+    });
+  }, [selectedHoods]);
+
   // Reset form when screen gains focus (user navigates to it)
   useFocusEffect(
     useCallback(() => {
