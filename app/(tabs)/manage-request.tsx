@@ -187,11 +187,18 @@ export default function ManageRequestScreen() {
         }
 
         // 2. Create a transaction
+        const fromUser = requestData.is_offer
+          ? requestData.responder!.id
+          : requestData.requester_id;
+        const toUser = requestData.is_offer
+          ? requestData.requester_id
+          : requestData.responder!.id;
+
         const { error: transactionError } = await supabase
           .from('transactions')
           .insert({
-            from_user: requestData.requester_id, // The one who requested help
-            to_user: requestData.responder.id, // The one who helped
+            from_user: fromUser,
+            to_user: toUser,
             minutes: requestData.minutes_logged,
             related_request: requestData.id
           });
