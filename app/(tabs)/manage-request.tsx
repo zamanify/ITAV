@@ -187,21 +187,27 @@ export default function ManageRequestScreen() {
         }
 
         // 2. Create a transaction
+     const fromUser = requestData.is_offer
+          ? requestData.responder!.id
+          : requestData.requester_id;
+        const toUser = requestData.is_offer
+          ? requestData.requester_id
+          : requestData.responder!.id;
+
         const { error: transactionError } = await supabase
           .from('transactions')
           .insert({
             from_user: requestData.requester_id, // The one who requested help
             to_user: requestData.responder.id, // The one who helped
+            from_user: fromUser,
+            to_user: toUser,
             minutes: requestData.minutes_logged,
             related_request: requestData.id
           });
 
-        if (transactionError) {
-          console.error('Error creating transaction:', transactionError);
-          setError('Kunde inte skapa transaktionen. Försök igen.');
-          return;
-        }
 
+
+        
         // 3. Update minute balances for both users (this is handled by a database trigger on transactions table)
         //    No explicit client-side update needed here if trigger is set up.
         //    Assuming a trigger exists that updates users.minute_balance based on transactions.
