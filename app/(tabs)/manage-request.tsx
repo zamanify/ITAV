@@ -186,28 +186,30 @@ export default function ManageRequestScreen() {
           return;
         }
 
-        // 2. Create a transaction
+        // 2. Create a transaction with correct from_user and to_user based on request type
         const fromUser = requestData.is_offer
-          ? requestData.responder!.id
-          : requestData.requester_id;
+          ? requestData.responder.id  // For offers: responder gives minutes
+          : requestData.requester_id; // For requests: requester gives minutes
+
         const toUser = requestData.is_offer
-          ? requestData.requester_id
-          : requestData.responder!.id;
+          ? requestData.requester_id  // For offers: requester receives minutes
+          : requestData.responder.id; // For requests: responder receives minutes
 
         const { error: transactionError } = await supabase
           .from('transactions')
           .insert({
-            from_user: requestData.requester_id, // The one who requested help
-            to_user: requestData.responder.id, // The one who helped
             from_user: fromUser,
             to_user: toUser,
             minutes: requestData.minutes_logged,
             related_request: requestData.id
           });
 
+        if (transactionError) {
+          console.error('Error creating transaction:', transactionError);
+          setError('Kunde inte skapa transaktionen. Försök igen.');
+          return;
+        }
 
-
-        
         // 3. Update minute balances for both users (this is handled by a database trigger on transactions table)
         //    No explicit client-side update needed here if trigger is set up.
         //    Assuming a trigger exists that updates users.minute_balance based on transactions.
@@ -352,7 +354,7 @@ export default function ManageRequestScreen() {
           disabled={isProcessing}
         >
           {isProcessing ? (
-            <ActivityIndicator size="small\" color="white" />
+            <ActivityIndicator size="small" color="white" />
           ) : (
             <CheckCircle size={20} color="white" />
           )}
@@ -367,7 +369,7 @@ export default function ManageRequestScreen() {
           disabled={isProcessing}
         >
           {isProcessing ? (
-            <ActivityIndicator size="small\" color="#FF4444" />
+            <ActivityIndicator size="small" color="#FF4444" />
           ) : (
             <XCircle size={20} color="#FF4444" />
           )}
