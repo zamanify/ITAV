@@ -1,13 +1,10 @@
 import { View, Text, StyleSheet, TextInput, Pressable, Image, ScrollView } from 'react-native';
 import { router } from 'expo-router';
-import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext } from 'react';
 import { ArrowLeft, Check } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 
-SplashScreen.preventAutoHideAsync();
 
 type Villager = {
   id: string;
@@ -18,10 +15,7 @@ type Villager = {
 };
 
 export default function CreateHoodScreen() {
-  const [fontsLoaded] = useFonts({
-    'Unbounded-Regular': Unbounded_400Regular,
-    'Unbounded-SemiBold': Unbounded_600SemiBold,
-  });
+  
 
   const { session } = useContext(AuthContext);
   const [groupName, setGroupName] = useState('');
@@ -31,11 +25,6 @@ export default function CreateHoodScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -119,9 +108,6 @@ export default function CreateHoodScreen() {
     }
   };
 
-  if (!fontsLoaded) {
-    return null;
-  }
 
   const handleBack = () => {
     router.back();

@@ -1,13 +1,10 @@
 import { View, Text, StyleSheet, TextInput, Pressable, Image, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { router } from 'expo-router';
-import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
-import { useState, useEffect, useContext } from 'react';
+import { useState, useContext } from 'react';
 import { Plus } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 
-SplashScreen.preventAutoHideAsync();
 
 interface Group {
   id: string;
@@ -15,10 +12,6 @@ interface Group {
 }
 
 export default function OnboardingStep3() {
-  const [fontsLoaded] = useFonts({
-    'Unbounded-Regular': Unbounded_400Regular,
-    'Unbounded-SemiBold': Unbounded_600SemiBold,
-  });
 
   const { session } = useContext(AuthContext);
   const [groups, setGroups] = useState<Group[]>([
@@ -28,15 +21,6 @@ export default function OnboardingStep3() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
-
-  if (!fontsLoaded) {
-    return null;
-  }
 
   const handleAddGroup = () => {
     setGroups(prev => [...prev, { id: String(prev.length + 1), name: '' }]);

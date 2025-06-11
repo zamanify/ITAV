@@ -1,13 +1,10 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext } from 'react';
 import { ArrowLeft, MessageCircle, User, Clock } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 
-SplashScreen.preventAutoHideAsync();
 
 type ResponseData = {
   id: string;
@@ -37,10 +34,6 @@ type RequestData = {
 };
 
 export default function SeeResponsesScreen() {
-  const [fontsLoaded] = useFonts({
-    'Unbounded-Regular': Unbounded_400Regular,
-    'Unbounded-SemiBold': Unbounded_600SemiBold,
-  });
 
   const { session } = useContext(AuthContext);
   const params = useLocalSearchParams();
@@ -52,11 +45,6 @@ export default function SeeResponsesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   useEffect(() => {
     if (session?.user?.id && requestId) {
@@ -181,9 +169,6 @@ export default function SeeResponsesScreen() {
     }
   };
 
-  if (!fontsLoaded) {
-    return null;
-  }
 
   const handleBack = () => {
     router.back();

@@ -1,7 +1,5 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext } from 'react';
 import { ArrowLeft, UserPlus } from 'lucide-react-native';
 import * as Contacts from 'expo-contacts';
@@ -10,7 +8,6 @@ import { AuthContext } from '@/contexts/AuthContext';
 import { normalizePhoneNumber } from '@/lib/phone';
 import AppFooter from '../../components/AppFooter';
 
-SplashScreen.preventAutoHideAsync();
 
 type Contact = {
   id: string;
@@ -22,10 +19,6 @@ type Contact = {
 };
 
 export default function InviteScreen() {
-  const [fontsLoaded] = useFonts({
-    'Unbounded-Regular': Unbounded_400Regular,
-    'Unbounded-SemiBold': Unbounded_600SemiBold,
-  });
 
   const { session } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,11 +28,6 @@ export default function InviteScreen() {
   const [permissionStatus, setPermissionStatus] = useState<'undetermined' | 'granted' | 'denied'>('undetermined');
   const [invitingContactId, setInvitingContactId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -296,9 +284,6 @@ export default function InviteScreen() {
     }
   };
 
-  if (!fontsLoaded) {
-    return null;
-  }
 
   const handleBack = () => {
     router.back();

@@ -1,26 +1,16 @@
 import { View, Text, StyleSheet, TextInput, Pressable, Image, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Link, router } from 'expo-router';
-import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
-import { Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { normalizePhoneNumber } from '@/lib/phone';
 
-SplashScreen.preventAutoHideAsync();
 
 type ValidationErrors = {
   [key: string]: string;
 };
 
 export default function OnboardingStep1() {
-  const [fontsLoaded, fontError] = useFonts({
-    'Poppins-Regular': Poppins_400Regular,
-    'Poppins-SemiBold': Poppins_600SemiBold,
-    'Unbounded-Regular': Unbounded_400Regular,
-    'Unbounded-SemiBold': Unbounded_600SemiBold,
-  });
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -38,15 +28,6 @@ export default function OnboardingStep1() {
   const [fieldErrors, setFieldErrors] = useState<ValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
-
-  if (!fontsLoaded && !fontError) {
-    return null;
-  }
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
     let processedValue = value;

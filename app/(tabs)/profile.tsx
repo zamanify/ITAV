@@ -1,13 +1,11 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, Alert, Platform } from 'react-native';
-import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useEffect, useContext, useState } from 'react';
 import { LogOut, User, Mail, Phone, MapPin, Calendar } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../components/AppFooter';
 
-SplashScreen.preventAutoHideAsync();
 
 type UserData = {
   id: string;
@@ -23,10 +21,6 @@ type UserData = {
 };
 
 export default function ProfileScreen() {
-  const [fontsLoaded] = useFonts({
-    'Unbounded-Regular': Unbounded_400Regular,
-    'Unbounded-SemiBold': Unbounded_600SemiBold,
-  });
 
   const { session } = useContext(AuthContext);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -34,11 +28,6 @@ export default function ProfileScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -74,9 +63,6 @@ export default function ProfileScreen() {
     }
   };
 
-  if (!fontsLoaded) {
-    return null;
-  }
 
   const handleLogout = async () => {
     if (isLoggingOut) return;

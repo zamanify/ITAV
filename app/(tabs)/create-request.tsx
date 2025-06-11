@@ -1,7 +1,5 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Platform } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext, useCallback } from 'react';
 import { ArrowLeft, ChevronDown, X } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -10,16 +8,11 @@ import HoodSelectionModal from '../../components/HoodSelectionModal';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 
-SplashScreen.preventAutoHideAsync();
 
 type TimeType = 'flexible' | 'specific';
 type PriorityType = 'Låg' | 'Normal' | 'Hög';
 
 export default function CreateRequestScreen() {
-  const [fontsLoaded] = useFonts({
-    'Unbounded-Regular': Unbounded_400Regular,
-    'Unbounded-SemiBold': Unbounded_600SemiBold,
-  });
 
   const { session } = useContext(AuthContext);
   const params = useLocalSearchParams();
@@ -41,11 +34,6 @@ export default function CreateRequestScreen() {
   const [hoodNames, setHoodNames] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   useEffect(() => {
     if (preselectedVillager) {
@@ -147,9 +135,6 @@ export default function CreateRequestScreen() {
     }
   };
 
-  if (!fontsLoaded) {
-    return null;
-  }
 
   const handleBack = () => {
     router.back();

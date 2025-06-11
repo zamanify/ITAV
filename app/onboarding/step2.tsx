@@ -1,7 +1,5 @@
 import { View, Text, StyleSheet, TextInput, Pressable, Image, FlatList, Platform } from 'react-native';
 import { Link, router } from 'expo-router';
-import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext } from 'react';
 import { Check } from 'lucide-react-native';
 import * as Contacts from 'expo-contacts';
@@ -9,7 +7,6 @@ import { supabase } from '@/lib/supabase';
 import { normalizePhoneNumber } from '@/lib/phone';
 import { AuthContext } from '@/contexts/AuthContext';
 
-SplashScreen.preventAutoHideAsync();
 
 type Contact = {
   id: string;
@@ -19,10 +16,6 @@ type Contact = {
 };
 
 export default function OnboardingStep2() {
-  const [fontsLoaded] = useFonts({
-    'Unbounded-Regular': Unbounded_400Regular,
-    'Unbounded-SemiBold': Unbounded_600SemiBold,
-  });
 
   const { session } = useContext(AuthContext);
   const [searchInput, setSearchInput] = useState('');
@@ -181,9 +174,6 @@ export default function OnboardingStep2() {
     return 'Lägg till';
   };
 
-  if (!fontsLoaded) {
-    return null;
-  }
 
   return (
     <View style={styles.container}>
