@@ -1,10 +1,12 @@
 import { Modal, View, Text, StyleSheet, Pressable } from 'react-native';
 import { X } from 'lucide-react-native';
+import { router } from 'expo-router';
 
 type RequestOfferModalProps = {
   visible: boolean;
   onClose: () => void;
   data: {
+    id: string;
     type: 'request' | 'offer';
     senderName: string;
     message: string;
@@ -14,6 +16,7 @@ type RequestOfferModalProps = {
     estimatedTime: number;
     balance: number;
     groupName?: string;
+    senderId: string;
   };
 };
 
@@ -22,6 +25,19 @@ export default function RequestOfferModal({ visible, onClose, data }: RequestOff
     if (data.balance === 0) return 'NI HAR 0 MIN MELLAN ER';
     if (data.balance > 0) return `${data.senderName} ÄR SKYLDIG DIG ${data.balance} MIN`;
     return `DU ÄR SKYLDIG ${data.senderName} ${Math.abs(data.balance)} MIN`;
+  };
+
+  const handleRespondToItem = () => {
+    onClose();
+    // Navigate to the response screen with the necessary parameters
+    router.push({
+      pathname: '/respond-to-item',
+      params: {
+        itemId: data.id,
+        senderId: data.senderId,
+        itemType: data.type
+      }
+    });
   };
 
   return (
@@ -61,7 +77,7 @@ export default function RequestOfferModal({ visible, onClose, data }: RequestOff
           </View>
 
           <View style={styles.buttonContainer}>
-            <Pressable style={styles.actionButton}>
+            <Pressable style={styles.actionButton} onPress={handleRespondToItem}>
               <Text style={styles.actionButtonText}>
                 {data.type === 'request' 
                   ? 'RÄCK UPP HANDEN OCH ERBJUD DIG'
