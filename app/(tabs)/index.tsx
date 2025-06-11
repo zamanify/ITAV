@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, Image, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, ScrollView, Platform, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen, router, useFocusEffect } from 'expo-router';
@@ -68,6 +68,7 @@ export default function Dashboard() {
   const [othersRequests, setOthersRequests] = useState<ReceivedItem[]>([]);
   const [othersOffers, setOthersOffers] = useState<ReceivedItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -429,6 +430,12 @@ export default function Dashboard() {
     router.push('/create-offer');
   };
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchDashboardData();
+    setRefreshing(false);
+  }, [session?.user?.id]);
+
   const handleOpenModal = (item: ReceivedItem) => {
     setSelectedRequest(item);
     setModalVisible(true);
@@ -604,7 +611,13 @@ export default function Dashboard() {
         />
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {/* Stats Card */}
         <LinearGradient
           colors={['#FF69B4', '#9370DB', '#87CEEB']}
