@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, Image, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, ScrollView, Platform, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen, router, useFocusEffect } from 'expo-router';
@@ -68,6 +68,7 @@ export default function Dashboard() {
   const [othersRequests, setOthersRequests] = useState<ReceivedItem[]>([]);
   const [othersOffers, setOthersOffers] = useState<ReceivedItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -180,6 +181,7 @@ export default function Dashboard() {
       // Get response counts for my requests/offers - IMPROVED QUERY
       const myRequestIds = (myRequestsData || []).map(req => req.id);
       let responseCountMap: Record<string, number> = {};
+      let viewCountMap: Record<string, number> = {};
       
       if (myRequestIds.length > 0) {
         // Get all responses for my requests, excluding blocked users
@@ -190,20 +192,27 @@ export default function Dashboard() {
             responder_id,
             status
           `)
-          .in('request_id', myRequestIds)
-          .eq('status', 'accepted'); // Only count accepted responses
+          .in('request_id', myRequestIds);
 
         if (responseError) {
           console.error('Error fetching response counts:', responseError);
         } else {
           // Filter out responses from blocked users and count
-          const filteredResponses = (allResponses || []).filter(response => 
+          const filteredResponses = (allResponses || []).filter(response =>
             !blockedByMe.has(response.responder_id) && !blockedByThem.has(response.responder_id)
           );
 
-          // Count responses per request
-          responseCountMap = filteredResponses.reduce((acc, response) => {
+          // Count views per request (any status)
+          viewCountMap = filteredResponses.reduce((acc, response) => {
             acc[response.request_id] = (acc[response.request_id] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+
+          // Count accepted responses per request
+          responseCountMap = filteredResponses.reduce((acc, response) => {
+            if (response.status === 'accepted') {
+              acc[response.request_id] = (acc[response.request_id] || 0) + 1;
+            }
             return acc;
           }, {} as Record<string, number>);
         }
@@ -234,7 +243,7 @@ export default function Dashboard() {
             hour: '2-digit',
             minute: '2-digit'
           }),
-          views: Math.floor(Math.random() * 20) + 1, // Mock data for now
+          views: viewCountMap[item.id] || 0,
           responses: responseCountMap[item.id] || 0, // Use the improved count
           status: item.status,
           estimatedTime: item.minutes_logged || 0,
@@ -414,6 +423,17 @@ export default function Dashboard() {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchDashboardData();
+    } catch (error) {
+      console.error('Error refreshing dashboard:', error);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -604,7 +624,13 @@ export default function Dashboard() {
         />
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {/* Stats Card */}
         <LinearGradient
           colors={['#FF69B4', '#9370DB', '#87CEEB']}

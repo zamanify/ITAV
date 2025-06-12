@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
@@ -49,6 +49,7 @@ export default function SeeResponsesScreen() {
   const [responses, setResponses] = useState<ResponseData[]>([]);
   const [requestData, setRequestData] = useState<RequestData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -169,6 +170,17 @@ export default function SeeResponsesScreen() {
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchResponsesAndRequest();
+    } catch (error) {
+      console.error('Error refreshing responses:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   if (!fontsLoaded) {
     return null;
   }
@@ -253,7 +265,13 @@ export default function SeeResponsesScreen() {
         <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {/* Original Request/Offer Summary */}
         <View style={styles.originalRequestContainer}>
           <Text style={styles.originalRequestTitle}>

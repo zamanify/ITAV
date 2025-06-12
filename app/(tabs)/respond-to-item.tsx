@@ -6,6 +6,7 @@ import { useState, useEffect, useContext } from 'react';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
+import { fetchPairBalance } from '@/lib/balance';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -41,6 +42,7 @@ export default function RespondToItemScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pairBalance, setPairBalance] = useState<number | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -59,6 +61,17 @@ export default function RespondToItemScreen() {
       fetchRequestData();
     }
   }, [session?.user?.id, itemId]);
+
+  useEffect(() => {
+    const loadBalance = async () => {
+      if (session?.user?.id && senderId) {
+        const balance = await fetchPairBalance(session.user.id, senderId);
+        if (balance !== null) setPairBalance(balance);
+      }
+    };
+
+    loadBalance();
+  }, [session?.user?.id, senderId]);
 
   const fetchRequestData = async () => {
     if (!itemId) return;
@@ -158,12 +171,12 @@ export default function RespondToItemScreen() {
   };
 
   const getBalanceText = () => {
-    if (!requestData?.requester) return '';
-    
-    const balance = requestData.requester.minute_balance;
-    if (balance === 0) return 'NI HAR 0 MIN MELLAN ER';
-    if (balance > 0) return `${requestData.requester.first_name} ÄR SKYLDIG DIG ${balance} MIN`;
-    return `DU ÄR SKYLDIG ${requestData.requester.first_name} ${Math.abs(balance)} MIN`;
+    if (!requestData?.requester || pairBalance === null) return '';
+
+    if (pairBalance === 0) return 'NI HAR 0 MIN MELLAN ER';
+    if (pairBalance > 0)
+      return `${requestData.requester.first_name} ÄR SKYLDIG DIG ${pairBalance} MIN`;
+    return `DU ÄR SKYLDIG ${requestData.requester.first_name} ${Math.abs(pairBalance)} MIN`;
   };
 
   const getHeaderTitle = () => {

@@ -1,6 +1,10 @@
 import { Modal, View, Text, StyleSheet, Pressable } from 'react-native';
 import { X } from 'lucide-react-native';
 import { router } from 'expo-router';
+import { useContext, useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { fetchPairBalance } from '@/lib/balance';
+import { AuthContext } from '@/contexts/AuthContext';
 
 type RequestOfferModalProps = {
   visible: boolean;
@@ -21,10 +25,45 @@ type RequestOfferModalProps = {
 };
 
 export default function RequestOfferModal({ visible, onClose, data }: RequestOfferModalProps) {
+  const { session } = useContext(AuthContext);
+  const [pairBalance, setPairBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    const logView = async () => {
+      if (visible && session?.user?.id && data.senderId !== session.user.id) {
+        const { error } = await supabase
+          .from('request_responses')
+          .upsert(
+            {
+              request_id: data.id,
+              responder_id: session.user.id,
+              status: 'viewed'
+            },
+            { onConflict: 'request_id,responder_id' }
+          );
+        if (error) console.error('Failed to register view:', error);
+      }
+    };
+
+    logView();
+  }, [visible, session?.user?.id, data.id]);
+
+  useEffect(() => {
+    const loadBalance = async () => {
+      if (visible && session?.user?.id && data.senderId) {
+        const balance = await fetchPairBalance(session.user.id, data.senderId);
+        if (balance !== null) setPairBalance(balance);
+      }
+    };
+
+    loadBalance();
+  }, [visible, session?.user?.id, data.senderId]);
   const getBalanceText = () => {
-    if (data.balance === 0) return 'NI HAR 0 MIN MELLAN ER';
-    if (data.balance > 0) return `${data.senderName} ÄR SKYLDIG DIG ${data.balance} MIN`;
-    return `DU ÄR SKYLDIG ${data.senderName} ${Math.abs(data.balance)} MIN`;
+    if (pairBalance === null) return '';
+    if (pairBalance === 0) return 'NI HAR 0 MIN MELLAN ER';
+    if (pairBalance > 0)
+      return `${data.senderName} ÄR SKYLDIG DIG ${pairBalance} MIN`;
+    return `DU ÄR SKYLDIG ${data.senderName} ${Math.abs(pairBalance)} MIN`;
   };
 
   const handleRespondToItem = () => {
