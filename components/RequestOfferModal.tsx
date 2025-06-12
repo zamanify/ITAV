@@ -1,6 +1,9 @@
 import { Modal, View, Text, StyleSheet, Pressable } from 'react-native';
 import { X } from 'lucide-react-native';
 import { router } from 'expo-router';
+import { useContext, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { AuthContext } from '@/contexts/AuthContext';
 
 type RequestOfferModalProps = {
   visible: boolean;
@@ -21,6 +24,19 @@ type RequestOfferModalProps = {
 };
 
 export default function RequestOfferModal({ visible, onClose, data }: RequestOfferModalProps) {
+  const { session } = useContext(AuthContext);
+
+  useEffect(() => {
+    if (visible && session?.user?.id && data.senderId !== session.user.id) {
+      supabase
+        .from('request_responses')
+        .upsert({
+          request_id: data.id,
+          responder_id: session.user.id,
+          status: 'viewed'
+        }, { onConflict: 'request_id,responder_id' });
+    }
+  }, [visible, session?.user?.id, data.id]);
   const getBalanceText = () => {
     if (data.balance === 0) return 'NI HAR 0 MIN MELLAN ER';
     if (data.balance > 0) return `${data.senderName} ÄR SKYLDIG DIG ${data.balance} MIN`;
