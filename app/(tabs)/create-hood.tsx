@@ -1,13 +1,11 @@
 import { View, Text, StyleSheet, TextInput, Pressable, Image, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext } from 'react';
 import { ArrowLeft, Check } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 
-SplashScreen.preventAutoHideAsync();
 
 type Villager = {
   id: string;

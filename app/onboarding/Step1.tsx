@@ -2,13 +2,11 @@ import { View, Text, StyleSheet, TextInput, Pressable, Image, ScrollView, Keyboa
 import { Link, router } from 'expo-router';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { normalizePhoneNumber } from '@/lib/phone';
 
-SplashScreen.preventAutoHideAsync();
 
 type ValidationErrors = {
   [key: string]: string;

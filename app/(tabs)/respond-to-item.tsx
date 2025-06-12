@@ -1,14 +1,12 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext } from 'react';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import { fetchPairBalance } from '@/lib/balance';
 
-SplashScreen.preventAutoHideAsync();
 
 type RequestData = {
   id: string;

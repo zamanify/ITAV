@@ -1,13 +1,12 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, Alert, Platform } from 'react-native';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useEffect, useContext, useState } from 'react';
 import { LogOut, User, Mail, Phone, MapPin, Calendar } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../components/AppFooter';
 
-SplashScreen.preventAutoHideAsync();
 
 type UserData = {
   id: string;

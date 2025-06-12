@@ -1,14 +1,12 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext } from 'react';
 import { ArrowLeft } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import { normalizePhoneNumber } from '@/lib/phone';
 
-SplashScreen.preventAutoHideAsync();
 
 type ValidationErrors = { [key: string]: string };
 

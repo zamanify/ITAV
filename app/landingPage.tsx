@@ -1,10 +1,9 @@
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useEffect } from 'react';
 
-SplashScreen.preventAutoHideAsync();
 
 export default function LandingPage() {
   const [fontsLoaded, fontError] = useFonts({

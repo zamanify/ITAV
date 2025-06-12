@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, Pressable, Image, ScrollView, Platform, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen, router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useEffect, useState, useContext, useCallback } from 'react';
 import { Plus, MessageCircle, Eye, Users, CircleCheck as CheckCircle } from 'lucide-react-native';
 import RequestOfferModal from '../../components/RequestOfferModal';
@@ -9,7 +9,6 @@ import AppFooter from '../../components/AppFooter';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 
-SplashScreen.preventAutoHideAsync();
 
 type RequestItem = {
   id: string;

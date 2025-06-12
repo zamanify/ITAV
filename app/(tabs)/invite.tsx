@@ -1,7 +1,6 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext } from 'react';
 import { ArrowLeft, UserPlus } from 'lucide-react-native';
 import * as Contacts from 'expo-contacts';
@@ -10,7 +9,6 @@ import { AuthContext } from '@/contexts/AuthContext';
 import { normalizePhoneNumber } from '@/lib/phone';
 import AppFooter from '../../components/AppFooter';
 
-SplashScreen.preventAutoHideAsync();
 
 type Contact = {
   id: string;

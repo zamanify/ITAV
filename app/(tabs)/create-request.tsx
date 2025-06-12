@@ -1,7 +1,6 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Platform } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext, useCallback } from 'react';
 import { ArrowLeft, ChevronDown, X } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -10,7 +9,6 @@ import HoodSelectionModal from '../../components/HoodSelectionModal';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 
-SplashScreen.preventAutoHideAsync();
 
 type TimeType = 'flexible' | 'specific';
 type PriorityType = 'Låg' | 'Normal' | 'Hög';

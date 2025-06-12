@@ -1,12 +1,10 @@
 import { View, Text, StyleSheet, TextInput, Pressable, Image } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 
-SplashScreen.preventAutoHideAsync();
 
 export default function LoginScreen() {
   const [fontsLoaded] = useFonts({
