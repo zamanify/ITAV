@@ -51,11 +51,6 @@ export default function ViewResponseScreen() {
   const [error, setError] = useState<string | null>(null);
   const [pairBalance, setPairBalance] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   useEffect(() => {
     if (session?.user?.id && responseId) {

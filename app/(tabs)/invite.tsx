@@ -33,11 +33,6 @@ export default function InviteScreen() {
   const [permissionStatus, setPermissionStatus] = useState<'undetermined' | 'granted' | 'denied'>('undetermined');
   const [invitingContactId, setInvitingContactId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   useEffect(() => {
     if (session?.user?.id) {

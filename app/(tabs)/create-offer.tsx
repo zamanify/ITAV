@@ -36,11 +36,6 @@ export default function CreateOfferScreen() {
   const [hoodNames, setHoodNames] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   useEffect(() => {
     if (preselectedVillager) {

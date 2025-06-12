@@ -69,11 +69,6 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   // Auto-refresh dashboard when screen comes into focus
   useFocusEffect(

@@ -67,11 +67,6 @@ export default function VillagersScreen() {
   const [messageModalVisible, setMessageModalVisible] = useState(false);
   const [selectedVillagerForMessage, setSelectedVillagerForMessage] = useState<{ id: string; name: string } | null>(null);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   useEffect(() => {
     if (session?.user?.id) {

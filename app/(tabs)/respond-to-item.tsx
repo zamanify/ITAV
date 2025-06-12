@@ -42,11 +42,6 @@ export default function RespondToItemScreen() {
   const [error, setError] = useState<string | null>(null);
   const [pairBalance, setPairBalance] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   // Reset message when itemId changes (new request/offer selected)
   useEffect(() => {

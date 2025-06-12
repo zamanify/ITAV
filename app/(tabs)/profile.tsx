@@ -33,11 +33,6 @@ export default function ProfileScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   useEffect(() => {
     if (session?.user?.id) {

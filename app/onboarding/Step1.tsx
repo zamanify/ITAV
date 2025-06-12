@@ -36,11 +36,6 @@ export default function OnboardingStep1() {
   const [fieldErrors, setFieldErrors] = useState<ValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) {
     return null;

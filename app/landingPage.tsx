@@ -11,11 +11,6 @@ export default function LandingPage() {
     'Unbounded-SemiBold': Unbounded_600SemiBold,
   });
 
-  useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) {
     return null;

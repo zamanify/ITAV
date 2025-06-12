@@ -34,11 +34,6 @@ export default function GroupsScreen() {
   const [messageModalVisible, setMessageModalVisible] = useState(false);
   const [selectedGroupForMessage, setSelectedGroupForMessage] = useState<{ id: string; name: string } | null>(null);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   useEffect(() => {
     if (session?.user?.id) {

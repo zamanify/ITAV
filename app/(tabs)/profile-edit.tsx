@@ -37,11 +37,6 @@ export default function EditProfileScreen() {
   const [fieldErrors, setFieldErrors] = useState<ValidationErrors>({});
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   useEffect(() => {
     if (session?.user?.id) {
