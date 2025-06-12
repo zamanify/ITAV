@@ -27,15 +27,23 @@ export default function RequestOfferModal({ visible, onClose, data }: RequestOff
   const { session } = useContext(AuthContext);
 
   useEffect(() => {
-    if (visible && session?.user?.id && data.senderId !== session.user.id) {
-      supabase
-        .from('request_responses')
-        .upsert({
-          request_id: data.id,
-          responder_id: session.user.id,
-          status: 'viewed'
-        }, { onConflict: 'request_id,responder_id' });
-    }
+    const logView = async () => {
+      if (visible && session?.user?.id && data.senderId !== session.user.id) {
+        const { error } = await supabase
+          .from('request_responses')
+          .upsert(
+            {
+              request_id: data.id,
+              responder_id: session.user.id,
+              status: 'viewed'
+            },
+            { onConflict: 'request_id,responder_id' }
+          );
+        if (error) console.error('Failed to register view:', error);
+      }
+    };
+
+    logView();
   }, [visible, session?.user?.id, data.id]);
   const getBalanceText = () => {
     if (data.balance === 0) return 'NI HAR 0 MIN MELLAN ER';
