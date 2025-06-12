@@ -6,6 +6,7 @@ import { useState, useEffect, useContext } from 'react';
 import { ArrowLeft, User, Check, MessageCircle } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
+import { fetchPairBalance } from '@/lib/balance';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -50,6 +51,7 @@ export default function ViewResponseScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSelecting, setIsSelecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pairBalance, setPairBalance] = useState<number | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -62,6 +64,17 @@ export default function ViewResponseScreen() {
       fetchResponseData();
     }
   }, [session?.user?.id, responseId]);
+
+  useEffect(() => {
+    const loadBalance = async () => {
+      if (session?.user?.id && responderId) {
+        const balance = await fetchPairBalance(session.user.id, responderId);
+        if (balance !== null) setPairBalance(balance);
+      }
+    };
+
+    loadBalance();
+  }, [session?.user?.id, responderId]);
 
   const fetchResponseData = async () => {
     if (!responseId || !session?.user?.id) return;
@@ -236,12 +249,12 @@ export default function ViewResponseScreen() {
   };
 
   const getBalanceText = () => {
-    if (!responseData) return '';
-    
-    const balance = responseData.responder.minute_balance;
-    if (balance === 0) return 'NI HAR 0 MIN MELLAN ER';
-    if (balance > 0) return `${responseData.responder.first_name} ÄR SKYLDIG DIG ${balance} MIN`;
-    return `DU ÄR SKYLDIG ${responseData.responder.first_name} ${Math.abs(balance)} MIN`;
+    if (!responseData || pairBalance === null) return '';
+
+    if (pairBalance === 0) return 'NI HAR 0 MIN MELLAN ER';
+    if (pairBalance > 0)
+      return `${responseData.responder.first_name} ÄR SKYLDIG DIG ${pairBalance} MIN`;
+    return `DU ÄR SKYLDIG ${responseData.responder.first_name} ${Math.abs(pairBalance)} MIN`;
   };
 
   if (isLoading) {
