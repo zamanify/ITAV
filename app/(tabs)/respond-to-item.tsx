@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext } from 'react';
-import { ArrowLeft, Send } from 'lucide-react-native';
+import { ArrowLeft, Send, Eye } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import { fetchPairBalance } from '@/lib/balance';
@@ -25,6 +25,13 @@ type RequestData = {
   };
 };
 
+type ExistingResponse = {
+  id: string;
+  message: string;
+  status: string;
+  created_at: string;
+};
+
 export default function RespondToItemScreen() {
   const [fontsLoaded] = useFonts({
     'Unbounded-Regular': Unbounded_400Regular,
@@ -39,6 +46,7 @@ export default function RespondToItemScreen() {
 
   const [responseMessage, setResponseMessage] = useState('');
   const [requestData, setRequestData] = useState<RequestData | null>(null);
+  const [existingResponse, setExistingResponse] = useState<ExistingResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,11 +62,12 @@ export default function RespondToItemScreen() {
   useEffect(() => {
     setResponseMessage('');
     setError(null);
+    setExistingResponse(null);
   }, [itemId]);
 
   useEffect(() => {
     if (session?.user?.id && itemId) {
-      fetchRequestData();
+      fetchRequestDataAndResponse();
     }
   }, [session?.user?.id, itemId]);
 
@@ -73,14 +82,15 @@ export default function RespondToItemScreen() {
     loadBalance();
   }, [session?.user?.id, senderId]);
 
-  const fetchRequestData = async () => {
-    if (!itemId) return;
+  const fetchRequestDataAndResponse = async () => {
+    if (!itemId || !session?.user?.id) return;
 
     try {
       setIsLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
+      // Fetch request data
+      const { data: requestData, error: fetchError } = await supabase
         .from('requests')
         .select(`
           id,
@@ -105,7 +115,26 @@ export default function RespondToItemScreen() {
         return;
       }
 
-      setRequestData(data);
+      setRequestData(requestData);
+
+      // Check if user has already responded to this request
+      const { data: responseData, error: responseError } = await supabase
+        .from('request_responses')
+        .select('id, message, status, created_at')
+        .eq('request_id', itemId)
+        .eq('responder_id', session.user.id)
+        .maybeSingle();
+
+      if (responseError) {
+        console.error('Error fetching existing response:', responseError);
+        // Don't return here, continue with the flow
+      }
+
+      if (responseData) {
+        setExistingResponse(responseData);
+        setResponseMessage(responseData.message || '');
+      }
+
     } catch (err) {
       console.error('Error fetching request data:', err);
       setError('Ett fel uppstod vid hämtning av data');
@@ -123,7 +152,7 @@ export default function RespondToItemScreen() {
   };
 
   const handleSendResponse = async () => {
-    if (!session?.user?.id || !itemId || isSubmitting || !responseMessage.trim()) return;
+    if (!session?.user?.id || !itemId || isSubmitting || !responseMessage.trim() || existingResponse) return;
 
     try {
       setIsSubmitting(true);
@@ -170,6 +199,17 @@ export default function RespondToItemScreen() {
     });
   };
 
+  const formatResponseDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('sv-SE', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const getBalanceText = () => {
     if (!requestData?.requester || pairBalance === null) return '';
 
@@ -183,6 +223,13 @@ export default function RespondToItemScreen() {
     if (!requestData) return '';
     
     const senderName = `${requestData.requester.first_name} ${requestData.requester.last_name}`.toUpperCase();
+    
+    if (existingResponse) {
+      return itemType === 'request' 
+        ? `DITT SVAR PÅ ${senderName}S FÖRFRÅGAN`
+        : `DITT SVAR PÅ ${senderName}S ERBJUDANDE`;
+    }
+    
     return itemType === 'request' 
       ? `SVARA PÅ ${senderName}S FÖRFRÅGAN`
       : `SVARA PÅ ${senderName}S ERBJUDANDE`;
@@ -222,7 +269,7 @@ export default function RespondToItemScreen() {
         </View>
         <View style={styles.centerContainer}>
           <Text style={styles.errorText}>{error || 'Kunde inte ladda data'}</Text>
-          <Pressable style={styles.retryButton} onPress={fetchRequestData}>
+          <Pressable style={styles.retryButton} onPress={fetchRequestDataAndResponse}>
             <Text style={styles.retryButtonText}>Försök igen</Text>
           </Pressable>
         </View>
@@ -270,54 +317,81 @@ export default function RespondToItemScreen() {
           </View>
         </View>
 
-        {/* Response Message Input */}
+        {/* Response Message Section */}
         <View style={styles.responseContainer}>
-          <Text style={styles.responseTitle}>
-            DITT MEDDELANDE TILL {requestData.requester.first_name.toUpperCase()}
-          </Text>
-          <Text style={styles.responseSubtitle}>
-            Skriv ett kort meddelande om varför du vill {getActionText().toLowerCase()}
-          </Text>
-          
-          <TextInput
-            style={styles.messageInput}
-            value={responseMessage}
-            onChangeText={setResponseMessage}
-            placeholder={`Hej ${requestData.requester.first_name}! Jag kan hjälpa till med...`}
-            placeholderTextColor="#999"
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
+          {existingResponse ? (
+            <>
+              <Text style={styles.responseTitle}>
+                DITT SVAR TILL {requestData.requester.first_name.toUpperCase()}
+              </Text>
+              <Text style={styles.responseSubtitle}>
+                Skickat {formatResponseDate(existingResponse.created_at)}
+              </Text>
+              
+              <View style={styles.existingResponseContainer}>
+                <Text style={styles.existingResponseMessage}>{existingResponse.message}</Text>
+              </View>
 
-          {error && (
-            <Text style={styles.errorMessage}>{error}</Text>
+              <View style={styles.alreadyRespondedInfo}>
+                <Eye size={20} color="#87CEEB" />
+                <Text style={styles.alreadyRespondedText}>
+                  Du har redan svarat på detta {itemType === 'request' ? 'förfrågan' : 'erbjudande'}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.responseTitle}>
+                DITT MEDDELANDE TILL {requestData.requester.first_name.toUpperCase()}
+              </Text>
+              <Text style={styles.responseSubtitle}>
+                Skriv ett kort meddelande om varför du vill {getActionText().toLowerCase()}
+              </Text>
+              
+              <TextInput
+                style={styles.messageInput}
+                value={responseMessage}
+                onChangeText={setResponseMessage}
+                placeholder={`Hej ${requestData.requester.first_name}! Jag kan hjälpa till med...`}
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+
+              {error && (
+                <Text style={styles.errorMessage}>{error}</Text>
+              )}
+            </>
           )}
         </View>
 
         <View style={styles.spacer} />
       </ScrollView>
 
-      <Pressable 
-        style={[
-          styles.sendButton, 
-          (!responseMessage.trim() || isSubmitting) && styles.sendButtonDisabled
-        ]} 
-        onPress={handleSendResponse}
-        disabled={!responseMessage.trim() || isSubmitting}
-      >
-        {isSubmitting ? (
-          <>
-            <ActivityIndicator size="small\" color="white" />
-            <Text style={styles.sendButtonText}>Skickar...</Text>
-          </>
-        ) : (
-          <>
-            <Send size={20} color="white" />
-            <Text style={styles.sendButtonText}>{getActionText()}</Text>
-          </>
-        )}
-      </Pressable>
+      {/* Action Button - Only show if user hasn't responded yet */}
+      {!existingResponse && (
+        <Pressable 
+          style={[
+            styles.sendButton, 
+            (!responseMessage.trim() || isSubmitting) && styles.sendButtonDisabled
+          ]} 
+          onPress={handleSendResponse}
+          disabled={!responseMessage.trim() || isSubmitting}
+        >
+          {isSubmitting ? (
+            <>
+              <ActivityIndicator size="small" color="white" />
+              <Text style={styles.sendButtonText}>Skickar...</Text>
+            </>
+          ) : (
+            <>
+              <Send size={20} color="white" />
+              <Text style={styles.sendButtonText}>{getActionText()}</Text>
+            </>
+          )}
+        </Pressable>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -340,7 +414,7 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#333',
     fontFamily: 'Unbounded-SemiBold',
     flex: 1,
@@ -448,6 +522,35 @@ const styles = StyleSheet.create({
     height: 120,
     textAlignVertical: 'top',
     backgroundColor: 'white',
+  },
+  existingResponseContainer: {
+    backgroundColor: '#F0F8FF',
+    borderWidth: 1,
+    borderColor: '#D6EFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  existingResponseMessage: {
+    fontSize: 16,
+    color: '#333',
+    fontFamily: 'Unbounded-Regular',
+    lineHeight: 24,
+  },
+  alreadyRespondedInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F4FD',
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+  },
+  alreadyRespondedText: {
+    fontSize: 14,
+    color: '#87CEEB',
+    fontFamily: 'Unbounded-Regular',
+    flex: 1,
+    lineHeight: 20,
   },
   errorMessage: {
     color: '#FF4444',
