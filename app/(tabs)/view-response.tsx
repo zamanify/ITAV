@@ -252,17 +252,8 @@ export default function ViewResponseScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Pressable onPress={handleBack} style={styles.backButton}>
-            <ArrowLeft color="#FF69B4" size={24} />
-          </Pressable>
-          <Text style={styles.headerTitle}>LADDAR SVAR...</Text>
-        </View>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#FF69B4" />
-          <Text style={styles.loadingText}>Hämtar svar...</Text>
-        </View>
+      <View style={styles.loadingOverlay}>
+        <ActivityIndicator size="large" color="#FF69B4" />
       </View>
     );
   }
@@ -417,6 +408,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loadingText: {
     fontSize: 16,
