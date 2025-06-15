@@ -21,8 +21,8 @@ CREATE POLICY "Users can update their responses"
     auth.uid() = responder_id AND
     EXISTS (
       SELECT 1 FROM requests r
-      WHERE r.id = request_responses.request_id
-        AND r.status = 'open'
+        WHERE r.id = request_responses.request_id
+        AND r.status != 'completed'
         AND r.requester_id != auth.uid()
         AND (
           EXISTS (
