@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useCallback } from 'react';
 import { ArrowLeft, Send, Eye } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -65,11 +65,13 @@ export default function RespondToItemScreen() {
     setExistingResponse(null);
   }, [itemId]);
 
-  useEffect(() => {
-    if (session?.user?.id && itemId) {
-      fetchRequestDataAndResponse();
-    }
-  }, [session?.user?.id, itemId]);
+  useFocusEffect(
+    useCallback(() => {
+      if (session?.user?.id && itemId) {
+        fetchRequestDataAndResponse();
+      }
+    }, [session?.user?.id, itemId])
+  );
 
   useEffect(() => {
     const loadBalance = async () => {
