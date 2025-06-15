@@ -39,7 +39,10 @@ export default function RequestOfferModal({ visible, onClose, data }: RequestOff
               responder_id: session.user.id,
               status: 'viewed'
             },
-            { onConflict: 'request_id,responder_id' }
+            {
+              onConflict: 'request_id,responder_id',
+              ignoreDuplicates: true
+            }
           );
         if (error) console.error('Failed to register view:', error);
       }
