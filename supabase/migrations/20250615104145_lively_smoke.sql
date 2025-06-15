@@ -5,6 +5,7 @@
     - Extend status check constraint to include 'viewed'
   2. Security Changes
     - Permit responders to update their own responses so upserts work
+    - Allow updates as long as request is not completed (not just open)
 */
 
 -- Expand status values
@@ -21,8 +22,8 @@ CREATE POLICY "Users can update their responses"
     auth.uid() = responder_id AND
     EXISTS (
       SELECT 1 FROM requests r
-        WHERE r.id = request_responses.request_id
-        AND r.status != 'completed'
+      WHERE r.id = request_responses.request_id
+        AND r.status != 'completed' -- Changed from 'open' to allow updates on 'accepted' requests
         AND r.requester_id != auth.uid()
         AND (
           EXISTS (
