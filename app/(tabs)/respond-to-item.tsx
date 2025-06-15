@@ -117,12 +117,13 @@ export default function RespondToItemScreen() {
 
       setRequestData(requestData);
 
-      // Check if user has already responded to this request
+      // Check if user has already responded to this request (excluding 'viewed' status)
       const { data: responseData, error: responseError } = await supabase
         .from('request_responses')
         .select('id, message, status, created_at')
         .eq('request_id', itemId)
         .eq('responder_id', session.user.id)
+        .in('status', ['accepted', 'rejected']) // Only look for actual responses, not views
         .maybeSingle();
 
       if (responseError) {
