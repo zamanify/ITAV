@@ -103,7 +103,7 @@ export default function ProfileScreen() {
         
         // Navigate to landing page
         // Use replace to prevent going back to authenticated screens
-        router.replace('/landingPage');
+        router.replace('/LandingPage');
         
       } catch (err) {
         console.error('Unexpected logout error:', err);

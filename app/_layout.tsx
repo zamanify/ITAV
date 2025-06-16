@@ -13,7 +13,7 @@ export default function RootLayout() {
           headerShown: false,
           animation: 'none',
         }}>
-        <Stack.Screen name="landingPage" />
+        <Stack.Screen name="LandingPage" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
       </Stack>
