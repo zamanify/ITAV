@@ -1,11 +1,12 @@
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { router } from 'expo-router';
-import { Users, UserPlus, Chrome as Home, Plus, User } from 'lucide-react-native';
-import { useFonts, Unbounded_400Regular } from '@expo-google-fonts/unbounded';
+import { UserPlus, Chrome as Home, Plus, User } from 'lucide-react-native';
+import { useFonts, Unbounded_400Regular, Unbounded_700Bold } from '@expo-google-fonts/unbounded';
 
 export default function AppFooter() {
   const [fontsLoaded] = useFonts({
     'Unbounded-Regular': Unbounded_400Regular,
+    'Unbounded-Bold': Unbounded_700Bold,
   });
 
   if (!fontsLoaded) {
@@ -14,8 +15,8 @@ export default function AppFooter() {
 
   const footerItems = [
     {
-      id: 'villagers',
-      icon: Users,
+      id: 'dina-villagers',
+      type: 'custom',
       label: 'DINA\nVILLAGERS',
       onPress: () => router.push('/villagers'),
     },
@@ -45,29 +46,50 @@ export default function AppFooter() {
     },
   ];
 
+  const renderFooterItem = (item: any) => {
+    if (item.type === 'custom' && item.id === 'dina-villagers') {
+      return (
+        <Pressable
+          key={item.id}
+          style={styles.customFooterItem}
+          onPress={item.onPress}
+          android_ripple={{ color: '#FF69B4', borderless: true }}
+        >
+          <View style={styles.customIconContainer}>
+            <Image
+              source={{ uri: 'https://images.pexels.com/photos/1181690/pexels-photo-1181690.jpeg?auto=compress&cs=tinysrgb&w=55&h=54&fit=crop' }}
+              style={styles.customIcon}
+            />
+          </View>
+          <Text style={styles.customFooterLabel}>{item.label}</Text>
+        </Pressable>
+      );
+    }
+
+    const IconComponent = item.icon;
+    return (
+      <Pressable
+        key={item.id}
+        style={styles.footerItem}
+        onPress={item.onPress}
+        android_ripple={{ color: '#FF69B4', borderless: true }}
+      >
+        <View style={styles.iconContainer}>
+          <IconComponent 
+            size={24} 
+            color="#666" 
+            strokeWidth={1.5}
+          />
+        </View>
+        <Text style={styles.footerLabel}>{item.label}</Text>
+      </Pressable>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.footer}>
-        {footerItems.map((item) => {
-          const IconComponent = item.icon;
-          return (
-            <Pressable
-              key={item.id}
-              style={styles.footerItem}
-              onPress={item.onPress}
-              android_ripple={{ color: '#FF69B4', borderless: true }}
-            >
-              <View style={styles.iconContainer}>
-                <IconComponent 
-                  size={24} 
-                  color="#666" 
-                  strokeWidth={1.5}
-                />
-              </View>
-              <Text style={styles.footerLabel}>{item.label}</Text>
-            </Pressable>
-          );
-        })}
+        {footerItems.map(renderFooterItem)}
       </View>
     </View>
   );
@@ -121,5 +143,36 @@ const styles = StyleSheet.create({
     lineHeight: 11,
     fontFamily: 'Unbounded-Regular',
     letterSpacing: 0.2,
+  },
+  // Custom styles for Dina Villagers button
+  customFooterItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 7,
+    borderRadius: 12,
+    gap: 5,
+  },
+  customIconContainer: {
+    width: 55,
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customIcon: {
+    width: 55,
+    height: 54,
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
+  customFooterLabel: {
+    fontSize: 10,
+    color: '#4d4c4d',
+    textAlign: 'center',
+    lineHeight: 12,
+    fontFamily: 'Unbounded-Bold',
+    letterSpacing: 0,
+    height: 25,
+    alignSelf: 'stretch',
   },
 });
