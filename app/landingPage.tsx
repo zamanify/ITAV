@@ -1,8 +1,13 @@
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import React, { useEffect, useContext } from 'react';
+import { View, Text, StyleSheet, Pressable, Image, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
+import {
+  useFonts,
+  Unbounded_400Regular,
+  Unbounded_600SemiBold,
+} from '@expo-google-fonts/unbounded';
 import { SplashScreen, router } from 'expo-router';
-import { useEffect } from 'react';
+import { AuthContext } from '@/contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -12,11 +17,19 @@ export default function LandingPage() {
     'Unbounded-SemiBold': Unbounded_600SemiBold,
   });
 
+  const { session } = useContext(AuthContext);
+
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
+
+  useEffect(() => {
+    if (session?.user) {
+      router.replace('/(tabs)');
+    }
+  }, [session]);
 
   if (!fontsLoaded && !fontError) {
     return null;
@@ -27,53 +40,71 @@ export default function LandingPage() {
   };
 
   const handleLogin = () => {
-    // Will implement login functionality later
     router.push('/login');
   };
 
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#FF69B4', '#9370DB', '#87CEEB']}
-        style={styles.background}
+        colors={['rgba(255,145,213,1)', 'rgba(3,193,222,1)']}
+        style={styles.gradientBackground}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
       >
         <View style={styles.header}>
-          <Image 
-            source={require('../assets/images/Logo_ITAV_white.png')}
+          <Image
             style={styles.logo}
-            tintColor="white"
+            source={require('../assets/images/logotype-vit.svg')}
           />
           <Pressable style={styles.loginButton} onPress={handleLogin}>
             <Text style={styles.loginButtonText}>Logga in</Text>
           </Pressable>
         </View>
-        
-        <View style={styles.content}>
-          <View style={styles.textContainer}>
-            <Text style={styles.title}>
-              <Text style={styles.blueText}>Välkommen till{'\n'}It takes a village,{'\n'}</Text>
-              <Text>appen för oss{'\n'}som hjälps åt.</Text>
+
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.mainContent}>
+            <Text style={styles.heading}>
+              <Text style={styles.headingBlue}>
+                Välkommen till{'\n'}It takes a village,{'\n'}
+              </Text>
+              <Text style={styles.headingWhite}>
+                appen för oss{'\n'}som hjälps åt.
+              </Text>
             </Text>
-            
+
             <Text style={styles.description}>
-              Med It takes a village kan du och de dina be om hjälp och erbjuda hjälp. Hjälpen loggas i antal minuter, så att ni kan hålla koll på när det är er tur att ta gudsonen till lekparken, rasta kompisens hund eller bara erbjuda lite andrum i vardagen.
+              Med It takes a village kan du och de dina be om hjälp och erbjuda
+              hjälp. Hjälpen loggas i antal minuter, så att ni kan hålla koll på
+              när det är er tur att ta gudsonen till lekparken, rasta kompisens
+              hund eller bara erbjuda lite andrum i vardagen.
             </Text>
 
-            <Text style={[styles.tagline, styles.boldText]}>
-              It takes a village gör det{'\n'}lättare att göra livet lättare.
+            <Text style={styles.taglineBold}>
+                It takes a village gör det{'\n'}lättare att göra livet lättare.
             </Text>
 
-            <Text style={[styles.tagline, { color: '#FFB6C1' }]}>
-              Testa gratis i en månad,{'\n'}därefter kostar det 9 kr/mån.
+            <Text style={styles.taglinePink}>
+                Testa gratis i en månad,{'\n'}därefter kostar det 9 kr/mån.
             </Text>
           </View>
 
-          <Pressable style={styles.button} onPress={handlePress}>
-            <Text style={[styles.buttonText, styles.boldText]}>Fan vad bra, klart jag är med!</Text>
-          </Pressable>
-        </View>
+          <View style={styles.ctaButtonContainer}>
+            <Pressable style={styles.ctaButton} onPress={handlePress}>
+              <Image
+                style={styles.ctaButtonImage}
+                source={require('../assets/images/rosa-knapp.svg')}
+              />
+              <Text style={styles.ctaButtonText}>
+                Fan vad bra, klart jag är med!
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+
+        <Image
+          style={styles.handsIllustration}
+          source={require('../assets/images/armar.svg')}
+        />
       </LinearGradient>
     </View>
   );
@@ -82,20 +113,26 @@ export default function LandingPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'white',
   },
-  background: {
+  gradientBackground: {
     flex: 1,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
     paddingTop: 60,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
   },
   logo: {
-    width: 120,
-    height: 40,
+    width: 138,
+    height: 56,
     resizeMode: 'contain',
   },
   loginButton: {
@@ -111,51 +148,92 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Unbounded-Regular',
   },
-  content: {
-    flex: 1,
-    padding: 20,
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 126,
+    paddingBottom: 140 + 94 + 20,
   },
-  textContainer: {
+  mainContent: {
     flex: 1,
+    width: '100%',
   },
-  title: {
-    color: 'white',
-    fontSize: 32,
+  heading: {
     fontFamily: 'Unbounded-SemiBold',
-    marginBottom: 20,
-    lineHeight: 42,
+    fontSize: 40,
+    lineHeight: 45,
+    marginBottom: 10,
   },
-  blueText: {
-    color: '#87CEEB',
+  headingBlue: {
+    color: '#a2f3ff',
+  },
+  headingWhite: {
+    color: 'white',
   },
   description: {
-    color: 'white',
-    fontSize: 16,
     fontFamily: 'Unbounded-Regular',
-    marginBottom: 20,
-    lineHeight: 24,
-  },
-  tagline: {
+    fontSize: 22,
+    lineHeight: 28,
+    marginTop: 10,
     color: 'white',
-    fontSize: 16,
     marginBottom: 20,
+  },
+  taglineBold: {
+    fontFamily: 'Unbounded-SemiBold',
+    fontSize: 16,
+    color: 'white',
     lineHeight: 24,
-    fontFamily: 'Unbounded-SemiBold',
+    marginBottom: 20,
   },
-  boldText: {
+  taglinePink: {
     fontFamily: 'Unbounded-SemiBold',
+    fontSize: 16,
+    color: '#ffd0ed',
+    lineHeight: 24,
   },
-  button: {
-    backgroundColor: '#FF69B4',
-    padding: 16,
-    borderRadius: 25,
+  ctaButtonContainer: {
+    position: 'absolute',
+    bottom: 140,
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    marginBottom: 20,
-    borderWidth: 2,
-    borderColor: 'white',
+    zIndex: 1,
   },
-  buttonText: {
+  ctaButton: {
+    width: 350,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'white',
+    backgroundColor: 'transparent',
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+  },
+  ctaButtonImage: {
+    ...StyleSheet.absoluteFillObject,
+    resizeMode: 'cover',
+  },
+  ctaButtonText: {
+    fontFamily: 'Unbounded-SemiBold',
     color: 'white',
-    fontSize: 16,
+    fontSize: 15,
+    lineHeight: 18,
+    textAlign: 'center',
+    zIndex: 1,
+  },
+  handsIllustration: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: '100%',
+    height: 276,
+    resizeMode: 'cover',
+    zIndex: 0,
   },
 });
