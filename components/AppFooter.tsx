@@ -1,12 +1,13 @@
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { router } from 'expo-router';
 import { UserPlus, Chrome as Home, Plus, User } from 'lucide-react-native';
-import { useFonts, Unbounded_400Regular, Unbounded_700Bold } from '@expo-google-fonts/unbounded';
+import { useFonts, Unbounded_400Regular, Unbounded_700Bold, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 
 export default function AppFooter() {
   const [fontsLoaded] = useFonts({
     'Unbounded-Regular': Unbounded_400Regular,
     'Unbounded-Bold': Unbounded_700Bold,
+    'Unbounded-SemiBold': Unbounded_600SemiBold,
   });
 
   if (!fontsLoaded) {
@@ -55,12 +56,10 @@ export default function AppFooter() {
           onPress={item.onPress}
           android_ripple={{ color: '#FF69B4', borderless: true }}
         >
-          <View style={styles.customIconContainer}>
-            <Image
-              source={{ uri: 'https://images.pexels.com/photos/1181690/pexels-photo-1181690.jpeg?auto=compress&cs=tinysrgb&w=55&h=54&fit=crop' }}
-              style={styles.customIcon}
-            />
-          </View>
+          <Image
+            source={require('../assets/images/Dina Villagers Button Image.svg')}
+            style={styles.customIcon}
+          />
           <Text style={styles.customFooterLabel}>{item.label}</Text>
         </Pressable>
       );
@@ -151,25 +150,19 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 7,
     borderRadius: 12,
-    gap: 5,
-  },
-  customIconContainer: {
-    width: 55,
-    height: 54,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 4,
   },
   customIcon: {
     width: 55,
     height: 54,
     borderRadius: 8,
-    resizeMode: 'cover',
+    resizeMode: 'contain',
   },
   customFooterLabel: {
     fontSize: 10,
     color: '#4d4c4d',
     textAlign: 'center',
-    lineHeight: 12,
+    lineHeight: 12.0,
     fontFamily: 'Unbounded-Bold',
     letterSpacing: 0,
     height: 25,
