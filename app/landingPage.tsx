@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   },
   description: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Unbounded-Regular',
     lineHeight: 30,
     marginBottom: 32,
