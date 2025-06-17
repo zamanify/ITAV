@@ -158,9 +158,9 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   headline: {
-    fontSize: 36,
+    fontSize: 32,
     fontFamily: 'Unbounded-SemiBold',
-    lineHeight: 36,
+    lineHeight: 32,
   },
   blueText: {
     color: '#A2F3FF',
@@ -173,21 +173,21 @@ const styles = StyleSheet.create({
   },
   description: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'Unbounded-Regular',
     lineHeight: 30,
     marginBottom: 32,
   },
   tagline: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'Unbounded-SemiBold',
     lineHeight: 30,
     marginBottom: 32,
   },
   pricing: {
     color: '#FFD0ED',
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'Unbounded-SemiBold',
     lineHeight: 30,
   },
