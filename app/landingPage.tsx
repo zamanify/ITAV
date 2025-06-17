@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen, router } from 'expo-router';
@@ -50,8 +50,12 @@ export default function LandingPage() {
           </Pressable>
         </View>
         
-        {/* Main Content */}
-        <View style={styles.content}>
+        {/* Main Content - Now Scrollable */}
+        <ScrollView 
+          style={styles.mainContentScroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Headline */}
           <View style={styles.headlineContainer}>
             <Text style={styles.headline}>
@@ -83,7 +87,7 @@ export default function LandingPage() {
               Testa gratis i en månad, därefter kostar det 9 kr/mån.
             </Text>
           </View>
-        </View>
+        </ScrollView>
 
         {/* Hands Illustration */}
         <View style={styles.handsContainer}>
@@ -118,7 +122,6 @@ const styles = StyleSheet.create({
   },
   background: {
     flex: 1,
-    position: 'relative',
   },
   header: {
     position: 'absolute',
@@ -147,12 +150,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Unbounded-Regular',
   },
-  content: {
-    position: 'absolute',
-    top: 124,
-    left: 16,
-    right: 16,
-    zIndex: 5,
+  mainContentScroll: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 124,
+  },
+  scrollContent: {
+    paddingBottom: 365, // Space for hands + CTA button + margins
   },
   headlineContainer: {
     marginBottom: 40,
@@ -175,21 +179,21 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontFamily: 'Unbounded-Regular',
-    lineHeight: 30,
+    lineHeight: 24,
     marginBottom: 32,
   },
   tagline: {
     color: 'white',
     fontSize: 16,
     fontFamily: 'Unbounded-SemiBold',
-    lineHeight: 30,
+    lineHeight: 24,
     marginBottom: 32,
   },
   pricing: {
     color: '#FFD0ED',
     fontSize: 16,
     fontFamily: 'Unbounded-SemiBold',
-    lineHeight: 30,
+    lineHeight: 24,
   },
   handsContainer: {
     position: 'absolute',
@@ -212,11 +216,12 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   ctaButton: {
-    width: 400,
+    width: '90%',
     height: 94,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    alignSelf: 'center',
   },
   ctaButtonBackground: {
     position: 'absolute',
