@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   ctaButton: {
-    width: '90%',
+    width: 350,
     height: 94,
     justifyContent: 'center',
     alignItems: 'center',
