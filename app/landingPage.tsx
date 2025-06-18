@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
   header: {
     position: 'absolute',
-    top: Unbounded_600SemiBold,
+    top: 50,
     left: 15,
     right: 15,
     flexDirection: 'row',
