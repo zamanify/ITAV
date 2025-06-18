@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
   header: {
     position: 'absolute',
-    top: 60,
+    top: Unbounded_600SemiBold,
     left: 15,
     right: 15,
     flexDirection: 'row',
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   mainContentScroll: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 124,
+    paddingTop: 150,
   },
   scrollContent: {
     paddingBottom: 365, // Space for hands + CTA button + margins
