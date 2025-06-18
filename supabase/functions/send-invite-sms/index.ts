@@ -24,23 +24,35 @@ serve(async (req) => {
     for (const invite of invites as Invite[]) {
       const message = `Hej ${invite.receiverFirstName},\n${senderFirstName} vill bjuda in dig till att anv\u00e4nda It Takes A Village appen. En plats d\u00e4r alla hj\u00e4lper varandra. L\u00e4s mer i l\u00e4nken nedan.\n/OZOZ\n\nhttps://gatewayapi.com/docs/apis/simple/`;
 
+      // GatewayAPI expects the msisdn without a leading '+'
+      const msisdn = invite.phoneNumber.replace(/\D/g, '');
+
       const payload = {
         sender: 'OZOZ',
         message,
-        recipients: [{ msisdn: invite.phoneNumber }]
+        recipients: [{ msisdn }]
       };
 
       const auth = 'Basic ' + btoa(`${gatewayKey}:${gatewaySecret}`);
-      const smsRes = await fetch('https://gatewayapi.com/rest/mtsms', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': auth
-        },
-        body: JSON.stringify(payload)
-      });
+      let status = 'failed';
+      try {
+        const smsRes = await fetch('https://gatewayapi.com/rest/mtsms', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': auth
+          },
+          body: JSON.stringify(payload)
+        });
 
-      const status = smsRes.ok ? 'sent' : 'failed';
+        const smsResult = await smsRes.text();
+        status = smsRes.ok ? 'sent' : 'failed';
+        console.log('GatewayAPI response', smsRes.status, smsResult);
+      } catch (err) {
+        console.error('GatewayAPI fetch error', err);
+      }
+
       await supabase
         .from('villager_invite')
         .update({ sms_sent_at: new Date().toISOString(), sms_status: status })
