@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     paddingBottom: 365, // Space for hands + CTA button + margins
   },
   headlineContainer: {
-    marginBottom: 40,
+    marginBottom: 50,
   },
   headline: {
     fontSize: 32,
