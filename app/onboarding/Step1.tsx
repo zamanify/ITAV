@@ -135,9 +135,29 @@ export default function OnboardingStep1() {
     try {
       const normalizedPhone = normalizePhoneNumber(formData.mobile);
       const { firstName, lastName, email, password, streetAddress, postalCode, city } = formData;
-      
+
       // Ensure email has all whitespace removed before sending to Supabase
       const cleanedEmail = email.replace(/\s/g, '').trim();
+
+      // Check if phone number already exists before creating auth user
+      const { data: existingUserId, error: phoneError } = await supabase.rpc('get_user_id_by_phone', {
+        p_phone_number: normalizedPhone
+      });
+
+      if (phoneError) {
+        console.error('Error calling get_user_id_by_phone:', phoneError);
+        setFieldErrors({
+          submit: 'Ett fel uppstod vid kontroll av mobilnummer. Försök igen.'
+        });
+        return;
+      }
+
+      if (existingUserId) {
+        setFieldErrors({
+          mobile: 'Det här mobilnumret är redan registrerat'
+        });
+        return;
+      }
 
       // First, try to sign up the user
       const { data, error: signUpError } = await supabase.auth.signUp({
