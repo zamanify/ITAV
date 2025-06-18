@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   mainContentScroll: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 150,
+    paddingTop: 124,
   },
   scrollContent: {
     paddingBottom: 365, // Space for hands + CTA button + margins
