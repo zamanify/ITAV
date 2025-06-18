@@ -31,11 +31,21 @@ export default function OnboardingStep2() {
   const [permissionStatus, setPermissionStatus] = useState<'undetermined' | 'granted' | 'denied'>('undetermined');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState('');
 
   useEffect(() => {
     (async () => {
       if (Platform.OS === 'web') {
         return;
+      }
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('first_name')
+        .eq('id', session?.user?.id)
+        .single();
+      if (userData?.first_name) {
+        setFirstName(userData.first_name);
       }
 
       const { status } = await Contacts.requestPermissionsAsync();
@@ -78,6 +88,7 @@ export default function OnboardingStep2() {
 
     try {
       // Process each selected contact
+      const invitesForSms: { id: string; phoneNumber: string; name: string }[] = [];
       for (const contactId of selectedContacts) {
         const contact = contacts.find(c => c.id === contactId);
         if (!contact) continue;
@@ -97,17 +108,25 @@ export default function OnboardingStep2() {
 
         // If user_id is null, store an invite for later
         if (!user_id) {
-          const { error: inviteError } = await supabase
+          const { data: inviteRow, error: inviteError } = await supabase
             .from('villager_invite')
             .insert({
               inviter_id: session.user.id,
               phone_number: normalizedPhone,
               status: 'pending'
-            });
+            })
+            .select('id')
+            .single();
 
           if (inviteError && inviteError.code !== '23505') {
             console.error('Error creating invite:', inviteError);
             setError('Ett fel uppstod vid skapande av inbjudan.');
+          } else if (inviteRow) {
+            invitesForSms.push({
+              id: inviteRow.id,
+              phoneNumber: normalizedPhone,
+              name: contact.name.split(' ')[0] || contact.name
+            });
           }
           continue;
         }
@@ -131,6 +150,19 @@ export default function OnboardingStep2() {
         if (connectionError && connectionError.code !== '23505') { // Ignore unique constraint violations
           console.error('Error creating connection:', connectionError);
         }
+      }
+
+      if (invitesForSms.length > 0) {
+        await supabase.functions.invoke('send-invite-sms', {
+          body: {
+            invites: invitesForSms.map(i => ({
+              id: i.id,
+              phoneNumber: i.phoneNumber,
+              receiverFirstName: i.name
+            })),
+            senderFirstName: firstName
+          }
+        });
       }
 
       router.push('/onboarding/step3');
