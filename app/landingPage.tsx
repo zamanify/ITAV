@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen, router } from 'expo-router';
@@ -22,56 +22,93 @@ export default function LandingPage() {
     return null;
   }
 
-  const handlePress = () => {
+  const handleGetStarted = () => {
     router.push('/onboarding/Step1');
   };
 
   const handleLogin = () => {
-    // Will implement login functionality later
     router.push('/login');
   };
 
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#FF69B4', '#9370DB', '#87CEEB']}
+        colors={['#FF91D5', '#03C1DE']}
         style={styles.background}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
       >
+        {/* Header with Logo and Login Button */}
         <View style={styles.header}>
           <Image 
             source={require('../assets/images/Logo_ITAV_white.png')}
             style={styles.logo}
-            tintColor="white"
+            resizeMode="contain"
           />
           <Pressable style={styles.loginButton} onPress={handleLogin}>
             <Text style={styles.loginButtonText}>Logga in</Text>
           </Pressable>
         </View>
         
-        <View style={styles.content}>
-          <View style={styles.textContainer}>
-            <Text style={styles.title}>
-              <Text style={styles.blueText}>Välkommen till{'\n'}It takes a village,{'\n'}</Text>
-              <Text>appen för oss{'\n'}som hjälps åt.</Text>
-            </Text>
-            
-            <Text style={styles.description}>
-              Med It takes a village kan du och de dina be om hjälp och erbjuda hjälp. Hjälpen loggas i antal minuter, så att ni kan hålla koll på när det är er tur att ta gudsonen till lekparken, rasta kompisens hund eller bara erbjuda lite andrum i vardagen.
-            </Text>
-
-            <Text style={[styles.tagline, styles.boldText]}>
-              It takes a village gör det{'\n'}lättare att göra livet lättare.
-            </Text>
-
-            <Text style={[styles.tagline, { color: '#FFB6C1' }]}>
-              Testa gratis i en månad,{'\n'}därefter kostar det 9 kr/mån.
+        {/* Main Content - Now Scrollable */}
+        <ScrollView 
+          style={styles.mainContentScroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Headline */}
+          <View style={styles.headlineContainer}>
+            <Text style={styles.headline}>
+              <Text style={styles.blueText}>
+                Välkommen till{'\n'}
+                It takes a village,{'\n'}
+              </Text>
+              <Text style={styles.whiteText}>
+                appen för oss{'\n'}
+                som hjälps åt.
+              </Text>
             </Text>
           </View>
 
-          <Pressable style={styles.button} onPress={handlePress}>
-            <Text style={[styles.buttonText, styles.boldText]}>Fan vad bra, klart jag är med!</Text>
+          {/* Description Text */}
+          <View style={styles.descriptionContainer}>
+            <Text style={styles.description}>
+              Med It takes a village kan du och de dina be om hjälp och erbjuda hjälp. 
+              Hjälpen loggas i antal minuter, så att ni kan hålla koll på när det är er tur 
+              att ta gudsonen till lekparken, rasta kompisens hund eller bara erbjuda lite 
+              andrum i vardagen.
+            </Text>
+
+            <Text style={styles.tagline}>
+              It takes a village gör det lättare att göra livet lättare.
+            </Text>
+
+            <Text style={styles.pricing}>
+              Testa gratis i en månad, därefter kostar det 9 kr/mån.
+            </Text>
+          </View>
+        </ScrollView>
+
+        {/* Hands Illustration */}
+        <View style={styles.handsContainer}>
+          <Image 
+            source={require('../assets/images/Landing Page Background hands.png')}
+            style={styles.handsImage}
+            resizeMode="cover"
+          />
+        </View>
+
+        {/* CTA Button */}
+        <View style={styles.ctaContainer}>
+          <Pressable style={styles.ctaButton} onPress={handleGetStarted}>
+            <Image 
+              source={require('../assets/images/Rosa knapp.png')}
+              style={styles.ctaButtonBackground}
+              resizeMode="contain"
+            />
+            <Text style={styles.ctaButtonText}>
+              Fan vad bra, klart jag är med!
+            </Text>
           </Pressable>
         </View>
       </LinearGradient>
@@ -87,75 +124,116 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    position: 'absolute',
+    top: 60,
+    left: 15,
+    right: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
+    zIndex: 10,
   },
   logo: {
-    width: 120,
-    height: 40,
-    resizeMode: 'contain',
+    width: 138,
+    height: 56,
   },
   loginButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingVertical: 8,
-    paddingHorizontal: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'white',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   loginButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Unbounded-Regular',
   },
-  content: {
+  mainContentScroll: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingTop: 164,
   },
-  textContainer: {
-    flex: 1,
+  scrollContent: {
+    paddingBottom: 365, // Space for hands + CTA button + margins
   },
-  title: {
-    color: 'white',
+  headlineContainer: {
+    marginBottom: 40,
+  },
+  headline: {
     fontSize: 32,
     fontFamily: 'Unbounded-SemiBold',
-    marginBottom: 20,
-    lineHeight: 42,
+    lineHeight: 32,
   },
   blueText: {
-    color: '#87CEEB',
+    color: '#A2F3FF',
+  },
+  whiteText: {
+    color: 'white',
+  },
+  descriptionContainer: {
+    paddingRight: 10,
   },
   description: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: 'Unbounded-Regular',
-    marginBottom: 20,
     lineHeight: 24,
+    marginBottom: 32,
   },
   tagline: {
     color: 'white',
     fontSize: 16,
-    marginBottom: 20,
+    fontFamily: 'Unbounded-SemiBold',
     lineHeight: 24,
-    fontFamily: 'Unbounded-SemiBold',
+    marginBottom: 32,
   },
-  boldText: {
-    fontFamily: 'Unbounded-SemiBold',
-  },
-  button: {
-    backgroundColor: '#FF69B4',
-    padding: 16,
-    borderRadius: 25,
-    alignItems: 'center',
-    marginBottom: 20,
-    borderWidth: 2,
-    borderColor: 'white',
-  },
-  buttonText: {
-    color: 'white',
+  pricing: {
+    color: '#FFD0ED',
     fontSize: 16,
+    fontFamily: 'Unbounded-SemiBold',
+    lineHeight: 24,
+  },
+  handsContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 251,
+    zIndex: 1,
+  },
+  handsImage: {
+    width: '100%',
+    height: '100%',
+  },
+  ctaContainer: {
+    position: 'absolute',
+    bottom: 43,
+    left: 20,
+    right: 20,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  ctaButton: {
+    width: 350,
+    height: 94,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    alignSelf: 'center',
+  },
+  ctaButtonBackground: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  ctaButtonText: {
+    color: 'white',
+    fontSize: 15,
+    fontFamily: 'Unbounded-SemiBold',
+    lineHeight: 18,
+    textAlign: 'center',
+    zIndex: 1,
   },
 });
