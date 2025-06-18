@@ -41,7 +41,7 @@ export default function LandingPage() {
         {/* Header with Logo and Login Button */}
         <View style={styles.header}>
           <Image 
-            source={require('../assets/images/logotype-vit.svg')}
+            source={require('../assets/images/Logo_ITAV_white.png')}
             style={styles.logo}
             resizeMode="contain"
           />
@@ -92,7 +92,7 @@ export default function LandingPage() {
         {/* Hands Illustration */}
         <View style={styles.handsContainer}>
           <Image 
-            source={require('../assets/images/armar.svg')}
+            source={require('../assets/images/Landing Page Background hands.png')}
             style={styles.handsImage}
             resizeMode="cover"
           />
@@ -102,7 +102,7 @@ export default function LandingPage() {
         <View style={styles.ctaContainer}>
           <Pressable style={styles.ctaButton} onPress={handleGetStarted}>
             <Image 
-              source={require('../assets/images/rosa-knapp.svg')}
+              source={require('../assets/images/Rosa knapp.png')}
               style={styles.ctaButtonBackground}
               resizeMode="contain"
             />
