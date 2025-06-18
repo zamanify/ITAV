@@ -3,8 +3,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const gatewayKey = Deno.env.get('GATEWAY_API_KEY')!;
-const gatewaySecret = Deno.env.get('GATEWAY_API_SECRET')!;
+const gatewayKey = Deno.env.get('GATEWAY_API_KEY');
+const gatewaySecret = Deno.env.get('GATEWAY_API_SECRET');
+const gatewayToken = Deno.env.get('GATEWAY_API_TOKEN');
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -42,7 +43,11 @@ serve(async (req) => {
         recipients: [{ msisdn }]
       };
 
-      const auth = 'Basic ' + btoa(`${gatewayKey}:${gatewaySecret}`);
+      console.log('Sending SMS', JSON.stringify(payload));
+
+      const auth = gatewayToken
+        ? `Bearer ${gatewayToken}`
+        : 'Basic ' + btoa(`${gatewayKey}:${gatewaySecret}`);
       let status = 'failed';
       try {
         const smsRes = await fetch('https://gatewayapi.com/rest/mtsms', {
