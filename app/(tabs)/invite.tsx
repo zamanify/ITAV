@@ -34,7 +34,6 @@ export default function InviteScreen() {
   const [error, setError] = useState<string | null>(null);
   const [permissionStatus, setPermissionStatus] = useState<'undetermined' | 'granted' | 'denied'>('undetermined');
   const [invitingContactId, setInvitingContactId] = useState<string | null>(null);
-  const [userFirstName, setUserFirstName] = useState('');
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -81,10 +80,6 @@ export default function InviteScreen() {
         .select('phone_number, first_name, last_name')
         .eq('id', session?.user?.id)
         .single();
-
-      if (currentUserData?.first_name) {
-        setUserFirstName(currentUserData.first_name);
-      }
 
       if (userError) {
         console.error('Error fetching current user:', userError);
@@ -343,32 +338,17 @@ export default function InviteScreen() {
         );
       } else {
         // This is not an existing user, create an invite
-        const { data: inviteRow, error } = await supabase
+        const { error } = await supabase
           .from('villager_invite')
           .insert({
             inviter_id: session.user.id,
             phone_number: normalizedPhone,
             status: 'pending'
-          })
-          .select('id')
-          .single();
+          });
 
         if (error && error.code !== '23505') { // Ignore unique constraint violations
           console.error('Error creating invite:', error);
           return;
-        }
-
-        if (inviteRow) {
-          await supabase.functions.invoke('send-invite-sms', {
-            body: {
-              invites: [{
-                id: inviteRow.id,
-                phoneNumber: normalizedPhone,
-                receiverFirstName: contact.name.split(' ')[0] || contact.name
-              }],
-              senderFirstName: userFirstName
-            }
-          });
         }
 
         // Update local state - change status to 'invited'
