@@ -24,8 +24,17 @@ serve(async (req) => {
     for (const invite of invites as Invite[]) {
       const message = `Hej ${invite.receiverFirstName},\n${senderFirstName} vill bjuda in dig till att anv\u00e4nda It Takes A Village appen. En plats d\u00e4r alla hj\u00e4lper varandra. L\u00e4s mer i l\u00e4nken nedan.\n/OZOZ\n\nhttps://gatewayapi.com/docs/apis/simple/`;
 
-      // GatewayAPI expects the msisdn without a leading '+'
-      const msisdn = invite.phoneNumber.replace(/\D/g, '');
+      // GatewayAPI expects the msisdn without a leading '+' and in the format 46XXXXXXXX
+      let msisdn = invite.phoneNumber.replace(/\D/g, '');
+      if (msisdn.startsWith('00')) {
+        msisdn = msisdn.slice(2);
+      }
+      if (msisdn.startsWith('0')) {
+        msisdn = '46' + msisdn.slice(1);
+      }
+      if (!msisdn.startsWith('46')) {
+        msisdn = '46' + msisdn;
+      }
 
       const payload = {
         sender: 'OZOZ',

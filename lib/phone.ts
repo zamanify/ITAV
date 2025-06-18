@@ -1,17 +1,17 @@
 export function normalizePhoneNumber(phone: string): string {
-  const cleaned = phone.replace(/[^\d+]/g, '');
+  let cleaned = phone.replace(/[^+\d]/g, '');
 
-  if (cleaned.startsWith('0')) {
-    return '+46' + cleaned.substring(1);
+  if (cleaned.startsWith('+')) {
+    cleaned = cleaned.slice(1);
+  } else if (cleaned.startsWith('00')) {
+    cleaned = cleaned.slice(2);
+  } else if (cleaned.startsWith('0')) {
+    cleaned = '46' + cleaned.slice(1);
   }
 
-  if (cleaned.startsWith('46')) {
-    return '+' + cleaned;
+  if (!cleaned.startsWith('46')) {
+    cleaned = '46' + cleaned;
   }
 
-  if (!cleaned.startsWith('+')) {
-    return '+46' + cleaned;
-  }
-
-  return cleaned;
+  return '+' + cleaned;
 }
