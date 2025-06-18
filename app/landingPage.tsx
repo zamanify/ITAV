@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
   header: {
     position: 'absolute',
-    top: 60,
+    top: 100,
     left: 15,
     right: 15,
     flexDirection: 'row',
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     paddingBottom: 365, // Space for hands + CTA button + margins
   },
   headlineContainer: {
-    marginBottom: 50,
+    marginBottom: 40,
   },
   headline: {
     fontSize: 32,
