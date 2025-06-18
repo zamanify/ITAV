@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
   header: {
     position: 'absolute',
-    top: 46,
+    top: 52,
     left: 15,
     right: 15,
     flexDirection: 'row',
