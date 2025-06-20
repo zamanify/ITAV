@@ -3,9 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const gatewayKey = Deno.env.get('GATEWAY_API_KEY');
-const gatewaySecret = Deno.env.get('GATEWAY_API_SECRET');
-const gatewayToken = Deno.env.get('GATEWAY_API_TOKEN');
+const gatewayToken = Deno.env.get('GATEWAY_API_TOKEN')!;
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -23,48 +21,32 @@ serve(async (req) => {
     }
 
     for (const invite of invites as Invite[]) {
-      const message = `Hej ${invite.receiverFirstName},\n${senderFirstName} vill bjuda in dig till att anv\u00e4nda It Takes A Village appen. En plats d\u00e4r alla hj\u00e4lper varandra. L\u00e4s mer i l\u00e4nken nedan.\n/OZOZ\n\nhttps://gatewayapi.com/docs/apis/simple/`;
+      const message = `Hej ${invite.receiverFirstName},\n${senderFirstName} vill bjuda in dig till att använda It Takes A Village appen. En plats där alla hjälper varandra. Läs mer i länken nedan.\n/OZOZ\n\nhttps://gatewayapi.com/docs/apis/simple/`;
 
-      // GatewayAPI expects the msisdn without a leading '+' and in the format 46XXXXXXXX
       let msisdn = invite.phoneNumber.replace(/\D/g, '');
-      if (msisdn.startsWith('00')) {
-        msisdn = msisdn.slice(2);
-      }
-      if (msisdn.startsWith('0')) {
-        msisdn = '46' + msisdn.slice(1);
-      }
-      if (!msisdn.startsWith('46')) {
-        msisdn = '46' + msisdn;
-      }
+      if (msisdn.startsWith('00')) msisdn = msisdn.slice(2);
+      if (msisdn.startsWith('0')) msisdn = '46' + msisdn.slice(1);
+      if (!msisdn.startsWith('46')) msisdn = '46' + msisdn;
 
       const payload = {
-        sender: 'OZOZ',
+        sender: 'ExampleSMS',
         message,
         recipients: [{ msisdn }]
       };
 
-      console.log('Sending SMS', JSON.stringify(payload));
-
-      const auth = gatewayToken
-        ? `Bearer ${gatewayToken}`
-        : 'Basic ' + btoa(`${gatewayKey}:${gatewaySecret}`);
       let status = 'failed';
       try {
         const smsRes = await fetch('https://gatewayapi.com/rest/mtsms', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': auth
+            'Authorization': `Token ${gatewayToken}`,
           },
           body: JSON.stringify(payload)
         });
-
-        const smsResult = await smsRes.text();
         status = smsRes.ok ? 'sent' : 'failed';
-        console.log('GatewayAPI response', smsRes.status, smsResult);
-      } catch (err) {
-        console.error('GatewayAPI fetch error', err);
+      } catch (e) {
+        console.error('GatewayAPI error', e);
       }
 
       await supabase

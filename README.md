@@ -11,7 +11,8 @@ This project uses Expo Router with Supabase authentication.
 2. Copy `.env.example` to `.env` and fill in your Supabase credentials:
    ```bash
    cp .env.example .env
-   # edit .env and set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY
+   # edit .env and set EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY
+   # and EXPO_PUBLIC_GATEWAY_API_TOKEN
    ```
 3. Start the development server:
    ```bash
@@ -57,3 +58,15 @@ Removed dependencies in package.json
 "expo-camera": "~16.1.5",
 
 After editing `package.json`, run `npm install` to sync dependencies.
+
+## Sending SMS via Gateway API
+
+A small Node.js helper script is available to test sending SMS messages using
+GatewayAPI. Provide your API token via the `GATEWAY_API_TOKEN` environment
+variable and run the script with Node:
+
+```bash
+GATEWAY_API_TOKEN=your-token-here node scripts/sendSMS.js
+```
+
+The script mirrors the example from GatewayAPI and prints the JSON response.
