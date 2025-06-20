@@ -8,6 +8,7 @@ import * as Contacts from 'expo-contacts';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import { normalizePhoneNumber } from '@/lib/phone';
+import { sendInviteSms } from '@/lib/sendInviteSms';
 import AppFooter from '../../components/AppFooter';
 
 SplashScreen.preventAutoHideAsync();
@@ -359,16 +360,13 @@ export default function InviteScreen() {
         }
 
         if (inviteRow) {
-          await supabase.functions.invoke('send-invite-sms', {
-            body: {
-              invites: [{
-                id: inviteRow.id,
-                phoneNumber: normalizedPhone,
-                receiverFirstName: contact.name.split(' ')[0] || contact.name
-              }],
-              senderFirstName: userFirstName
-            }
-          });
+          const msisdn = normalizedPhone.replace(/^\+/, '');
+          const message = `Hej ${contact.name.split(' ')[0] || contact.name},\n${userFirstName} vill bjuda in dig till att anv\u00e4nda It Takes A Village appen. En plats d\u00e4r alla hj\u00e4lper varandra. L\u00e4s mer i l\u00e4nken nedan.\n/OZOZ\n\nhttps://gatewayapi.com/docs/apis/simple/`;
+          try {
+            await sendInviteSms(msisdn, message);
+          } catch (err) {
+            console.error('Error sending SMS:', err);
+          }
         }
 
         // Update local state - change status to 'invited'
