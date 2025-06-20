@@ -3,9 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const gatewayKey = Deno.env.get('GATEWAY_API_KEY');
-const gatewaySecret = Deno.env.get('GATEWAY_API_SECRET');
-const gatewayToken = Deno.env.get('GATEWAY_API_TOKEN');
+const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
+const twilioApiKey = Deno.env.get('TWILIO_API_KEY_SID');
+const twilioApiSecret = Deno.env.get('TWILIO_API_KEY_SECRET');
+const twilioFromNumber = Deno.env.get('TWILIO_FROM_NUMBER');
+
+if (!twilioAccountSid || !twilioApiKey || !twilioApiSecret || !twilioFromNumber) {
+  throw new Error('Twilio environment variables are not configured');
+}
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -23,48 +28,47 @@ serve(async (req) => {
     }
 
     for (const invite of invites as Invite[]) {
-      const message = `Hej ${invite.receiverFirstName},\n${senderFirstName} vill bjuda in dig till att anv\u00e4nda It Takes A Village appen. En plats d\u00e4r alla hj\u00e4lper varandra. L\u00e4s mer i l\u00e4nken nedan.\n/OZOZ\n\nhttps://gatewayapi.com/docs/apis/simple/`;
+      const message = `Hej,\n${senderFirstName} vill bjuda in dig att anv\u00e4nda It Takes A Village. En plats f\u00f6r oss som hj\u00e4lps \u00e5t. L\u00e4s mer p\u00e5 ittakesavillage.se.\n\n/OZOZ`;
 
-      // GatewayAPI expects the msisdn without a leading '+' and in the format 46XXXXXXXX
-      let msisdn = invite.phoneNumber.replace(/\D/g, '');
-      if (msisdn.startsWith('00')) {
-        msisdn = msisdn.slice(2);
+      // Format number to E.164 (+46...) similar to frontend logic
+      let to = invite.phoneNumber.replace(/[^+\d]/g, '');
+      if (to.startsWith('+')) {
+        to = to.slice(1);
+      } else if (to.startsWith('00')) {
+        to = to.slice(2);
+      } else if (to.startsWith('0')) {
+        to = '46' + to.slice(1);
       }
-      if (msisdn.startsWith('0')) {
-        msisdn = '46' + msisdn.slice(1);
+      if (!to.startsWith('46')) {
+        to = '46' + to;
       }
-      if (!msisdn.startsWith('46')) {
-        msisdn = '46' + msisdn;
-      }
+      to = '+' + to;
 
-      const payload = {
-        sender: 'OZOZ',
-        message,
-        recipients: [{ msisdn }]
-      };
+      const form = new URLSearchParams({
+        To: to,
+        From: twilioFromNumber!,
+        Body: message
+      });
 
-      console.log('Sending SMS', JSON.stringify(payload));
+      console.log('Sending SMS', form.toString());
 
-      const auth = gatewayToken
-        ? `Bearer ${gatewayToken}`
-        : 'Basic ' + btoa(`${gatewayKey}:${gatewaySecret}`);
+      const auth = 'Basic ' + btoa(`${twilioApiKey}:${twilioApiSecret}`);
       let status = 'failed';
       try {
-        const smsRes = await fetch('https://gatewayapi.com/rest/mtsms', {
+        const smsRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
             'Authorization': auth
           },
-          body: JSON.stringify(payload)
+          body: form.toString()
         });
 
         const smsResult = await smsRes.text();
         status = smsRes.ok ? 'sent' : 'failed';
-        console.log('GatewayAPI response', smsRes.status, smsResult);
+        console.log('Twilio response', smsRes.status, smsResult);
       } catch (err) {
-        console.error('GatewayAPI fetch error', err);
+        console.error('Twilio fetch error', err);
       }
 
       await supabase
