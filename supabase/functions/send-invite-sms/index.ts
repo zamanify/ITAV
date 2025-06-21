@@ -21,7 +21,8 @@ serve(async (req) => {
     }
 
     for (const invite of invites as Invite[]) {
-      const message = `Hej ${invite.receiverFirstName},\n${senderFirstName} vill bjuda in dig till att använda It Takes A Village appen. En plats där alla hjälper varandra. Läs mer i länken nedan.\n/OZOZ\n\nhttps://gatewayapi.com/docs/apis/simple/`;
+
+      const message = `Hej ${invite.receiverFirstName},\n${senderFirstName} vill bjuda in dig till att använda It Takes A Village appen. En plats där alla hjälper varandra. Läs mer i länken nedan.\n/OZOZ`;
 
       let msisdn = invite.phoneNumber.replace(/\D/g, '');
       if (msisdn.startsWith('00')) msisdn = msisdn.slice(2);
