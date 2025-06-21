@@ -57,3 +57,15 @@ Removed dependencies in package.json
 "expo-camera": "~16.1.5",
 
 After editing `package.json`, run `npm install` to sync dependencies.
+
+## Sending SMS via Gateway API
+
+A small Node.js helper script is available to test sending SMS messages using
+GatewayAPI. Provide your API token via the `GATEWAY_API_TOKEN` environment
+variable and run the script with Node:
+
+```bash
+GATEWAY_API_TOKEN=your-token-here node scripts/sendSMS.js
+```
+
+The script mirrors the example from GatewayAPI and prints the JSON response.
