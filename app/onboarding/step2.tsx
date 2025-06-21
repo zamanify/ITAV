@@ -8,7 +8,6 @@ import * as Contacts from 'expo-contacts';
 import { supabase } from '@/lib/supabase';
 import { normalizePhoneNumber } from '@/lib/phone';
 import { AuthContext } from '@/contexts/AuthContext';
-import { sendInviteSms } from '@/lib/sendInviteSms';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -154,15 +153,16 @@ export default function OnboardingStep2() {
       }
 
       if (invitesForSms.length > 0) {
-        for (const invite of invitesForSms) {
-          const msisdn = invite.phoneNumber.replace(/^\+/, '');
-          const message = `Hej ${invite.name},\n${firstName} vill bjuda in dig till att anv\u00e4nda It Takes A Village appen. En plats d\u00e4r alla hj\u00e4lper varandra. L\u00e4s mer i l\u00e4nken nedan.\n/OZOZ\n\nhttps://gatewayapi.com/docs/apis/simple/`;
-          try {
-            await sendInviteSms(msisdn, message);
-          } catch (err) {
-            console.error('Error sending SMS:', err);
+        await supabase.functions.invoke('send-invite-sms', {
+          body: {
+            invites: invitesForSms.map(i => ({
+              id: i.id,
+              phoneNumber: i.phoneNumber,
+              receiverFirstName: i.name
+            })),
+            senderFirstName: firstName
           }
-        }
+        });
       }
 
       router.push('/onboarding/step3');

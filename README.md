@@ -11,8 +11,7 @@ This project uses Expo Router with Supabase authentication.
 2. Copy `.env.example` to `.env` and fill in your Supabase credentials:
    ```bash
    cp .env.example .env
-   # edit .env and set EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY
-   # and EXPO_PUBLIC_GATEWAY_API_TOKEN
+   # edit .env and set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY
    ```
 3. Start the development server:
    ```bash
