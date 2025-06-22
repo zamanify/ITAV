@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
-import { X, MessageCircle, Plus } from 'lucide-react-native';
+import { X, MessageCircle } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 
@@ -22,22 +22,10 @@ export default function VillagerMessageModal({ visible, onClose, villager }: Pro
     return null;
   }
 
-  const handleNewRequest = () => {
+  const handleSendMessage = () => {
     onClose();
-    // Navigate to create request with villager pre-selected
-    router.push({
-      pathname: '/create-request',
-      params: { preselectedVillager: villager.id }
-    });
-  };
-
-  const handleNewOffer = () => {
-    onClose();
-    // Navigate to create offer with villager pre-selected
-    router.push({
-      pathname: '/create-offer',
-      params: { preselectedVillager: villager.id }
-    });
+    // Navigate directly to the chat screen with the villager
+    router.push(`/messages/${villager.id}`);
   };
 
   return (
@@ -62,30 +50,18 @@ export default function VillagerMessageModal({ visible, onClose, villager }: Pro
           <View style={styles.villagerInfo}>
             <Text style={styles.villagerName}>{villager.name}</Text>
             <Text style={styles.villagerSubtext}>
-              Välj vad du vill skicka till {villager.name.split(' ')[0]}
+              Öppna chatten med {villager.name.split(' ')[0]} för att skicka meddelanden
             </Text>
           </View>
 
           <View style={styles.buttonContainer}>
-            <Pressable style={styles.requestButton} onPress={handleNewRequest}>
+            <Pressable style={styles.messageButton} onPress={handleSendMessage}>
               <View style={styles.buttonContent}>
-                <Plus size={24} color="#FF69B4" />
+                <MessageCircle size={24} color="#FF69B4" />
                 <View style={styles.buttonTextContainer}>
-                  <Text style={styles.buttonTitle}>Ny förfrågan</Text>
+                  <Text style={styles.buttonTitle}>Öppna chat</Text>
                   <Text style={styles.buttonSubtitle}>
-                    Be {villager.name.split(' ')[0]} om hjälp med något
-                  </Text>
-                </View>
-              </View>
-            </Pressable>
-
-            <Pressable style={styles.offerButton} onPress={handleNewOffer}>
-              <View style={styles.buttonContent}>
-                <Plus size={24} color="#87CEEB" />
-                <View style={styles.buttonTextContainer}>
-                  <Text style={styles.offerButtonTitle}>Nytt erbjudande</Text>
-                  <Text style={styles.offerButtonSubtitle}>
-                    Erbjud {villager.name.split(' ')[0]} din hjälp
+                    Skicka meddelanden till {villager.name.split(' ')[0]}
                   </Text>
                 </View>
               </View>
@@ -114,7 +90,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 40,
     paddingHorizontal: 20,
-    minHeight: 300,
+    minHeight: 250,
   },
   header: {
     flexDirection: 'row',
@@ -154,20 +130,12 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   buttonContainer: {
-    gap: 16,
     marginBottom: 24,
   },
-  requestButton: {
+  messageButton: {
     backgroundColor: '#FFF8FC',
     borderWidth: 2,
     borderColor: '#FF69B4',
-    borderRadius: 16,
-    padding: 20,
-  },
-  offerButton: {
-    backgroundColor: '#F8FCFF',
-    borderWidth: 2,
-    borderColor: '#87CEEB',
     borderRadius: 16,
     padding: 20,
   },
@@ -186,18 +154,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   buttonSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    fontFamily: 'Unbounded-Regular',
-    lineHeight: 20,
-  },
-  offerButtonTitle: {
-    fontSize: 18,
-    color: '#87CEEB',
-    fontFamily: 'Unbounded-SemiBold',
-    marginBottom: 4,
-  },
-  offerButtonSubtitle: {
     fontSize: 14,
     color: '#666',
     fontFamily: 'Unbounded-Regular',

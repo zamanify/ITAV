@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { router } from 'expo-router';
-import { Users, Chrome as Home, Plus, User } from 'lucide-react-native';
+import { Users, Chrome as Home, Plus, User, MessageCircle } from 'lucide-react-native';
 import { useFonts, Unbounded_400Regular } from '@expo-google-fonts/unbounded';
 
 export default function AppFooter() {
@@ -13,6 +13,12 @@ export default function AppFooter() {
   }
 
   const footerItems = [
+    {
+      id: 'messages',
+      icon: MessageCircle,
+      label: 'DINA\nMEDDELANDEN',
+      onPress: () => router.push('/messages'),
+    },
     {
       id: 'villagers',
       icon: Users,

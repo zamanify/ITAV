@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { User, Settings } from 'lucide-react-native';
+import { User, Settings, MessageCircle, Users, Chrome as Home } from 'lucide-react-native';
 
 export default function TabLayout() {
   return (
@@ -11,6 +11,12 @@ export default function TabLayout() {
       }}>
       <Tabs.Screen
         name="index"
+        options={{
+          href: null, // This hides the tab from the tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="messages"
         options={{
           href: null, // This hides the tab from the tab bar
         }}
