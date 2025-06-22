@@ -68,12 +68,22 @@ export default function ChatScreen() {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `sender_id=eq.${userId},receiver_id=eq.${session.user.id}`
+          filter: `and=(sender_id.eq.${userId},receiver_id.eq.${session.user.id})`
         },
         () => {
           fetchMessages();
           markMessagesAsRead();
         }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `and=(sender_id.eq.${session.user.id},receiver_id.eq.${userId})`
+        },
+        fetchMessages
       )
       .subscribe();
 

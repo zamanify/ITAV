@@ -59,6 +59,11 @@ export default function MessagesScreen() {
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=eq.${session.user.id}` },
         fetchConversations
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
+        fetchConversations
+      )
       .subscribe();
 
     return () => {
