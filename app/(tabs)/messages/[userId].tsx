@@ -216,6 +216,18 @@ export default function ChatScreen() {
     }
   };
 
+  const handleKeyPress = (event: any) => {
+    // Only handle Enter key on web platform
+    if (Platform.OS === 'web' && event.nativeEvent.key === 'Enter') {
+      // Prevent default behavior (new line)
+      event.preventDefault();
+      // Send the message if there's content and not currently sending
+      if (newMessage.trim() && !isSending) {
+        sendMessage();
+      }
+    }
+  };
+
   const formatMessageTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('sv-SE', {
@@ -339,6 +351,7 @@ export default function ChatScreen() {
           placeholderTextColor="#999"
           multiline
           maxLength={1000}
+          onKeyPress={handleKeyPress}
         />
         <Pressable
           style={[
