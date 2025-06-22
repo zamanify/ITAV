@@ -565,6 +565,13 @@ export default function VillagersScreen() {
           <ArrowLeft color="#FF69B4" size={24} />
         </Pressable>
         <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
+        <Pressable
+          onPress={() => router.push('/invite')}
+          style={styles.headerInviteButton}
+          accessibilityLabel="Bjud in villagers"
+        >
+          <UserPlus color="#FF69B4" size={24} />
+        </Pressable>
       </View>
 
       {!isLoading && !error && (villagers.length > 0 || pendingRequests.length > 0 || sentRequests.length > 0 || blockedVillagers.length > 0) && (
@@ -790,6 +797,9 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginRight: 15,
+  },
+  headerInviteButton: {
+    marginLeft: 15,
   },
   headerTitle: {
     fontSize: 20,
