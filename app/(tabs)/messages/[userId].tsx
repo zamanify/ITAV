@@ -60,32 +60,32 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!session?.user?.id || !userId) return;
 
-    const channel = supabase
-      .channel(`chat-${session.user.id}-${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `and=(sender_id.eq.${userId},receiver_id.eq.${session.user.id})`
-        },
-        () => {
-          fetchMessages();
-          markMessagesAsRead();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `and=(sender_id.eq.${session.user.id},receiver_id.eq.${userId})`
-        },
-        fetchMessages
-      )
-      .subscribe();
+      const channel = supabase
+        .channel(`chat-${session.user.id}-${userId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `and=(sender_id=eq.${userId},receiver_id=eq.${session.user.id})`
+          },
+          () => {
+            fetchMessages();
+            markMessagesAsRead();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `and=(sender_id=eq.${session.user.id},receiver_id=eq.${userId})`
+          },
+          fetchMessages
+        )
+        .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
