@@ -7,6 +7,7 @@ import { ArrowLeft, MessageCircle, Clock } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../../components/AppFooter';
+import RealtimeManager from '@/lib/realtimeManager';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -85,83 +86,44 @@ export default function MessagesScreen() {
     }
   }, [session?.user?.id]);
 
-  // Use useFocusEffect to handle real-time subscriptions properly
+  // Use useFocusEffect with RealtimeManager for efficient subscriptions
   useFocusEffect(
     useCallback(() => {
       if (!session?.user?.id) return;
 
-      console.log('🎯 [Messages List] Screen focused, setting up real-time subscription for user:', session.user.id);
+      console.log('🎯 [Messages List] Screen focused, setting up managed real-time subscription for user:', session.user.id);
 
       // Fetch conversations when screen comes into focus
       fetchConversations();
 
-      // Use a static channel name based on the user's ID for consistent subscription
-      const channelName = `user-messages-${session.user.id}`;
-      console.log('📡 [Messages List] Creating channel:', channelName);
+      // Get the RealtimeManager instance
+      const realtimeManager = RealtimeManager.getInstance(supabase);
 
-      const channel = supabase
-        .channel(channelName)
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
-          (payload) => {
-            console.log('📨 [Messages List] Received INSERT event (as receiver):', {
-              senderId: payload.new.sender_id,
-              messageText: payload.new.message_text?.substring(0, 50) + '...',
-              timestamp: new Date().toISOString()
-            });
-            fetchConversations();
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=eq.${session.user.id}` },
-          (payload) => {
-            console.log('📤 [Messages List] Received INSERT event (as sender):', {
-              receiverId: payload.new.receiver_id,
-              messageText: payload.new.message_text?.substring(0, 50) + '...',
-              timestamp: new Date().toISOString()
-            });
-            fetchConversations();
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
-          (payload) => {
-            console.log('📝 [Messages List] Received UPDATE event:', {
-              messageId: payload.new.id,
-              isRead: payload.new.is_read,
-              timestamp: new Date().toISOString()
-            });
-            fetchConversations();
-          }
-        )
-        .subscribe((status, err) => {
-          console.log('🔌 [Messages List] Channel subscription status:', status);
-          if (err) {
-            console.error('❌ [Messages List] Channel subscription error:', err);
-          }
-          if (status === 'SUBSCRIBED') {
-            console.log('✅ [Messages List] Successfully subscribed to real-time updates');
-          }
-        });
+      // Subscribe to conversation updates using the manager
+      const unsubscribe = realtimeManager.subscribeToConversations(
+        session.user.id,
+        (payload) => {
+          console.log('📨 [Messages List] Received conversation update:', {
+            event: payload.eventType,
+            messageId: payload.new.id,
+            from: payload.new.sender_id,
+            to: payload.new.receiver_id,
+            messageText: payload.new.message_text?.substring(0, 30) + '...'
+          });
 
-      // Log channel state periodically
-      const stateInterval = setInterval(() => {
-        console.log('📊 [Messages List] Channel state:', channel.state);
-      }, 10000); // Log every 10 seconds
+          // Refresh conversations list
+          fetchConversations();
+        },
+        `MessagesList-${session.user.id.slice(0, 8)}`
+      );
+
+      // Log subscription stats
+      console.log('📊 [Messages List] Current subscription stats:', realtimeManager.getSubscriptionStats());
 
       // Cleanup function - this will run when the screen loses focus or unmounts
       return () => {
-        console.log('🧹 [Messages List] Cleaning up real-time subscription');
-        clearInterval(stateInterval);
-        
-        const finalState = channel.state;
-        console.log('📊 [Messages List] Final channel state before cleanup:', finalState);
-        
-        supabase.removeChannel(channel);
-        console.log('✅ [Messages List] Channel removed successfully');
+        console.log('🧹 [Messages List] Cleaning up managed real-time subscription');
+        unsubscribe();
       };
     }, [session?.user?.id, fetchConversations])
   );

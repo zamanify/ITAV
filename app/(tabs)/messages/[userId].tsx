@@ -6,6 +6,7 @@ import { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
+import RealtimeManager from '@/lib/realtimeManager';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -182,101 +183,48 @@ export default function ChatScreen() {
     }
   }, [session?.user?.id, userId]);
 
-  // Use useFocusEffect to handle real-time subscriptions properly
+  // Use useFocusEffect with RealtimeManager for efficient subscriptions
   useFocusEffect(
     useCallback(() => {
       if (!session?.user?.id || !userId) return;
 
-      console.log('🎯 [Chat] Screen focused, setting up real-time subscription');
+      console.log('🎯 [Chat] Screen focused, setting up managed real-time subscription');
 
       // Fetch messages and mark as read when screen comes into focus
       fetchMessages();
       markMessagesAsRead();
 
-      // Add delay before creating new channel to prevent race conditions
-      const delayTimeoutRef = setTimeout(() => {
-        // Create a UNIQUE channel name for this specific user's view of the conversation
-        // This prevents conflicts when both users are in the same chat
-        const channelName = `chat-${session.user.id}-viewing-${userId}-${Date.now()}`;
-        
-        console.log('📡 [Chat] Creating unique channel:', channelName);
+      // Get the RealtimeManager instance
+      const realtimeManager = RealtimeManager.getInstance(supabase);
 
-        const channel = supabase
-          .channel(channelName)
-          .on(
-            'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'messages',
-              filter: `and=(sender_id.eq.${userId},receiver_id.eq.${session.user.id})`
-            },
-            (payload) => {
-              console.log('📨 [Chat] Received message from partner:', {
-                messageId: payload.new.id,
-                messageText: payload.new.message_text?.substring(0, 50) + '...',
-                timestamp: new Date().toISOString()
-              });
-              fetchMessages();
-              markMessagesAsRead();
-            }
-          )
-          .on(
-            'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'messages',
-              filter: `and=(sender_id.eq.${session.user.id},receiver_id.eq.${userId})`
-            },
-            (payload) => {
-              console.log('📤 [Chat] Received confirmation of sent message:', {
-                messageId: payload.new.id,
-                messageText: payload.new.message_text?.substring(0, 50) + '...',
-                timestamp: new Date().toISOString()
-              });
-              fetchMessages();
-            }
-          )
-          .subscribe((status, err) => {
-            console.log('🔌 [Chat] Channel subscription status:', status);
-            if (err) {
-              console.error('❌ [Chat] Channel subscription error:', err);
-            }
-            if (status === 'SUBSCRIBED') {
-              console.log('✅ [Chat] Successfully subscribed to real-time updates');
-            }
+      // Subscribe to messages using the manager
+      const unsubscribe = realtimeManager.subscribeToMessages(
+        session.user.id,
+        userId,
+        (payload) => {
+          console.log('📨 [Chat] Received real-time message update:', {
+            event: payload.eventType,
+            messageId: payload.new.id,
+            from: payload.new.sender_id,
+            to: payload.new.receiver_id
           });
 
-        // Log channel state periodically
-        const stateInterval = setInterval(() => {
-          console.log('📊 [Chat] Channel state:', channel.state);
-        }, 10000); // Log every 10 seconds
+          // Refresh messages and mark as read if it's a new message for us
+          fetchMessages();
+          if (payload.new.receiver_id === session.user.id) {
+            markMessagesAsRead();
+          }
+        },
+        `Chat-${session.user.id.slice(0, 8)}`
+      );
 
-        // Store cleanup function in a ref so it can be called from the outer cleanup
-        const cleanup = () => {
-          console.log('🧹 [Chat] Cleaning up real-time subscription');
-          clearInterval(stateInterval);
-          
-          const finalState = channel.state;
-          console.log('📊 [Chat] Final channel state before cleanup:', finalState);
-          
-          console.log('🔌 [Chat] Channel subscription status:', channel.subscriptionState);
-          supabase.removeChannel(channel);
-          console.log('✅ [Chat] Channel removed successfully');
-        };
+      // Log subscription stats
+      console.log('📊 [Chat] Current subscription stats:', realtimeManager.getSubscriptionStats());
 
-        // Return the cleanup function
-        return cleanup;
-      }, 300); // Increased delay to 300ms for better stability
-
-      // Cleanup function - this will run when the screen loses focus or unmounts
+      // Cleanup function
       return () => {
-        // Clear the delay timeout if cleanup happens before channel creation
-        clearTimeout(delayTimeoutRef);
-        
-        // If channel was created, the cleanup function will be called
-        // This is handled by the timeout's return value
+        console.log('🧹 [Chat] Cleaning up managed real-time subscription');
+        unsubscribe();
       };
     }, [session?.user?.id, userId, fetchMessages, markMessagesAsRead])
   );
