@@ -43,3 +43,51 @@ export default function AppFooter() {
       label: 'DITT\nKONTO',
       onPress: () => router.push('/profile'),
     },
+  ];
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.footerContent}>
+        {footerItems.map((item) => {
+          const IconComponent = item.icon;
+          return (
+            <Pressable
+              key={item.id}
+              style={styles.footerItem}
+              onPress={item.onPress}
+            >
+              <IconComponent size={24} color="#666" />
+              <Text style={styles.footerLabel}>{item.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  footerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  footerItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  footerLabel: {
+    fontFamily: 'Unbounded-Regular',
+    fontSize: 10,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 12,
+  },
+});
