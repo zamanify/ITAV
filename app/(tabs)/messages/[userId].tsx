@@ -61,7 +61,7 @@ export default function ChatScreen() {
     if (!session?.user?.id || !userId) return;
 
       const channel = supabase
-        .channel(`chat-${session.user.id}-${userId}`)
+        .channel(`chat-${session.user.id}-${userId}-${Date.now()}`)
         .on(
           'postgres_changes',
           {

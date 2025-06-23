@@ -48,7 +48,7 @@ export default function MessagesScreen() {
     if (!session?.user?.id) return;
 
     const channel = supabase
-      .channel(`conversations-${session.user.id}`)
+      .channel(`conversations-${session.user.id}-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },

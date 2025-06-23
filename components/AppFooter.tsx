@@ -17,7 +17,7 @@ export default function AppFooter() {
       id: 'messages',
       icon: MessageCircle,
       label: 'DINA\nMEDDELANDEN',
-      onPress: () => router.push('/messages'),
+      onPress: () => router.replace('/messages'),
     },
     {
       id: 'villagers',
