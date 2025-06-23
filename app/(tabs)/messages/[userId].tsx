@@ -183,7 +183,8 @@ export default function ChatScreen() {
           sender_id: session.user.id,
           receiver_id: userId,
           message_text: newMessage.trim(),
-          via_group_id: null // Direct message, not via group
+          // Direct message, not via group
+          via_group_id: null,
         });
 
       if (error) {
