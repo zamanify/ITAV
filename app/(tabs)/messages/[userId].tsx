@@ -154,10 +154,8 @@ export default function ChatScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
   }, [session?.user?.id, userId]);
-
-  const markMessagesAsRead = async () => {
+  
   const markMessagesAsRead = useCallback(async () => {
     if (!session?.user?.id || !userId) return;
 
@@ -171,7 +169,6 @@ export default function ChatScreen() {
     } catch (err) {
       console.error('Error marking messages as read:', err);
     }
-  };
   }, [session?.user?.id, userId]);
 
   const sendMessage = async () => {
