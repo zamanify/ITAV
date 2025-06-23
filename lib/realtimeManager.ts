@@ -44,6 +44,21 @@ class RealtimeManager {
     }, 30000);
   }
 
+  private isChannelHealthy(channel: any): boolean {
+    // Check if the channel is in a healthy state
+    const state = channel?.state;
+    const isHealthy = state === 'joined' || state === 'joining';
+    
+    if (!isHealthy) {
+      console.log('⚠️ [RealtimeManager] Channel state check:', {
+        state,
+        isHealthy
+      });
+    }
+    
+    return isHealthy;
+  }
+
   subscribeToMessages(
     currentUserId: string,
     chatPartnerId: string,
@@ -59,8 +74,22 @@ class RealtimeManager {
 
     let subscription = this.activeSubscriptions.get(subscriptionKey);
 
+    // Check if existing subscription has a healthy channel
+    if (subscription && !this.isChannelHealthy(subscription.channel)) {
+      console.log(`🔄 [RealtimeManager] Existing channel for ${subscriptionKey} is unhealthy, recreating...`);
+      
+      // Remove the unhealthy channel
+      this.supabase.removeChannel(subscription.channel);
+      this.activeSubscriptions.delete(subscriptionKey);
+      subscription = null;
+    }
+
     if (!subscription) {
       console.log(`🆕 [RealtimeManager] Creating new subscription for:`, subscriptionKey);
+      
+      // Create the filter string for logging
+      const filterString = `or(and(sender_id.eq.${sortedIds[0]},receiver_id.eq.${sortedIds[1]}),and(sender_id.eq.${sortedIds[1]},receiver_id.eq.${sortedIds[0]}))`;
+      console.log(`🔍 [RealtimeManager] Messages filter for ${subscriptionKey}:`, filterString);
       
       // Create new subscription with stable channel name (no timestamp)
       const channel = this.supabase
@@ -71,21 +100,28 @@ class RealtimeManager {
             event: 'INSERT',
             schema: 'public',
             table: 'messages',
-            filter: `or(and(sender_id.eq.${sortedIds[0]},receiver_id.eq.${sortedIds[1]}),and(sender_id.eq.${sortedIds[1]},receiver_id.eq.${sortedIds[0]}))`
+            filter: filterString
           },
           (payload) => {
-            console.log(`📨 [RealtimeManager] Message received for ${subscriptionKey}:`, {
+            console.log(`📨 [RealtimeManager] Message INSERT received for ${subscriptionKey}:`, {
               messageId: payload.new.id,
               from: payload.new.sender_id,
               to: payload.new.receiver_id,
-              callbackCount: subscription?.callbacks.size || 0
+              callbackCount: subscription?.callbacks.size || 0,
+              eventType: payload.eventType
             });
             
             // Update activity timestamp
             if (subscription) {
               subscription.lastActivity = Date.now();
               // Notify all callbacks
-              subscription.callbacks.forEach(cb => cb(payload));
+              subscription.callbacks.forEach(cb => {
+                try {
+                  cb(payload);
+                } catch (error) {
+                  console.error(`❌ [RealtimeManager] Error in message callback:`, error);
+                }
+              });
             }
           }
         )
@@ -95,17 +131,24 @@ class RealtimeManager {
             event: 'UPDATE',
             schema: 'public',
             table: 'messages',
-            filter: `or(and(sender_id.eq.${sortedIds[0]},receiver_id.eq.${sortedIds[1]}),and(sender_id.eq.${sortedIds[1]},receiver_id.eq.${sortedIds[0]}))`
+            filter: filterString
           },
           (payload) => {
-            console.log(`📝 [RealtimeManager] Message updated for ${subscriptionKey}:`, {
+            console.log(`📝 [RealtimeManager] Message UPDATE received for ${subscriptionKey}:`, {
               messageId: payload.new.id,
-              isRead: payload.new.is_read
+              isRead: payload.new.is_read,
+              callbackCount: subscription?.callbacks.size || 0
             });
             
             if (subscription) {
               subscription.lastActivity = Date.now();
-              subscription.callbacks.forEach(cb => cb(payload));
+              subscription.callbacks.forEach(cb => {
+                try {
+                  cb(payload);
+                } catch (error) {
+                  console.error(`❌ [RealtimeManager] Error in message update callback:`, error);
+                }
+              });
             }
           }
         )
@@ -166,6 +209,16 @@ class RealtimeManager {
 
     let subscription = this.activeSubscriptions.get(subscriptionKey);
 
+    // Check if existing subscription has a healthy channel
+    if (subscription && !this.isChannelHealthy(subscription.channel)) {
+      console.log(`🔄 [RealtimeManager] Existing conversation channel for ${subscriptionKey} is unhealthy, recreating...`);
+      
+      // Remove the unhealthy channel
+      this.supabase.removeChannel(subscription.channel);
+      this.activeSubscriptions.delete(subscriptionKey);
+      subscription = null;
+    }
+
     if (!subscription) {
       console.log(`🆕 [RealtimeManager] Creating new conversation subscription for:`, subscriptionKey);
       
@@ -182,7 +235,13 @@ class RealtimeManager {
             });
             if (subscription) {
               subscription.lastActivity = Date.now();
-              subscription.callbacks.forEach(cb => cb(payload));
+              subscription.callbacks.forEach(cb => {
+                try {
+                  cb(payload);
+                } catch (error) {
+                  console.error(`❌ [RealtimeManager] Error in conversation callback:`, error);
+                }
+              });
             }
           }
         )
@@ -196,7 +255,13 @@ class RealtimeManager {
             });
             if (subscription) {
               subscription.lastActivity = Date.now();
-              subscription.callbacks.forEach(cb => cb(payload));
+              subscription.callbacks.forEach(cb => {
+                try {
+                  cb(payload);
+                } catch (error) {
+                  console.error(`❌ [RealtimeManager] Error in conversation callback:`, error);
+                }
+              });
             }
           }
         )
@@ -206,7 +271,13 @@ class RealtimeManager {
           (payload) => {
             if (subscription) {
               subscription.lastActivity = Date.now();
-              subscription.callbacks.forEach(cb => cb(payload));
+              subscription.callbacks.forEach(cb => {
+                try {
+                  cb(payload);
+                } catch (error) {
+                  console.error(`❌ [RealtimeManager] Error in conversation update callback:`, error);
+                }
+              });
             }
           }
         )
@@ -268,6 +339,22 @@ class RealtimeManager {
     }
     
     return stats;
+  }
+
+  // Method to manually check and refresh unhealthy channels
+  refreshUnhealthyChannels(): void {
+    console.log('🔍 [RealtimeManager] Checking all channels for health...');
+    
+    for (const [key, subscription] of this.activeSubscriptions.entries()) {
+      if (!this.isChannelHealthy(subscription.channel)) {
+        console.log(`🚨 [RealtimeManager] Found unhealthy channel: ${key}, will recreate on next subscription`);
+        
+        // Mark for recreation by removing from active subscriptions
+        // The next subscription attempt will recreate it
+        this.supabase.removeChannel(subscription.channel);
+        this.activeSubscriptions.delete(key);
+      }
+    }
   }
 
   destroy() {
