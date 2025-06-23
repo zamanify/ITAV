@@ -32,7 +32,7 @@ export default function ChatScreen() {
     'Unbounded-Regular': Unbounded_400Regular,
     'Unbounded-SemiBold': Unbounded_600SemiBold,
   });
-@@ -35,142 +37,161 @@ export default function ChatScreen() {
+
   const params = useLocalSearchParams();
   const userId = params.userId as string;
   const scrollViewRef = useRef<ScrollView>(null);
