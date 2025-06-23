@@ -41,6 +41,8 @@ export default function MessagesScreen() {
   const fetchConversations = useCallback(async () => {
     if (!session?.user?.id) return;
 
+    console.log('🔄 [Messages List] Fetching conversations for user:', session.user.id);
+
     try {
       setIsLoading(true);
       setError(null);
@@ -50,7 +52,7 @@ export default function MessagesScreen() {
       });
 
       if (fetchError) {
-        console.error('Error fetching conversations:', fetchError);
+        console.error('❌ [Messages List] Error fetching conversations:', fetchError);
         setError('Kunde inte hämta meddelanden');
         return;
       }
@@ -65,9 +67,18 @@ export default function MessagesScreen() {
         viaGroupName: conv.via_group_name
       }));
 
+      console.log('✅ [Messages List] Successfully fetched conversations:', {
+        count: conversationsData.length,
+        conversations: conversationsData.map(c => ({
+          partner: c.partnerName,
+          unreadCount: c.unreadCount,
+          latestMessage: c.latestMessage.substring(0, 50) + '...'
+        }))
+      });
+
       setConversations(conversationsData);
     } catch (err) {
-      console.error('Error fetching conversations:', err);
+      console.error('❌ [Messages List] Error fetching conversations:', err);
       setError('Ett fel uppstod vid hämtning av meddelanden');
     } finally {
       setIsLoading(false);
@@ -79,42 +90,89 @@ export default function MessagesScreen() {
     useCallback(() => {
       if (!session?.user?.id) return;
 
+      console.log('🎯 [Messages List] Screen focused, setting up real-time subscription for user:', session.user.id);
+
       // Fetch conversations when screen comes into focus
       fetchConversations();
 
       // Use a static channel name based on the user's ID for consistent subscription
+      const channelName = `user-messages-${session.user.id}`;
+      console.log('📡 [Messages List] Creating channel:', channelName);
+
       const channel = supabase
-        .channel(`user-messages-${session.user.id}`)
+        .channel(channelName)
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
-          fetchConversations
+          (payload) => {
+            console.log('📨 [Messages List] Received INSERT event (as receiver):', {
+              senderId: payload.new.sender_id,
+              messageText: payload.new.message_text?.substring(0, 50) + '...',
+              timestamp: new Date().toISOString()
+            });
+            fetchConversations();
+          }
         )
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=eq.${session.user.id}` },
-          fetchConversations
+          (payload) => {
+            console.log('📤 [Messages List] Received INSERT event (as sender):', {
+              receiverId: payload.new.receiver_id,
+              messageText: payload.new.message_text?.substring(0, 50) + '...',
+              timestamp: new Date().toISOString()
+            });
+            fetchConversations();
+          }
         )
         .on(
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
-          fetchConversations
+          (payload) => {
+            console.log('📝 [Messages List] Received UPDATE event:', {
+              messageId: payload.new.id,
+              isRead: payload.new.is_read,
+              timestamp: new Date().toISOString()
+            });
+            fetchConversations();
+          }
         )
-        .subscribe();
+        .subscribe((status, err) => {
+          console.log('🔌 [Messages List] Channel subscription status:', status);
+          if (err) {
+            console.error('❌ [Messages List] Channel subscription error:', err);
+          }
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ [Messages List] Successfully subscribed to real-time updates');
+          }
+        });
+
+      // Log channel state periodically
+      const stateInterval = setInterval(() => {
+        console.log('📊 [Messages List] Channel state:', channel.state);
+      }, 10000); // Log every 10 seconds
 
       // Cleanup function - this will run when the screen loses focus or unmounts
       return () => {
+        console.log('🧹 [Messages List] Cleaning up real-time subscription');
+        clearInterval(stateInterval);
+        
+        const finalState = channel.state;
+        console.log('📊 [Messages List] Final channel state before cleanup:', finalState);
+        
         supabase.removeChannel(channel);
+        console.log('✅ [Messages List] Channel removed successfully');
       };
     }, [session?.user?.id, fetchConversations])
   );
 
   const onRefresh = useCallback(async () => {
+    console.log('🔄 [Messages List] Manual refresh triggered');
     setRefreshing(true);
     try {
       await fetchConversations();
     } catch (error) {
-      console.error('Error refreshing conversations:', error);
+      console.error('❌ [Messages List] Error refreshing conversations:', error);
     } finally {
       setRefreshing(false);
     }
@@ -143,10 +201,12 @@ export default function MessagesScreen() {
   };
 
   const handleBack = () => {
+    console.log('⬅️ [Messages List] Back button pressed');
     router.back();
   };
 
   const handleConversationPress = (partnerId: string) => {
+    console.log('👆 [Messages List] Conversation pressed, navigating to:', partnerId);
     router.push(`/messages/${partnerId}`);
   };
 

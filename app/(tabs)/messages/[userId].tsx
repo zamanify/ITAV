@@ -51,12 +51,18 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (session?.user?.id && userId) {
+      console.log('🎯 [Chat] Initializing chat between users:', {
+        currentUser: session.user.id,
+        chatPartner: userId
+      });
       fetchUserInfo();
     }
   }, [session?.user?.id, userId]);
 
   const fetchUserInfo = async () => {
     if (!userId) return;
+
+    console.log('👤 [Chat] Fetching user info for:', userId);
 
     try {
       const { data, error } = await supabase
@@ -66,10 +72,15 @@ export default function ChatScreen() {
         .single();
 
       if (error) {
-        console.error('Error fetching user info:', error);
+        console.error('❌ [Chat] Error fetching user info:', error);
         setError('Kunde inte hämta användarinformation');
         return;
       }
+
+      console.log('✅ [Chat] User info fetched:', {
+        id: data.id,
+        name: `${data.first_name} ${data.last_name}`
+      });
 
       setUserInfo({
         id: data.id,
@@ -77,13 +88,18 @@ export default function ChatScreen() {
         lastName: data.last_name
       });
     } catch (err) {
-      console.error('Error fetching user info:', err);
+      console.error('❌ [Chat] Error fetching user info:', err);
       setError('Ett fel uppstod vid hämtning av användarinformation');
     }
   };
 
   const fetchMessages = useCallback(async () => {
     if (!session?.user?.id || !userId) return;
+
+    console.log('💬 [Chat] Fetching messages between:', {
+      currentUser: session.user.id,
+      chatPartner: userId
+    });
 
     try {
       setIsLoading(true);
@@ -104,7 +120,7 @@ export default function ChatScreen() {
         .order('created_at', { ascending: true });
 
       if (error) {
-        console.error('Error fetching messages:', error);
+        console.error('❌ [Chat] Error fetching messages:', error);
         setError('Kunde inte hämta meddelanden');
         return;
       }
@@ -119,6 +135,11 @@ export default function ChatScreen() {
         viaGroupName: msg.via_group?.name
       }));
 
+      console.log('✅ [Chat] Messages fetched:', {
+        count: messagesData.length,
+        unreadCount: messagesData.filter(m => !m.isRead && m.senderId === userId).length
+      });
+
       setMessages(messagesData);
       
       // Scroll to bottom after messages load
@@ -126,7 +147,7 @@ export default function ChatScreen() {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 100);
     } catch (err) {
-      console.error('Error fetching messages:', err);
+      console.error('❌ [Chat] Error fetching messages:', err);
       setError('Ett fel uppstod vid hämtning av meddelanden');
     } finally {
       setIsLoading(false);
@@ -136,15 +157,28 @@ export default function ChatScreen() {
   const markMessagesAsRead = useCallback(async () => {
     if (!session?.user?.id || !userId) return;
 
+    console.log('📖 [Chat] Marking messages as read from:', userId);
+
     try {
-      await supabase
+      const { data, error } = await supabase
         .from('messages')
         .update({ is_read: true })
         .eq('sender_id', userId)
         .eq('receiver_id', session.user.id)
-        .eq('is_read', false);
+        .eq('is_read', false)
+        .select('id');
+
+      if (error) {
+        console.error('❌ [Chat] Error marking messages as read:', error);
+      } else {
+        const updatedCount = data?.length || 0;
+        console.log('✅ [Chat] Marked messages as read:', {
+          count: updatedCount,
+          messageIds: data?.map(m => m.id)
+        });
+      }
     } catch (err) {
-      console.error('Error marking messages as read:', err);
+      console.error('❌ [Chat] Error marking messages as read:', err);
     }
   }, [session?.user?.id, userId]);
 
@@ -152,6 +186,8 @@ export default function ChatScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!session?.user?.id || !userId) return;
+
+      console.log('🎯 [Chat] Screen focused, setting up real-time subscription');
 
       // Fetch messages and mark as read when screen comes into focus
       fetchMessages();
@@ -161,6 +197,8 @@ export default function ChatScreen() {
       // Sort user IDs to ensure consistent channel name regardless of who initiates the chat
       const sortedIds = [session.user.id, userId].sort();
       const channelName = `chat-${sortedIds[0]}-${sortedIds[1]}`;
+      
+      console.log('📡 [Chat] Creating channel:', channelName);
 
       const channel = supabase
         .channel(channelName)
@@ -172,7 +210,12 @@ export default function ChatScreen() {
             table: 'messages',
             filter: `and=(sender_id.eq.${userId},receiver_id.eq.${session.user.id})`
           },
-          () => {
+          (payload) => {
+            console.log('📨 [Chat] Received message from partner:', {
+              messageId: payload.new.id,
+              messageText: payload.new.message_text?.substring(0, 50) + '...',
+              timestamp: new Date().toISOString()
+            });
             fetchMessages();
             markMessagesAsRead();
           }
@@ -185,13 +228,40 @@ export default function ChatScreen() {
             table: 'messages',
             filter: `and=(sender_id.eq.${session.user.id},receiver_id.eq.${userId})`
           },
-          fetchMessages
+          (payload) => {
+            console.log('📤 [Chat] Received confirmation of sent message:', {
+              messageId: payload.new.id,
+              messageText: payload.new.message_text?.substring(0, 50) + '...',
+              timestamp: new Date().toISOString()
+            });
+            fetchMessages();
+          }
         )
-        .subscribe();
+        .subscribe((status, err) => {
+          console.log('🔌 [Chat] Channel subscription status:', status);
+          if (err) {
+            console.error('❌ [Chat] Channel subscription error:', err);
+          }
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ [Chat] Successfully subscribed to real-time updates');
+          }
+        });
+
+      // Log channel state periodically
+      const stateInterval = setInterval(() => {
+        console.log('📊 [Chat] Channel state:', channel.state);
+      }, 10000); // Log every 10 seconds
 
       // Cleanup function - this will run when the screen loses focus or unmounts
       return () => {
+        console.log('🧹 [Chat] Cleaning up real-time subscription');
+        clearInterval(stateInterval);
+        
+        const finalState = channel.state;
+        console.log('📊 [Chat] Final channel state before cleanup:', finalState);
+        
         supabase.removeChannel(channel);
+        console.log('✅ [Chat] Channel removed successfully');
       };
     }, [session?.user?.id, userId, fetchMessages, markMessagesAsRead])
   );
@@ -199,28 +269,40 @@ export default function ChatScreen() {
   const sendMessage = async () => {
     if (!session?.user?.id || !userId || !newMessage.trim() || isSending) return;
 
+    console.log('📤 [Chat] Sending message:', {
+      to: userId,
+      messageLength: newMessage.trim().length
+    });
+
     try {
       setIsSending(true);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('messages')
         .insert({
           sender_id: session.user.id,
           receiver_id: userId,
           message_text: newMessage.trim(),
           via_group_id: null // Direct message, not via group
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) {
-        console.error('Error sending message:', error);
+        console.error('❌ [Chat] Error sending message:', error);
         setError('Kunde inte skicka meddelandet');
         return;
       }
 
+      console.log('✅ [Chat] Message sent successfully:', {
+        messageId: data.id,
+        timestamp: new Date().toISOString()
+      });
+
       setNewMessage('');
       await fetchMessages(); // Refresh messages to show the new one
     } catch (err) {
-      console.error('Error sending message:', err);
+      console.error('❌ [Chat] Error sending message:', err);
       setError('Ett fel uppstod vid skickande av meddelande');
     } finally {
       setIsSending(false);
@@ -248,6 +330,7 @@ export default function ChatScreen() {
   };
 
   const handleBack = () => {
+    console.log('⬅️ [Chat] Back button pressed');
     router.back();
   };
 
