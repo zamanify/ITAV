@@ -2,7 +2,6 @@ import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, KeyboardAvoid
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useState, useEffect, useContext, useRef } from 'react';
 import { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft, Send } from 'lucide-react-native';
