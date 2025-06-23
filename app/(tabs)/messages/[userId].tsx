@@ -193,5 +193,5 @@ export default function ChatScreen() {
       }
 
       setNewMessage('');
-      await fetchMessages(); // Refresh messages to show the new one
+      await fetchMessages();
     } catch (err) {
