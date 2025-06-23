@@ -37,6 +37,7 @@ class RealtimeManager {
       for (const [key, subscription] of this.activeSubscriptions.entries()) {
         if (now - subscription.lastActivity > INACTIVE_THRESHOLD && subscription.callbacks.size === 0) {
           console.log('🧹 [RealtimeManager] Cleaning up inactive subscription:', key);
+          subscription.channel.unsubscribe();
           this.supabase.removeChannel(subscription.channel);
           this.activeSubscriptions.delete(key);
         }
@@ -79,6 +80,7 @@ class RealtimeManager {
       console.log(`🔄 [RealtimeManager] Existing channel for ${subscriptionKey} is unhealthy, recreating...`);
       
       // Remove the unhealthy channel
+      subscription.channel.unsubscribe();
       this.supabase.removeChannel(subscription.channel);
       this.activeSubscriptions.delete(subscriptionKey);
       subscription = null;
@@ -188,11 +190,16 @@ class RealtimeManager {
         sub.subscriptionCount--;
         console.log(`📊 [RealtimeManager] Remaining callbacks for ${subscriptionKey}:`, sub.callbacks.size);
 
-        // If no more callbacks, mark for cleanup but don't immediately remove
-        // This allows for quick re-subscription without creating new channels
+        // If no more callbacks, immediately cleanup the subscription
         if (sub.callbacks.size === 0) {
           console.log(`⏰ [RealtimeManager] No more callbacks for ${subscriptionKey}, marking for cleanup`);
           sub.lastActivity = Date.now();
+          
+          // Immediately unsubscribe and remove the channel to force fresh subscription next time
+          console.log(`🧹 [RealtimeManager] Immediately cleaning up subscription: ${subscriptionKey}`);
+          sub.channel.unsubscribe();
+          this.supabase.removeChannel(sub.channel);
+          this.activeSubscriptions.delete(subscriptionKey);
         }
       }
     };
@@ -214,6 +221,7 @@ class RealtimeManager {
       console.log(`🔄 [RealtimeManager] Existing conversation channel for ${subscriptionKey} is unhealthy, recreating...`);
       
       // Remove the unhealthy channel
+      subscription.channel.unsubscribe();
       this.supabase.removeChannel(subscription.channel);
       this.activeSubscriptions.delete(subscriptionKey);
       subscription = null;
@@ -315,9 +323,16 @@ class RealtimeManager {
         sub.subscriptionCount--;
         console.log(`📊 [RealtimeManager] Remaining conversation callbacks for ${subscriptionKey}:`, sub.callbacks.size);
 
+        // If no more callbacks, immediately cleanup the subscription
         if (sub.callbacks.size === 0) {
           console.log(`⏰ [RealtimeManager] No more conversation callbacks for ${subscriptionKey}, marking for cleanup`);
           sub.lastActivity = Date.now();
+          
+          // Immediately unsubscribe and remove the channel to force fresh subscription next time
+          console.log(`🧹 [RealtimeManager] Immediately cleaning up conversation subscription: ${subscriptionKey}`);
+          sub.channel.unsubscribe();
+          this.supabase.removeChannel(sub.channel);
+          this.activeSubscriptions.delete(subscriptionKey);
         }
       }
     };
@@ -351,6 +366,7 @@ class RealtimeManager {
         
         // Mark for recreation by removing from active subscriptions
         // The next subscription attempt will recreate it
+        subscription.channel.unsubscribe();
         this.supabase.removeChannel(subscription.channel);
         this.activeSubscriptions.delete(key);
       }
@@ -366,6 +382,7 @@ class RealtimeManager {
 
     for (const [key, subscription] of this.activeSubscriptions.entries()) {
       console.log(`🗑️ [RealtimeManager] Removing subscription:`, key);
+      subscription.channel.unsubscribe();
       this.supabase.removeChannel(subscription.channel);
     }
     
