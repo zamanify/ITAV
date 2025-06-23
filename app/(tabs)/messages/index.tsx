@@ -46,7 +46,7 @@ export default function MessagesScreen() {
     }
   }, [session?.user?.id]);
 
-  const fetchConversations = async () => {
+
   useFocusEffect(
     useCallback(() => {
       if (!session?.user?.id) return;
