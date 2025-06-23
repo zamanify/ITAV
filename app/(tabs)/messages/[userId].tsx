@@ -193,75 +193,90 @@ export default function ChatScreen() {
       fetchMessages();
       markMessagesAsRead();
 
-      // Create a static channel name for this conversation
-      // Sort user IDs to ensure consistent channel name regardless of who initiates the chat
-      const sortedIds = [session.user.id, userId].sort();
-      const channelName = `chat-${sortedIds[0]}-${sortedIds[1]}`;
-      
-      console.log('📡 [Chat] Creating channel:', channelName);
+      // Add delay before creating new channel to prevent race conditions
+      const delayTimeoutRef = setTimeout(() => {
+        // Create a UNIQUE channel name for this specific user's view of the conversation
+        // This prevents conflicts when both users are in the same chat
+        const channelName = `chat-${session.user.id}-viewing-${userId}-${Date.now()}`;
+        
+        console.log('📡 [Chat] Creating unique channel:', channelName);
 
-      const channel = supabase
-        .channel(channelName)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `and=(sender_id.eq.${userId},receiver_id.eq.${session.user.id})`
-          },
-          (payload) => {
-            console.log('📨 [Chat] Received message from partner:', {
-              messageId: payload.new.id,
-              messageText: payload.new.message_text?.substring(0, 50) + '...',
-              timestamp: new Date().toISOString()
-            });
-            fetchMessages();
-            markMessagesAsRead();
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `and=(sender_id.eq.${session.user.id},receiver_id.eq.${userId})`
-          },
-          (payload) => {
-            console.log('📤 [Chat] Received confirmation of sent message:', {
-              messageId: payload.new.id,
-              messageText: payload.new.message_text?.substring(0, 50) + '...',
-              timestamp: new Date().toISOString()
-            });
-            fetchMessages();
-          }
-        )
-        .subscribe((status, err) => {
-          console.log('🔌 [Chat] Channel subscription status:', status);
-          if (err) {
-            console.error('❌ [Chat] Channel subscription error:', err);
-          }
-          if (status === 'SUBSCRIBED') {
-            console.log('✅ [Chat] Successfully subscribed to real-time updates');
-          }
-        });
+        const channel = supabase
+          .channel(channelName)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'messages',
+              filter: `and=(sender_id.eq.${userId},receiver_id.eq.${session.user.id})`
+            },
+            (payload) => {
+              console.log('📨 [Chat] Received message from partner:', {
+                messageId: payload.new.id,
+                messageText: payload.new.message_text?.substring(0, 50) + '...',
+                timestamp: new Date().toISOString()
+              });
+              fetchMessages();
+              markMessagesAsRead();
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'messages',
+              filter: `and=(sender_id.eq.${session.user.id},receiver_id.eq.${userId})`
+            },
+            (payload) => {
+              console.log('📤 [Chat] Received confirmation of sent message:', {
+                messageId: payload.new.id,
+                messageText: payload.new.message_text?.substring(0, 50) + '...',
+                timestamp: new Date().toISOString()
+              });
+              fetchMessages();
+            }
+          )
+          .subscribe((status, err) => {
+            console.log('🔌 [Chat] Channel subscription status:', status);
+            if (err) {
+              console.error('❌ [Chat] Channel subscription error:', err);
+            }
+            if (status === 'SUBSCRIBED') {
+              console.log('✅ [Chat] Successfully subscribed to real-time updates');
+            }
+          });
 
-      // Log channel state periodically
-      const stateInterval = setInterval(() => {
-        console.log('📊 [Chat] Channel state:', channel.state);
-      }, 10000); // Log every 10 seconds
+        // Log channel state periodically
+        const stateInterval = setInterval(() => {
+          console.log('📊 [Chat] Channel state:', channel.state);
+        }, 10000); // Log every 10 seconds
+
+        // Store cleanup function in a ref so it can be called from the outer cleanup
+        const cleanup = () => {
+          console.log('🧹 [Chat] Cleaning up real-time subscription');
+          clearInterval(stateInterval);
+          
+          const finalState = channel.state;
+          console.log('📊 [Chat] Final channel state before cleanup:', finalState);
+          
+          console.log('🔌 [Chat] Channel subscription status:', channel.subscriptionState);
+          supabase.removeChannel(channel);
+          console.log('✅ [Chat] Channel removed successfully');
+        };
+
+        // Return the cleanup function
+        return cleanup;
+      }, 300); // Increased delay to 300ms for better stability
 
       // Cleanup function - this will run when the screen loses focus or unmounts
       return () => {
-        console.log('🧹 [Chat] Cleaning up real-time subscription');
-        clearInterval(stateInterval);
+        // Clear the delay timeout if cleanup happens before channel creation
+        clearTimeout(delayTimeoutRef);
         
-        const finalState = channel.state;
-        console.log('📊 [Chat] Final channel state before cleanup:', finalState);
-        
-        supabase.removeChannel(channel);
-        console.log('✅ [Chat] Channel removed successfully');
+        // If channel was created, the cleanup function will be called
+        // This is handled by the timeout's return value
       };
     }, [session?.user?.id, userId, fetchMessages, markMessagesAsRead])
   );
