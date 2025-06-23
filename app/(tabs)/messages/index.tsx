@@ -1,29 +1,19 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
-import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
-import { useEffect, useState, useContext, useCallback } from 'react';
-import { ArrowLeft, MessageCircle, Clock } from 'lucide-react-native';
-import { supabase } from '@/lib/supabase';
-import { AuthContext } from '@/contexts/AuthContext';
-import AppFooter from '../../../components/AppFooter';
-import RealtimeManager from '@/lib/realtimeManager';
-
-SplashScreen.preventAutoHideAsync();
-
-type Conversation = {
-  partnerId: string;
-  partnerName: string;
-  latestMessage: string;
-  latestMessageTime: string;
-  isLatestFromMe: boolean;
-  unreadCount: number;
-  viaGroupName?: string;
-};
-
-export default function MessagesScreen() {
-  const [fontsLoaded] = useFonts({
-    'Unbounded-Regular': Unbounded_400Regular,
+import { useFocusEffect } from '@react-navigation/native';
+import { realtimeManager } from '@/lib/realtimeManager';
+  useFocusEffect(
+    useCallback(() => {
+      if (!session?.user?.id) return;
+      const unsubscribe = realtimeManager.subscribeToConversations(
+        session.user.id,
+      );
+      return () => {
+        unsubscribe();
+      };
+    }, [session?.user?.id, fetchConversations])
+  );
+  const fetchConversations = useCallback(async () => {
+  }, [session?.user?.id]);
     'Unbounded-SemiBold': Unbounded_600SemiBold,
   });
 
