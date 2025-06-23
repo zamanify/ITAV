@@ -47,8 +47,9 @@ export default function MessagesScreen() {
   useEffect(() => {
     if (!session?.user?.id) return;
 
+    // Use a static channel name based on the user's ID for consistent subscription
     const channel = supabase
-      .channel(`conversations-${session.user.id}-${Date.now()}`)
+      .channel(`user-messages-${session.user.id}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },

@@ -60,32 +60,37 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!session?.user?.id || !userId) return;
 
-      const channel = supabase
-        .channel(`chat-${session.user.id}-${userId}-${Date.now()}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `and=(sender_id.eq.${userId},receiver_id.eq.${session.user.id})`
-          },
-          () => {
-            fetchMessages();
-            markMessagesAsRead();
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `and=(sender_id.eq.${session.user.id},receiver_id.eq.${userId})`
-          },
-          fetchMessages
-        )
-        .subscribe();
+    // Create a static channel name for this conversation
+    // Sort user IDs to ensure consistent channel name regardless of who initiates the chat
+    const sortedIds = [session.user.id, userId].sort();
+    const channelName = `chat-${sortedIds[0]}-${sortedIds[1]}`;
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `and=(sender_id.eq.${userId},receiver_id.eq.${session.user.id})`
+        },
+        () => {
+          fetchMessages();
+          markMessagesAsRead();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `and=(sender_id.eq.${session.user.id},receiver_id.eq.${userId})`
+        },
+        fetchMessages
+      )
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
