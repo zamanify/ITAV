@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
 import { useEffect, useState, useContext, useCallback } from 'react';
@@ -38,41 +38,7 @@ export default function MessagesScreen() {
     }
   }, [fontsLoaded]);
 
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchConversations();
-    }
-  }, [session?.user?.id]);
-
-  useEffect(() => {
-    if (!session?.user?.id) return;
-
-    // Use a static channel name based on the user's ID for consistent subscription
-    const channel = supabase
-      .channel(`user-messages-${session.user.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
-        fetchConversations
-      )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=eq.${session.user.id}` },
-        fetchConversations
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
-        fetchConversations
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [session?.user?.id]);
-
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     if (!session?.user?.id) return;
 
     try {
@@ -106,7 +72,42 @@ export default function MessagesScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session?.user?.id]);
+
+  // Use useFocusEffect to handle real-time subscriptions properly
+  useFocusEffect(
+    useCallback(() => {
+      if (!session?.user?.id) return;
+
+      // Fetch conversations when screen comes into focus
+      fetchConversations();
+
+      // Use a static channel name based on the user's ID for consistent subscription
+      const channel = supabase
+        .channel(`user-messages-${session.user.id}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
+          fetchConversations
+        )
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=eq.${session.user.id}` },
+          fetchConversations
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
+          fetchConversations
+        )
+        .subscribe();
+
+      // Cleanup function - this will run when the screen loses focus or unmounts
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [session?.user?.id, fetchConversations])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -117,7 +118,7 @@ export default function MessagesScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [fetchConversations]);
 
   const formatMessageTime = (dateString: string) => {
     const date = new Date(dateString);

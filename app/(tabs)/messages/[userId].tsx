@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useState, useEffect, useContext, useRef } from 'react';
+import { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -52,49 +52,7 @@ export default function ChatScreen() {
   useEffect(() => {
     if (session?.user?.id && userId) {
       fetchUserInfo();
-      fetchMessages();
-      markMessagesAsRead();
     }
-  }, [session?.user?.id, userId]);
-
-  useEffect(() => {
-    if (!session?.user?.id || !userId) return;
-
-    // Create a static channel name for this conversation
-    // Sort user IDs to ensure consistent channel name regardless of who initiates the chat
-    const sortedIds = [session.user.id, userId].sort();
-    const channelName = `chat-${sortedIds[0]}-${sortedIds[1]}`;
-
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `and=(sender_id.eq.${userId},receiver_id.eq.${session.user.id})`
-        },
-        () => {
-          fetchMessages();
-          markMessagesAsRead();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `and=(sender_id.eq.${session.user.id},receiver_id.eq.${userId})`
-        },
-        fetchMessages
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [session?.user?.id, userId]);
 
   const fetchUserInfo = async () => {
@@ -124,7 +82,7 @@ export default function ChatScreen() {
     }
   };
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     if (!session?.user?.id || !userId) return;
 
     try {
@@ -173,9 +131,9 @@ export default function ChatScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session?.user?.id, userId]);
 
-  const markMessagesAsRead = async () => {
+  const markMessagesAsRead = useCallback(async () => {
     if (!session?.user?.id || !userId) return;
 
     try {
@@ -188,7 +146,55 @@ export default function ChatScreen() {
     } catch (err) {
       console.error('Error marking messages as read:', err);
     }
-  };
+  }, [session?.user?.id, userId]);
+
+  // Use useFocusEffect to handle real-time subscriptions properly
+  useFocusEffect(
+    useCallback(() => {
+      if (!session?.user?.id || !userId) return;
+
+      // Fetch messages and mark as read when screen comes into focus
+      fetchMessages();
+      markMessagesAsRead();
+
+      // Create a static channel name for this conversation
+      // Sort user IDs to ensure consistent channel name regardless of who initiates the chat
+      const sortedIds = [session.user.id, userId].sort();
+      const channelName = `chat-${sortedIds[0]}-${sortedIds[1]}`;
+
+      const channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `and=(sender_id.eq.${userId},receiver_id.eq.${session.user.id})`
+          },
+          () => {
+            fetchMessages();
+            markMessagesAsRead();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `and=(sender_id.eq.${session.user.id},receiver_id.eq.${userId})`
+          },
+          fetchMessages
+        )
+        .subscribe();
+
+      // Cleanup function - this will run when the screen loses focus or unmounts
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [session?.user?.id, userId, fetchMessages, markMessagesAsRead])
+  );
 
   const sendMessage = async () => {
     if (!session?.user?.id || !userId || !newMessage.trim() || isSending) return;
