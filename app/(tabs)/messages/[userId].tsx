@@ -3,8 +3,7 @@ import { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { realtimeManager } from '@/lib/realtimeManager';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
-import { useState, useEffect, useContext, useRef, useCallback } from 'react';
+import { SplashScreen, useLocalSearchParams, router } from 'expo-router';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -29,29 +28,43 @@ type UserInfo = {
 };
 
 export default function ChatScreen() {
+  const { userId } = useLocalSearchParams<{ userId: string }>();
+  const { session } = useContext(AuthContext);
+  const scrollViewRef = useRef<ScrollView>(null);
+  
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const [fontsLoaded] = useFonts({
     'Unbounded-Regular': Unbounded_400Regular,
     'Unbounded-SemiBold': Unbounded_600SemiBold,
   });
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!session?.user?.id || !userId) return;
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
 
-      const unsubscribe = realtimeManager.subscribeToMessages(
-        session.user.id,
-        userId,
-        () => {
-          fetchMessages();
-          markMessagesAsRead();
-        }
-      );
+  useEffect(() => {
+    if (userId) {
+      fetchUserInfo();
+    }
+  }, [userId]);
 
-      return () => {
-        unsubscribe();
-      };
-    }, [session?.user?.id, userId, fetchMessages, markMessagesAsRead])
-  );
+  const fetchUserInfo = async () => {
+    if (!userId) return;
+
+    console.log('👤 [Chat] Fetching user info for:', userId);
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
       const { data, error } = await supabase
         .from('users')
         .select('id, first_name, last_name')
@@ -59,10 +72,10 @@ export default function ChatScreen() {
         .single();
 
       if (error) {
-  const fetchMessages = useCallback(async () => {
-  }, [session?.user?.id, userId]);
-  const markMessagesAsRead = useCallback(async () => {
-  }, [session?.user?.id, userId]);
+        console.error('❌ [Chat] Error fetching user info:', error);
+        setError('Kunde inte hämta användarinformation');
+        return;
+      }
 
       console.log('✅ [Chat] User info fetched:', {
         id: data.id,
