@@ -62,9 +62,9 @@ class RealtimeManager {
     if (!subscription) {
       console.log(`🆕 [RealtimeManager] Creating new subscription for:`, subscriptionKey);
       
-      // Create new subscription
+      // Create new subscription with stable channel name (no timestamp)
       const channel = this.supabase
-        .channel(`shared-${subscriptionKey}-${Date.now()}`)
+        .channel(`shared-${subscriptionKey}`)
         .on(
           'postgres_changes',
           {
@@ -169,8 +169,9 @@ class RealtimeManager {
     if (!subscription) {
       console.log(`🆕 [RealtimeManager] Creating new conversation subscription for:`, subscriptionKey);
       
+      // Create new subscription with stable channel name (no timestamp)
       const channel = this.supabase
-        .channel(`user-conversations-${userId}-${Date.now()}`)
+        .channel(`user-conversations-${userId}`)
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${userId}` },
