@@ -104,7 +104,7 @@ export default function ChatScreen() {
     }
   };
 
-  const fetchMessages = async () => {
+
   const fetchMessages = useCallback(async () => {
     if (!session?.user?.id || !userId) return;
 
