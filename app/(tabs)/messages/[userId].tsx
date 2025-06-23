@@ -36,6 +36,7 @@ export default function ChatScreen() {
   const params = useLocalSearchParams();
   const userId = params.userId as string;
   const scrollViewRef = useRef<ScrollView>(null);
+  const { session } = useContext(AuthContext);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -103,7 +104,6 @@ export default function ChatScreen() {
       setError('Ett fel uppstod vid hämtning av användarinformation');
     }
   };
-
 
   const fetchMessages = useCallback(async () => {
     if (!session?.user?.id || !userId) return;
@@ -195,3 +195,223 @@ export default function ChatScreen() {
       setNewMessage('');
       await fetchMessages();
     } catch (err) {
+      console.error('Error sending message:', err);
+      setError('Ett fel uppstod vid skickande av meddelandet');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('sv-SE', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <ArrowLeft size={24} color="#333" />
+          </Pressable>
+          <Text style={styles.headerTitle}>Laddar...</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Laddar meddelanden...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <ArrowLeft size={24} color="#333" />
+        </Pressable>
+        <Text style={styles.headerTitle}>
+          {userInfo ? `${userInfo.firstName} ${userInfo.lastName}` : 'Chatt'}
+        </Text>
+      </View>
+
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.messagesContainer}
+        contentContainerStyle={styles.messagesContent}
+      >
+        {messages.map((message) => (
+          <View
+            key={message.id}
+            style={[
+              styles.messageContainer,
+              message.senderId === session?.user?.id 
+                ? styles.sentMessage 
+                : styles.receivedMessage
+            ]}
+          >
+            <Text style={styles.messageText}>{message.messageText}</Text>
+            <Text style={styles.messageTime}>
+              {formatTime(message.createdAt)}
+            </Text>
+            {message.viaGroupName && (
+              <Text style={styles.groupName}>via {message.viaGroupName}</Text>
+            )}
+          </View>
+        ))}
+      </ScrollView>
+
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.textInput}
+          value={newMessage}
+          onChangeText={setNewMessage}
+          placeholder="Skriv ett meddelande..."
+          multiline
+          maxLength={500}
+        />
+        <Pressable 
+          onPress={sendMessage}
+          style={[
+            styles.sendButton,
+            (!newMessage.trim() || isSending) && styles.sendButtonDisabled
+          ]}
+          disabled={!newMessage.trim() || isSending}
+        >
+          <Send size={20} color={(!newMessage.trim() || isSending) ? '#ccc' : '#007AFF'} />
+        </Pressable>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    paddingTop: 50,
+  },
+  backButton: {
+    marginRight: 16,
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontFamily: 'Unbounded-SemiBold',
+    color: '#333',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    fontFamily: 'Unbounded-Regular',
+    color: '#666',
+  },
+  errorContainer: {
+    backgroundColor: '#ffebee',
+    padding: 12,
+    margin: 16,
+    borderRadius: 8,
+  },
+  errorText: {
+    color: '#c62828',
+    fontFamily: 'Unbounded-Regular',
+    fontSize: 14,
+  },
+  messagesContainer: {
+    flex: 1,
+  },
+  messagesContent: {
+    padding: 16,
+  },
+  messageContainer: {
+    maxWidth: '80%',
+    marginVertical: 4,
+    padding: 12,
+    borderRadius: 16,
+  },
+  sentMessage: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#007AFF',
+  },
+  receivedMessage: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  messageText: {
+    fontSize: 16,
+    fontFamily: 'Unbounded-Regular',
+    color: '#333',
+  },
+  messageTime: {
+    fontSize: 12,
+    fontFamily: 'Unbounded-Regular',
+    color: '#666',
+    marginTop: 4,
+  },
+  groupName: {
+    fontSize: 12,
+    fontFamily: 'Unbounded-Regular',
+    color: '#888',
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  textInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontFamily: 'Unbounded-Regular',
+    maxHeight: 100,
+    marginRight: 12,
+  },
+  sendButton: {
+    padding: 12,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
+  },
+});
