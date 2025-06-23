@@ -1,7 +1,9 @@
 export type MessageCallback = () => void;
 
+import type { RealtimeChannel } from '@supabase/supabase-js';
+
 interface Subscription {
-  channel: any;
+  channel: RealtimeChannel;
   callbacks: Set<MessageCallback>;
 }
 
@@ -10,7 +12,7 @@ import { supabase } from './supabase';
 class RealtimeManager {
   private activeSubscriptions: Map<string, Subscription> = new Map();
 
-  private isChannelHealthy(channel: any) {
+  private isChannelHealthy(channel: RealtimeChannel) {
     return channel.state === 'joined' || channel.state === 'joining';
   }
 
@@ -31,7 +33,7 @@ class RealtimeManager {
       const filterA = `and=(sender_id.eq.${userIdA},receiver_id.eq.${userIdB})`;
       const filterB = `and=(sender_id.eq.${userIdB},receiver_id.eq.${userIdA})`;
 
-      const channel = supabase
+      const channel: RealtimeChannel = supabase
         .channel(`shared-${key}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: filterA }, () => this.invokeCallbacks(key))
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: filterB }, () => this.invokeCallbacks(key))
@@ -79,7 +81,7 @@ class RealtimeManager {
         sub.channel.unsubscribe();
         supabase.removeChannel(sub.channel);
       }
-      const channel = supabase
+      const channel: RealtimeChannel = supabase
         .channel(`user-${key}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${userId}` }, () => this.invokeCallbacks(key))
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=eq.${userId}` }, () => this.invokeCallbacks(key))
