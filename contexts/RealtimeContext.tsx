@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, ReactNode, useRef } from 'react';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
@@ -22,13 +22,17 @@ const defaultValue: RealtimeContextValue = {
 export const RealtimeContext = createContext<RealtimeContextValue>(defaultValue);
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
+  const counterRef = useRef(0);
+
   const subscribe = <T,>(
     channelName: string,
     { event, schema = 'public', table, filter }: SubscribeConfig,
     callback: RealtimeCallback<T>
   ) => {
+    const uniqueName = `${channelName}-${counterRef.current++}`;
+
     const channel = supabase
-      .channel(channelName)
+      .channel(uniqueName)
       .on('postgres_changes', { event, schema, table, filter }, callback);
 
     channel.subscribe();
