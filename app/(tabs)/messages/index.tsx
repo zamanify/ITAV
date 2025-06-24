@@ -6,6 +6,7 @@ import { useEffect, useState, useContext, useCallback } from 'react';
 import { ArrowLeft, MessageCircle, Clock } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
+import { useRealtime } from '@/contexts/RealtimeContext';
 import AppFooter from '../../../components/AppFooter';
 
 SplashScreen.preventAutoHideAsync();
@@ -27,6 +28,7 @@ export default function MessagesScreen() {
   });
 
   const { session } = useContext(AuthContext);
+  const { subscribe } = useRealtime();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,6 +44,34 @@ export default function MessagesScreen() {
     if (session?.user?.id) {
       fetchConversations();
     }
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const unsubReceived = subscribe(
+      `msg-list-recv-${session.user.id}`,
+      { event: 'INSERT', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
+      fetchConversations
+    );
+
+    const unsubSent = subscribe(
+      `msg-list-send-${session.user.id}`,
+      { event: 'INSERT', table: 'messages', filter: `sender_id=eq.${session.user.id}` },
+      fetchConversations
+    );
+
+    const unsubUpdate = subscribe(
+      `msg-list-up-${session.user.id}`,
+      { event: 'UPDATE', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
+      fetchConversations
+    );
+
+    return () => {
+      unsubReceived();
+      unsubSent();
+      unsubUpdate();
+    };
   }, [session?.user?.id]);
 
   const fetchConversations = async () => {
