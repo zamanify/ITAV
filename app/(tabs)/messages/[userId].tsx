@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useState, useEffect, useContext, useRef } from 'react';
+import { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -58,6 +58,15 @@ export default function ChatScreen() {
       markMessagesAsRead();
     }
   }, [session?.user?.id, userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (session?.user?.id && userId) {
+        fetchMessages();
+        markMessagesAsRead();
+      }
+    }, [session?.user?.id, userId])
+  );
 
   useEffect(() => {
     if (!session?.user?.id || !userId) return;

@@ -23,6 +23,10 @@ export const RealtimeContext = createContext<RealtimeContextValue>(defaultValue)
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const counterRef = useRef(0);
+  const isDev = process.env.NODE_ENV !== 'production';
+  const log = (...args: any[]) => {
+    if (isDev) console.log('[Realtime]', ...args);
+  };
 
   const subscribe = <T,>(
     channelName: string,
@@ -33,10 +37,15 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     const channel = supabase
       .channel(uniqueName)
-      .on('postgres_changes', { event, schema, table, filter }, callback);
+      .on('postgres_changes', { event, schema, table, filter }, (payload) => {
+        log('event', uniqueName, payload);
+        callback(payload);
+      });
 
-    channel.subscribe();
+    log('subscribe', uniqueName, { event, schema, table, filter });
+    channel.subscribe((status) => log('status', uniqueName, status));
     return () => {
+      log('unsubscribe', uniqueName);
       supabase.removeChannel(channel);
     };
   };

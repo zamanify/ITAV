@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
+import { SplashScreen, useFocusEffect } from 'expo-router';
 import { useEffect, useState, useContext, useCallback } from 'react';
 import { ArrowLeft, MessageCircle, Clock } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
@@ -45,6 +45,14 @@ export default function MessagesScreen() {
       fetchConversations();
     }
   }, [session?.user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (session?.user?.id) {
+        fetchConversations();
+      }
+    }, [session?.user?.id])
+  );
 
   useEffect(() => {
     if (!session?.user?.id) return;
