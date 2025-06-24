@@ -17,31 +17,31 @@ export default function AppFooter() {
       id: 'messages',
       icon: MessageCircle,
       label: 'DINA\nMEDDELANDEN',
-      onPress: () => router.push('/messages'),
+      onPress: () => router.replace('/messages'),
     },
     {
       id: 'villagers',
       icon: Users,
       label: 'DINA\nVILLAGERS',
-      onPress: () => router.push('/villagers'),
+      onPress: () => router.replace('/villagers'),
     },
     {
       id: 'groups',
       icon: Home,
       label: 'DINA\nHOODS',
-      onPress: () => router.push('/groups'),
+      onPress: () => router.replace('/groups'),
     },
     {
       id: 'create-hood',
       icon: Plus,
       label: 'SKAPA\nHOODS',
-      onPress: () => router.push('/create-hood'),
+      onPress: () => router.replace('/create-hood'),
     },
     {
       id: 'account',
       icon: User,
       label: 'DITT\nKONTO',
-      onPress: () => router.push('/profile'),
+      onPress: () => router.replace('/profile'),
     },
   ];
 

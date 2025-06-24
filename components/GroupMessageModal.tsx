@@ -103,7 +103,7 @@ export default function GroupMessageModal({ visible, onClose, group }: Props) {
       onClose();
 
       // Navigate to messages screen to show the sent messages
-      router.push('/messages');
+      router.replace('/messages');
 
     } catch (err) {
       console.error('Error sending group message:', err);
