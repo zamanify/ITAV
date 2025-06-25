@@ -247,20 +247,26 @@ export default function VillagersScreen() {
   useEffect(() => {
     if (!session?.user?.id) return;
 
+    console.log('Subscribing to villager connection changes');
     const channel = supabase
       .channel(`villager-connections-${session.user.id}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'villager_connections' },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'villager_connections',
+          filter: `receiver_id=eq.${session.user.id}`,
+        },
         payload => {
-          if (payload.new?.receiver_id === session.user.id) {
-            fetchVillagersAndRequests();
-          }
+          console.log('Received villager connection change', payload);
+          fetchVillagersAndRequests();
         }
       )
       .subscribe();
 
     return () => {
+      console.log('Unsubscribing from villager connection changes');
       supabase.removeChannel(channel);
     };
   }, [session?.user?.id, fetchVillagersAndRequests]);
