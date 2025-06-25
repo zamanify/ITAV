@@ -6,7 +6,7 @@ import { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
-import { useRealtime } from '@/contexts/RealtimeContext';
+import RealtimeManager from '@/lib/realtimeManager';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -33,7 +33,7 @@ export default function ChatScreen() {
   });
 
   const { session } = useContext(AuthContext);
-  const { subscribe } = useRealtime();
+  const realtime = RealtimeManager.getInstance();
   const params = useLocalSearchParams();
   const userId = params.userId as string;
   const scrollViewRef = useRef<ScrollView>(null);
@@ -71,30 +71,21 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!session?.user?.id || !userId) return;
 
-    const unsubscribeIncoming = subscribe(
-      `chat-in-${session.user.id}-${userId}`,
-      { event: 'INSERT', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
+    const unsubscribe = realtime.subscribeToMessages(
+      session.user.id,
+      userId,
       (payload) => {
         if (payload.new.sender_id === userId) {
           fetchMessages();
           markMessagesAsRead();
-        }
-      }
-    );
-
-    const unsubscribeOutgoing = subscribe(
-      `chat-out-${session.user.id}-${userId}`,
-      { event: 'INSERT', table: 'messages', filter: `sender_id=eq.${session.user.id}` },
-      (payload) => {
-        if (payload.new.receiver_id === userId) {
+        } else if (payload.new.receiver_id === userId) {
           fetchMessages();
         }
       }
     );
 
     return () => {
-      unsubscribeIncoming();
-      unsubscribeOutgoing();
+      unsubscribe();
     };
   }, [session?.user?.id, userId]);
 
