@@ -81,6 +81,42 @@ export default function VillagersScreen() {
     }
   }, [session?.user?.id]);
 
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const channel = supabase
+      .channel('public:villager_connections')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'villager_connections',
+          filter: `receiver_id=eq.${session.user.id}`,
+        },
+        () => {
+          fetchVillagersAndRequests();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'villager_connections',
+          filter: `receiver_id=eq.${session.user.id}`,
+        },
+        () => {
+          fetchVillagersAndRequests();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id]);
+
   const fetchVillagersAndRequests = async () => {
     if (!session?.user?.id) return;
 
