@@ -93,27 +93,35 @@ export default function InviteScreen() {
       const currentUserPhone = currentUserData?.phone_number ? 
         normalizePhoneNumber(currentUserData.phone_number) : null;
 
-      // Get all app users to check if contacts are existing users
-      const { data: allAppUsers, error: allUsersError } = await supabase
-        .from('users')
-        .select('id, phone_number, first_name, last_name');
+      // Extract and normalize all phone numbers from device contacts
+      const allPhoneNumbers = deviceContacts
+        .map(contact => normalizePhoneNumber(contact.phoneNumber))
+        .filter(phone => phone && phone !== currentUserPhone); // Exclude current user's phone
 
-      if (allUsersError) {
-        console.error('Error fetching all app users:', allUsersError);
-      }
+      // Use RPC function to get existing users by phone numbers
+      let existingUsersMap = new Map();
+      if (allPhoneNumbers.length > 0) {
+        const { data: existingUsers, error: rpcError } = await supabase.rpc('get_users_by_phones', {
+          p_phone_numbers: allPhoneNumbers
+        });
 
-      // Create a map of normalized phone numbers to user data
-      const allAppUsersMap = new Map();
-      (allAppUsers || []).forEach(user => {
-        if (user.phone_number) {
-          const normalized = normalizePhoneNumber(user.phone_number);
-          allAppUsersMap.set(normalized, {
-            userId: user.id,
-            name: `${user.first_name} ${user.last_name}`,
-            isExistingUser: true
+        if (rpcError) {
+          console.error('Error calling get_users_by_phones:', rpcError);
+          setError('Ett fel uppstod vid sökning av användare');
+        } else {
+          // Create map of normalized phone numbers to user data
+          (existingUsers || []).forEach(user => {
+            if (user.phone_number) {
+              const normalized = normalizePhoneNumber(user.phone_number);
+              existingUsersMap.set(normalized, {
+                userId: user.id,
+                name: `${user.first_name} ${user.last_name}`,
+                isExistingUser: true
+              });
+            }
           });
         }
-      });
+      }
 
       // Get blocking relationships
       const [blockedByMeResult, blockedByThemResult] = await Promise.all([
@@ -172,7 +180,7 @@ export default function InviteScreen() {
       }>();
 
       // First, add blocking relationships (highest priority)
-      allAppUsersMap.forEach((userData, phoneNumber) => {
+      existingUsersMap.forEach((userData, phoneNumber) => {
         if (blockedByMe.has(userData.userId)) {
           detailedStatusMap.set(phoneNumber, {
             status: 'blocked_by_me',
@@ -224,7 +232,7 @@ export default function InviteScreen() {
       });
 
       // Finally, add app users who aren't connected, invited, or blocked (lowest priority)
-      allAppUsersMap.forEach((userData, phoneNumber) => {
+      existingUsersMap.forEach((userData, phoneNumber) => {
         if (!detailedStatusMap.has(phoneNumber) && phoneNumber !== currentUserPhone) {
           detailedStatusMap.set(phoneNumber, {
             status: 'in_app',
@@ -516,7 +524,7 @@ export default function InviteScreen() {
                   >
                     {invitingContactId === contact.id ? (
                       <>
-                        <ActivityIndicator size="small\" color="#FF69B4" />
+                        <ActivityIndicator size="small" color="#FF69B4" />
                         <Text style={[
                           styles.inviteButtonText,
                           styles.inviteButtonTextLoading
