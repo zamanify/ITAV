@@ -54,35 +54,33 @@ export default function MessagesScreen() {
     }, [session?.user?.id])
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!session?.user?.id) return;
+  useEffect(() => {
+    if (!session?.user?.id) return;
 
-      const unsubReceived = subscribe(
-        `msg-list-recv-${session.user.id}`,
-        { event: 'INSERT', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
-        fetchConversations
-      );
+    const unsubReceived = subscribe(
+      `msg-list-recv-${session.user.id}`,
+      { event: 'INSERT', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
+      fetchConversations
+    );
 
-      const unsubSent = subscribe(
-        `msg-list-send-${session.user.id}`,
-        { event: 'INSERT', table: 'messages', filter: `sender_id=eq.${session.user.id}` },
-        fetchConversations
-      );
+    const unsubSent = subscribe(
+      `msg-list-send-${session.user.id}`,
+      { event: 'INSERT', table: 'messages', filter: `sender_id=eq.${session.user.id}` },
+      fetchConversations
+    );
 
-      const unsubUpdate = subscribe(
-        `msg-list-up-${session.user.id}`,
-        { event: 'UPDATE', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
-        fetchConversations
-      );
+    const unsubUpdate = subscribe(
+      `msg-list-up-${session.user.id}`,
+      { event: 'UPDATE', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
+      fetchConversations
+    );
 
-      return () => {
-        unsubReceived();
-        unsubSent();
-        unsubUpdate();
-      };
-    }, [session?.user?.id])
-  );
+    return () => {
+      unsubReceived();
+      unsubSent();
+      unsubUpdate();
+    };
+  }, [session?.user?.id]);
 
   const fetchConversations = async () => {
     if (!session?.user?.id) return;

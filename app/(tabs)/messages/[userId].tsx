@@ -68,37 +68,35 @@ export default function ChatScreen() {
     }, [session?.user?.id, userId])
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!session?.user?.id || !userId) return;
+  useEffect(() => {
+    if (!session?.user?.id || !userId) return;
 
-      const unsubscribeIncoming = subscribe(
-        `chat-in-${session.user.id}-${userId}`,
-        { event: 'INSERT', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
-        (payload) => {
-          if (payload.new.sender_id === userId) {
-            fetchMessages();
-            markMessagesAsRead();
-          }
+    const unsubscribeIncoming = subscribe(
+      `chat-in-${session.user.id}-${userId}`,
+      { event: 'INSERT', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
+      (payload) => {
+        if (payload.new.sender_id === userId) {
+          fetchMessages();
+          markMessagesAsRead();
         }
-      );
+      }
+    );
 
-      const unsubscribeOutgoing = subscribe(
-        `chat-out-${session.user.id}-${userId}`,
-        { event: 'INSERT', table: 'messages', filter: `sender_id=eq.${session.user.id}` },
-        (payload) => {
-          if (payload.new.receiver_id === userId) {
-            fetchMessages();
-          }
+    const unsubscribeOutgoing = subscribe(
+      `chat-out-${session.user.id}-${userId}`,
+      { event: 'INSERT', table: 'messages', filter: `sender_id=eq.${session.user.id}` },
+      (payload) => {
+        if (payload.new.receiver_id === userId) {
+          fetchMessages();
         }
-      );
+      }
+    );
 
-      return () => {
-        unsubscribeIncoming();
-        unsubscribeOutgoing();
-      };
-    }, [session?.user?.id, userId])
-  );
+    return () => {
+      unsubscribeIncoming();
+      unsubscribeOutgoing();
+    };
+  }, [session?.user?.id, userId]);
 
   const fetchUserInfo = async () => {
     if (!userId) return;
