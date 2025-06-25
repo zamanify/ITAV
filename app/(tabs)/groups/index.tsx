@@ -1,7 +1,6 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { SplashScreen } from 'expo-router';
 import { useEffect, useState, useContext } from 'react';
 import { ArrowLeft, Users, MessageCircle, Settings } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
@@ -9,8 +8,6 @@ import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../../components/AppFooter';
 import GroupMembersModal from '../../../components/GroupMembersModal';
 import GroupMessageModal from '../../../components/GroupMessageModal';
-
-SplashScreen.preventAutoHideAsync();
 
 type Group = {
   id: string;
@@ -35,12 +32,6 @@ export default function GroupsScreen() {
   const [selectedGroup, setSelectedGroup] = useState<{ id: string; name: string } | null>(null);
   const [messageModalVisible, setMessageModalVisible] = useState(false);
   const [selectedGroupForMessage, setSelectedGroupForMessage] = useState<{ id: string; name: string } | null>(null);
-
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -135,6 +126,7 @@ export default function GroupsScreen() {
     }
   };
 
+  // Don't render anything if fonts aren't loaded yet
   if (!fontsLoaded) {
     return null;
   }
