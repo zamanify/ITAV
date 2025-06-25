@@ -1,11 +1,12 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useState, useEffect, useContext, useRef } from 'react';
+import { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
+import { useRealtime } from '@/contexts/RealtimeContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -32,6 +33,7 @@ export default function ChatScreen() {
   });
 
   const { session } = useContext(AuthContext);
+  const { subscribe } = useRealtime();
   const params = useLocalSearchParams();
   const userId = params.userId as string;
   const scrollViewRef = useRef<ScrollView>(null);
@@ -56,6 +58,47 @@ export default function ChatScreen() {
       markMessagesAsRead();
     }
   }, [session?.user?.id, userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (session?.user?.id && userId) {
+        fetchMessages();
+        markMessagesAsRead();
+      }
+    }, [session?.user?.id, userId])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!session?.user?.id || !userId) return;
+
+      const unsubscribeIncoming = subscribe(
+        `chat-in-${session.user.id}-${userId}`,
+        { event: 'INSERT', table: 'messages', filter: `receiver_id=eq.${session.user.id}` },
+        (payload) => {
+          if (payload.new.sender_id === userId) {
+            fetchMessages();
+            markMessagesAsRead();
+          }
+        }
+      );
+
+      const unsubscribeOutgoing = subscribe(
+        `chat-out-${session.user.id}-${userId}`,
+        { event: 'INSERT', table: 'messages', filter: `sender_id=eq.${session.user.id}` },
+        (payload) => {
+          if (payload.new.receiver_id === userId) {
+            fetchMessages();
+          }
+        }
+      );
+
+      return () => {
+        unsubscribeIncoming();
+        unsubscribeOutgoing();
+      };
+    }, [session?.user?.id, userId])
+  );
 
   const fetchUserInfo = async () => {
     if (!userId) return;
