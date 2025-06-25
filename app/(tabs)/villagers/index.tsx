@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platfo
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useEffect, useState, useContext } from 'react';
+import { useEffect, useState, useContext, useCallback } from 'react';
 import { ArrowLeft, UserPlus, MessageCircle, UserX, Check, X, UserCheck } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -85,29 +85,14 @@ export default function VillagersScreen() {
     if (!session?.user?.id) return;
 
     const channel = supabase
-      .channel('public:villager_connections')
+      .channel(`villager-connections-${session.user.id}`)
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'villager_connections',
-          filter: `receiver_id=eq.${session.user.id}`,
-        },
-        () => {
-          fetchVillagersAndRequests();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'villager_connections',
-          filter: `receiver_id=eq.${session.user.id}`,
-        },
-        () => {
-          fetchVillagersAndRequests();
+        { event: '*', schema: 'public', table: 'villager_connections' },
+        payload => {
+          if (payload.new?.receiver_id === session.user.id) {
+            fetchVillagersAndRequests();
+          }
         }
       )
       .subscribe();
@@ -115,9 +100,9 @@ export default function VillagersScreen() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, fetchVillagersAndRequests]);
 
-  const fetchVillagersAndRequests = async () => {
+  const fetchVillagersAndRequests = useCallback(async () => {
     if (!session?.user?.id) return;
 
     try {
@@ -279,7 +264,7 @@ export default function VillagersScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session?.user?.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);
