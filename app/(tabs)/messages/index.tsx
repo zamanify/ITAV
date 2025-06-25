@@ -39,31 +39,7 @@ export default function MessagesScreen() {
     }
   }, [fontsLoaded]);
 
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchConversations();
-    }
-  }, [session?.user?.id]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!session?.user?.id) return;
-
-      fetchConversations();
-
-      const unsubscribe = realtimeManager.subscribeToConversations(
-        session.user.id,
-        () => fetchConversations(),
-        `msg-list-${session.user.id.slice(0, 8)}`
-      );
-
-      return () => {
-        unsubscribe();
-      };
-    }, [session?.user?.id, fetchConversations])
-  );
-
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     if (!session?.user?.id) return;
 
     try {
@@ -97,7 +73,33 @@ export default function MessagesScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchConversations();
+    }
+  }, [session?.user?.id, fetchConversations]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!session?.user?.id) return;
+
+      fetchConversations();
+
+      const unsubscribe = realtimeManager.subscribeToConversations(
+        session.user.id,
+        () => fetchConversations(),
+        `msg-list-${session.user.id.slice(0, 8)}`
+      );
+
+      return () => {
+        unsubscribe();
+      };
+    }, [session?.user?.id, fetchConversations])
+  );
+
+
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -108,7 +110,7 @@ export default function MessagesScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [fetchConversations]);
 
   const formatMessageTime = (dateString: string) => {
     const date = new Date(dateString);
