@@ -54,18 +54,20 @@ export default function MessagesScreen() {
     }, [session?.user?.id])
   );
 
-  useEffect(() => {
-    if (!session?.user?.id) return;
+  useFocusEffect(
+    useCallback(() => {
+      if (!session?.user?.id) return;
 
-    const unsubscribe = realtime.subscribeToConversations(
-      session.user.id,
-      fetchConversations
-    );
+      const unsubscribe = realtime.subscribeToConversations(
+        session.user.id,
+        fetchConversations
+      );
 
-    return () => {
-      unsubscribe();
-    };
-  }, [session?.user?.id]);
+      return () => {
+        unsubscribe();
+      };
+    }, [session?.user?.id])
+  );
 
   const fetchConversations = async () => {
     if (!session?.user?.id) return;
