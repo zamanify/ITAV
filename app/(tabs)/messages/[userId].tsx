@@ -60,12 +60,21 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!session?.user?.id || !userId) return;
 
+    // Remove any stale channels for this conversation to avoid duplicate
+    // subscriptions when navigating multiple times to the same screen
+    supabase
+      .getChannels()
+      .filter((ch) =>
+        ch.topic.startsWith(`realtime:chat-${session.user.id}-${userId}`)
+      )
+      .forEach((ch) => supabase.removeChannel(ch));
+
     const filter =
-      `or(and(sender_id.eq.${session.user.id},receiver_id.eq.${userId}),` +
-      `and(sender_id.eq.${userId},receiver_id.eq.${session.user.id}))`;
+      `or(and(sender_id=eq.${session.user.id},receiver_id=eq.${userId}),` +
+      `and(sender_id=eq.${userId},receiver_id=eq.${session.user.id}))`;
 
     const channel = supabase
-      .channel(`chat-${session.user.id}-${userId}`)
+      .channel(`chat-${session.user.id}-${userId}-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter },

@@ -47,10 +47,19 @@ export default function MessagesScreen() {
   useEffect(() => {
     if (!session?.user?.id) return;
 
-    const filter = `or(sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id})`;
+    // Clean up any existing channels with the same prefix to avoid
+    // duplicate subscriptions when this screen is opened multiple times
+    supabase
+      .getChannels()
+      .filter((ch) =>
+        ch.topic.startsWith(`realtime:conversation-list-${session.user.id}`)
+      )
+      .forEach((ch) => supabase.removeChannel(ch));
+
+    const filter = `or(sender_id=eq.${session.user.id},receiver_id=eq.${session.user.id})`;
 
     const channel = supabase
-      .channel(`conversation-list-${session.user.id}`)
+      .channel(`conversation-list-${session.user.id}-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages', filter },
