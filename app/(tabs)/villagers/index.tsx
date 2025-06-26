@@ -248,6 +248,7 @@ export default function VillagersScreen() {
     if (!session?.user?.id) return;
 
     console.log('Subscribing to villager connection changes');
+    const filter = `or=(sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id})`;
     const channel = supabase
       .channel('public:villager_connections')
       .on(
@@ -256,10 +257,23 @@ export default function VillagersScreen() {
           event: 'INSERT',
           schema: 'public',
           table: 'villager_connections',
-          filter: `receiver_id=eq.${session.user.id}`,
+          filter,
         },
         payload => {
           console.log('Received villager connection INSERT', payload);
+          fetchVillagersAndRequests();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'villager_connections',
+          filter,
+        },
+        payload => {
+          console.log('Received villager connection UPDATE', payload);
           fetchVillagersAndRequests();
         }
       )
