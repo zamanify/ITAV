@@ -70,8 +70,8 @@ export default function ChatScreen() {
       .forEach((ch) => supabase.removeChannel(ch));
 
     const filter =
-      `or=(and(sender_id.eq.${session.user.id},receiver_id.eq.${userId}),` +
-      `and(sender_id.eq.${userId},receiver_id.eq.${session.user.id}))`;
+      `or=(and(sender_id=eq.${session.user.id},receiver_id=eq.${userId}),` +
+      `and(sender_id=eq.${userId},receiver_id=eq.${session.user.id}))`;
 
     console.log('Subscribing to chat channel', { filter });
 

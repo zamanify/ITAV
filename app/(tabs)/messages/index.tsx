@@ -56,7 +56,7 @@ export default function MessagesScreen() {
       )
       .forEach((ch) => supabase.removeChannel(ch));
 
-    const filter = `or=(sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id})`;
+    const filter = `or=(sender_id=eq.${session.user.id},receiver_id=eq.${session.user.id})`;
 
     console.log('Subscribing to conversation list', { filter });
 
