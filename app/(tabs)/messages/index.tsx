@@ -44,6 +44,27 @@ export default function MessagesScreen() {
     }
   }, [session?.user?.id]);
 
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const filter = `or(sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id})`;
+
+    const channel = supabase
+      .channel(`conversation-list-${session.user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages', filter },
+        () => {
+          fetchConversations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id]);
+
   const fetchConversations = async () => {
     if (!session?.user?.id) return;
 

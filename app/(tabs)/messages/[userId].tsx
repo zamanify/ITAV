@@ -57,6 +57,47 @@ export default function ChatScreen() {
     }
   }, [session?.user?.id, userId]);
 
+  useEffect(() => {
+    if (!session?.user?.id || !userId) return;
+
+    const filter =
+      `or(and(sender_id.eq.${session.user.id},receiver_id.eq.${userId}),` +
+      `and(sender_id.eq.${userId},receiver_id.eq.${session.user.id}))`;
+
+    const channel = supabase
+      .channel(`chat-${session.user.id}-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter },
+        payload => {
+          const msg: Message = {
+            id: payload.new.id,
+            senderId: payload.new.sender_id,
+            receiverId: payload.new.receiver_id,
+            messageText: payload.new.message_text,
+            isRead: payload.new.is_read,
+            createdAt: payload.new.created_at,
+            viaGroupName: null
+          };
+
+          setMessages(prev => [...prev, msg]);
+
+          if (payload.new.sender_id === userId) {
+            markMessagesAsRead();
+          }
+
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id, userId]);
+
   const fetchUserInfo = async () => {
     if (!userId) return;
 
@@ -172,7 +213,6 @@ export default function ChatScreen() {
       }
 
       setNewMessage('');
-      await fetchMessages(); // Refresh messages to show the new one
     } catch (err) {
       console.error('Error sending message:', err);
       setError('Ett fel uppstod vid skickande av meddelande');
