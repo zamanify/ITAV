@@ -69,39 +69,6 @@ export default function VillagersScreen() {
   const [messageModalVisible, setMessageModalVisible] = useState(false);
   const [selectedVillagerForMessage, setSelectedVillagerForMessage] = useState<{ id: string; name: string } | null>(null);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
-
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchVillagersAndRequests();
-    }
-  }, [session?.user?.id]);
-
-  useEffect(() => {
-    if (!session?.user?.id) return;
-
-    const channel = supabase
-      .channel(`villager-connections-${session.user.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'villager_connections' },
-        payload => {
-          if (payload.new?.receiver_id === session.user.id) {
-            fetchVillagersAndRequests();
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [session?.user?.id, fetchVillagersAndRequests]);
-
   const fetchVillagersAndRequests = useCallback(async () => {
     if (!session?.user?.id) return;
 
@@ -265,6 +232,49 @@ export default function VillagersScreen() {
       setIsLoading(false);
     }
   }, [session?.user?.id]);
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchVillagersAndRequests();
+    }
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    console.log('Subscribing to villager connection changes');
+    const channel = supabase
+      .channel(`villager-connections-${session.user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'villager_connections' },
+        payload => {
+          if (
+            payload.new?.sender_id === session.user.id ||
+            payload.new?.receiver_id === session.user.id ||
+            payload.old?.sender_id === session.user.id ||
+            payload.old?.receiver_id === session.user.id
+          ) {
+            console.log('Villager connection change relevant to user', payload);
+            fetchVillagersAndRequests();
+          }
+        }
+      )
+      .subscribe(status => {
+        console.log('Villager connection subscription status:', status);
+      });
+
+    return () => {
+      console.log('Unsubscribing from villager connection changes');
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id, fetchVillagersAndRequests]);
+
 
   const onRefresh = async () => {
     setRefreshing(true);

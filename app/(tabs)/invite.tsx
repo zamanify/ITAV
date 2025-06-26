@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Platform, Act
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useCallback } from 'react';
 import { ArrowLeft, UserPlus } from 'lucide-react-native';
 import * as Contacts from 'expo-contacts';
 import { supabase } from '@/lib/supabase';
@@ -46,9 +46,9 @@ export default function InviteScreen() {
     if (session?.user?.id) {
       loadContacts();
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, loadContacts]);
 
-  const loadContacts = async () => {
+  const loadContacts = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -307,7 +307,42 @@ export default function InviteScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    console.log('Subscribing to villager connection updates for invites');
+    const filter = `sender_id=eq.${session.user.id}`;
+    const channel = supabase
+      .channel('public:villager_connections_invite')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'villager_connections', filter },
+        payload => {
+          console.log('Invite screen received UPDATE', payload);
+          if (payload.new.status === 'accepted' || payload.new.status === 'rejected') {
+            loadContacts();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'villager_connections', filter },
+        payload => {
+          console.log('Invite screen received INSERT', payload);
+          loadContacts();
+        }
+      )
+      .subscribe(status => {
+        console.log('Invite connection subscription status:', status);
+      });
+
+    return () => {
+      console.log('Unsubscribing from invite connection updates');
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id, loadContacts]);
 
   if (!fontsLoaded) {
     return null;
