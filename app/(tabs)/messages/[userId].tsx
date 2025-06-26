@@ -70,8 +70,8 @@ export default function ChatScreen() {
       .forEach((ch) => supabase.removeChannel(ch));
 
     const filter =
-      `or(and(sender_id=eq.${session.user.id},receiver_id=eq.${userId}),` +
-      `and(sender_id=eq.${userId},receiver_id=eq.${session.user.id}))`;
+      `or=(and(sender_id.eq.${session.user.id},receiver_id.eq.${userId}),` +
+      `and(sender_id.eq.${userId},receiver_id.eq.${session.user.id}))`;
 
     const channel = supabase
       .channel(`chat-${session.user.id}-${userId}-${Date.now()}`)
@@ -89,7 +89,10 @@ export default function ChatScreen() {
             viaGroupName: null
           };
 
-          setMessages(prev => [...prev, msg]);
+          setMessages(prev => {
+            if (prev.some(m => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
 
           if (payload.new.sender_id === userId) {
             markMessagesAsRead();
@@ -206,19 +209,37 @@ export default function ChatScreen() {
     try {
       setIsSending(true);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('messages')
         .insert({
           sender_id: session.user.id,
           receiver_id: userId,
           message_text: newMessage.trim(),
           via_group_id: null // Direct message, not via group
-        });
+        })
+        .select('id,sender_id,receiver_id,message_text,is_read,created_at')
+        .single();
 
       if (error) {
         console.error('Error sending message:', error);
         setError('Kunde inte skicka meddelandet');
         return;
+      }
+
+      if (data) {
+        const msg: Message = {
+          id: data.id,
+          senderId: data.sender_id,
+          receiverId: data.receiver_id,
+          messageText: data.message_text,
+          isRead: data.is_read,
+          createdAt: data.created_at,
+          viaGroupName: null
+        };
+        setMessages(prev => [...prev, msg]);
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 100);
       }
 
       setNewMessage('');
