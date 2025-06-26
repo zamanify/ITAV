@@ -73,12 +73,15 @@ export default function ChatScreen() {
       `or=(and(sender_id.eq.${session.user.id},receiver_id.eq.${userId}),` +
       `and(sender_id.eq.${userId},receiver_id.eq.${session.user.id}))`;
 
+    console.log('Subscribing to chat channel', { filter });
+
     const channel = supabase
       .channel(`chat-${session.user.id}-${userId}-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter },
         payload => {
+          console.log('Realtime message received', payload);
           const msg: Message = {
             id: payload.new.id,
             senderId: payload.new.sender_id,
@@ -105,8 +108,11 @@ export default function ChatScreen() {
       )
       .subscribe();
 
+    console.log('Subscribed to chat channel', channel.topic);
+
     return () => {
       supabase.removeChannel(channel);
+      console.log('Removed chat channel', channel.topic);
     };
   }, [session?.user?.id, userId]);
 
@@ -209,6 +215,8 @@ export default function ChatScreen() {
     try {
       setIsSending(true);
 
+      console.log('Sending message', newMessage);
+
       const { data, error } = await supabase
         .from('messages')
         .insert({
@@ -227,6 +235,7 @@ export default function ChatScreen() {
       }
 
       if (data) {
+        console.log('Inserted message row', data);
         const msg: Message = {
           id: data.id,
           senderId: data.sender_id,
