@@ -249,7 +249,7 @@ export default function VillagersScreen() {
 
     console.log('Subscribing to villager connection changes');
     const channel = supabase
-      .channel(`villager-connections-${session.user.id}`)
+      .channel('public:villager_connections')
       .on(
         'postgres_changes',
         {
@@ -259,11 +259,13 @@ export default function VillagersScreen() {
           filter: `receiver_id=eq.${session.user.id}`,
         },
         payload => {
-          console.log('Received villager connection change', payload);
+          console.log('Received villager connection INSERT', payload);
           fetchVillagersAndRequests();
         }
       )
-      .subscribe();
+      .subscribe(status => {
+        console.log('Villager connection subscription status:', status);
+      });
 
     return () => {
       console.log('Unsubscribing from villager connection changes');
