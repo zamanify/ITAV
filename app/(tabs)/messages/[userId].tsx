@@ -44,6 +44,13 @@ export default function ChatScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('ChatScreen mounted', { userId });
+    return () => {
+      console.log('ChatScreen unmounted', { userId });
+    };
+  }, [userId]);
+
+  useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
@@ -55,6 +62,75 @@ export default function ChatScreen() {
       fetchMessages();
       markMessagesAsRead();
     }
+  }, [session?.user?.id, userId]);
+
+  useEffect(() => {
+    if (!session?.user?.id || !userId) return;
+
+    console.log('Setting up chat subscription', { self: session.user.id, partner: userId });
+
+    const stale = supabase
+      .getChannels()
+      .filter((ch) =>
+        ch.topic.startsWith(`realtime:chat-${session.user.id}-${userId}`)
+      );
+    if (stale.length) {
+      console.log('Removing stale chat channels', stale.map(ch => ch.topic));
+      stale.forEach((ch) => supabase.removeChannel(ch));
+    }
+
+    console.log('Active channels after cleanup', supabase.getChannels().map(ch => ch.topic));
+
+    const filter =
+      `or=(and(sender_id=eq.${session.user.id},receiver_id=eq.${userId}),` +
+      `and(sender_id=eq.${userId},receiver_id=eq.${session.user.id}))`;
+
+    console.log('Subscribing to chat channel', { filter });
+
+    const channel = supabase
+      .channel(`chat-${session.user.id}-${userId}-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter },
+        payload => {
+          console.log('Realtime message received', payload);
+          const msg: Message = {
+            id: payload.new.id,
+            senderId: payload.new.sender_id,
+            receiverId: payload.new.receiver_id,
+            messageText: payload.new.message_text,
+            isRead: payload.new.is_read,
+            createdAt: payload.new.created_at,
+            viaGroupName: null
+          };
+
+          setMessages(prev => {
+            if (prev.some(m => m.id === msg.id)) return prev;
+            const next = [...prev, msg];
+            console.log('Messages state updated', next.map(m => m.id));
+            return next;
+          });
+
+          if (payload.new.sender_id === userId) {
+            markMessagesAsRead();
+          }
+
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+        }
+      )
+      .subscribe(status => {
+        console.log('Chat channel status:', status, channel.topic);
+      });
+
+    console.log('Subscribed to chat channel', channel.topic, 'current channels', supabase.getChannels().map(ch => ch.topic));
+
+    return () => {
+      console.log('Removing chat channel', channel.topic);
+      supabase.removeChannel(channel);
+      console.log('Remaining channels', supabase.getChannels().map(ch => ch.topic));
+    };
   }, [session?.user?.id, userId]);
 
   const fetchUserInfo = async () => {
@@ -91,6 +167,8 @@ export default function ChatScreen() {
       setIsLoading(true);
       setError(null);
 
+      console.log('Fetching messages', { self: session.user.id, partner: userId });
+
       const { data, error } = await supabase
         .from('messages')
         .select(`
@@ -111,6 +189,8 @@ export default function ChatScreen() {
         return;
       }
 
+      console.log('Fetched message rows', data);
+
       const messagesData: Message[] = (data || []).map((msg: any) => ({
         id: msg.id,
         senderId: msg.sender_id,
@@ -122,6 +202,7 @@ export default function ChatScreen() {
       }));
 
       setMessages(messagesData);
+      console.log('Messages state updated', messagesData.map(m => m.id));
       
       // Scroll to bottom after messages load
       setTimeout(() => {
@@ -139,6 +220,7 @@ export default function ChatScreen() {
     if (!session?.user?.id || !userId) return;
 
     try {
+      console.log('Marking messages as read', { self: session.user.id, partner: userId });
       await supabase
         .from('messages')
         .update({ is_read: true })
@@ -156,14 +238,18 @@ export default function ChatScreen() {
     try {
       setIsSending(true);
 
-      const { error } = await supabase
+      console.log('Sending message', newMessage);
+
+      const { data, error } = await supabase
         .from('messages')
         .insert({
           sender_id: session.user.id,
           receiver_id: userId,
           message_text: newMessage.trim(),
           via_group_id: null // Direct message, not via group
-        });
+        })
+        .select('id,sender_id,receiver_id,message_text,is_read,created_at')
+        .single();
 
       if (error) {
         console.error('Error sending message:', error);
@@ -171,8 +257,28 @@ export default function ChatScreen() {
         return;
       }
 
+      if (data) {
+        console.log('Inserted message row', data);
+        const msg: Message = {
+          id: data.id,
+          senderId: data.sender_id,
+          receiverId: data.receiver_id,
+          messageText: data.message_text,
+          isRead: data.is_read,
+          createdAt: data.created_at,
+          viaGroupName: null
+        };
+        setMessages(prev => {
+          const next = [...prev, msg];
+          console.log('Messages state updated', next.map(m => m.id));
+          return next;
+        });
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+
       setNewMessage('');
-      await fetchMessages(); // Refresh messages to show the new one
     } catch (err) {
       console.error('Error sending message:', err);
       setError('Ett fel uppstod vid skickande av meddelande');

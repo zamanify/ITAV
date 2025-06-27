@@ -33,6 +33,13 @@ export default function MessagesScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('MessagesScreen mounted');
+    return () => {
+      console.log('MessagesScreen unmounted');
+    };
+  }, []);
+
+  useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
@@ -44,12 +51,58 @@ export default function MessagesScreen() {
     }
   }, [session?.user?.id]);
 
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    console.log('Setting up conversation list subscription for user', session.user.id);
+
+    const stale = supabase
+      .getChannels()
+      .filter((ch) =>
+        ch.topic.startsWith(`realtime:conversation-list-${session.user.id}`)
+      );
+    if (stale.length) {
+      console.log('Removing stale conversation list channels', stale.map(ch => ch.topic));
+      stale.forEach((ch) => supabase.removeChannel(ch));
+    }
+
+    console.log('Active channels after cleanup', supabase.getChannels().map(ch => ch.topic));
+
+    const filter = `or=(sender_id=eq.${session.user.id},receiver_id=eq.${session.user.id})`;
+
+    console.log('Subscribing to conversation list', { filter });
+
+    const channel = supabase
+      .channel(`conversation-list-${session.user.id}-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages', filter },
+        () => {
+          console.log('Conversation list event received');
+          fetchConversations();
+        }
+      )
+      .subscribe(status => {
+        console.log('Conversation list channel status:', status, channel.topic);
+      });
+
+    console.log('Subscribed to conversation list', channel.topic, 'current channels', supabase.getChannels().map(ch => ch.topic));
+
+    return () => {
+      console.log('Removing conversation list channel', channel.topic);
+      supabase.removeChannel(channel);
+      console.log('Remaining channels', supabase.getChannels().map(ch => ch.topic));
+    };
+  }, [session?.user?.id]);
+
   const fetchConversations = async () => {
     if (!session?.user?.id) return;
 
     try {
       setIsLoading(true);
       setError(null);
+
+      console.log('Fetching conversation list for', session.user.id);
 
       const { data, error: fetchError } = await supabase.rpc('get_conversation_list', {
         user_id: session.user.id
@@ -60,6 +113,8 @@ export default function MessagesScreen() {
         setError('Kunde inte hämta meddelanden');
         return;
       }
+
+      console.log('Fetched conversations rows', data);
 
       const conversationsData: Conversation[] = (data || []).map((conv: any) => ({
         partnerId: conv.partner_id,
@@ -72,6 +127,7 @@ export default function MessagesScreen() {
       }));
 
       setConversations(conversationsData);
+      console.log('Conversation list state updated', conversationsData);
     } catch (err) {
       console.error('Error fetching conversations:', err);
       setError('Ett fel uppstod vid hämtning av meddelanden');
