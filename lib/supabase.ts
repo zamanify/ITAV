@@ -11,3 +11,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Log realtime connection status to help debug websocket issues
+supabase.realtime.onOpen(() => {
+  console.log('Realtime connection opened');
+});
+supabase.realtime.onClose(() => {
+  console.log('Realtime connection closed');
+});
+supabase.realtime.onError((err) => {
+  console.log('Realtime connection error', err);
+});

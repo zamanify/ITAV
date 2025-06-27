@@ -44,12 +44,52 @@ export default function MessagesScreen() {
     }
   }, [session?.user?.id]);
 
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    // Clean up any existing channels with the same prefix to avoid
+    // duplicate subscriptions when this screen is opened multiple times
+    supabase
+      .getChannels()
+      .filter((ch) =>
+        ch.topic.startsWith(`realtime:conversation-list-${session.user.id}`)
+      )
+      .forEach((ch) => supabase.removeChannel(ch));
+
+    const filter = `or=(sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id})`;
+
+    console.log('Subscribing to conversation list', { filter });
+
+    const channel = supabase
+      .channel(`conversation-list-${session.user.id}-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages', filter },
+        () => {
+          console.log('Conversation list event received');
+          fetchConversations();
+        }
+      )
+      .subscribe(status => {
+        console.log('Conversation list channel status:', status);
+      });
+
+    console.log('Subscribed to conversation list', channel.topic);
+
+    return () => {
+      supabase.removeChannel(channel);
+      console.log('Removed conversation list channel', channel.topic);
+    };
+  }, [session?.user?.id]);
+
   const fetchConversations = async () => {
     if (!session?.user?.id) return;
 
     try {
       setIsLoading(true);
       setError(null);
+
+      console.log('Fetching conversation list for', session.user.id);
 
       const { data, error: fetchError } = await supabase.rpc('get_conversation_list', {
         user_id: session.user.id
@@ -60,6 +100,8 @@ export default function MessagesScreen() {
         setError('Kunde inte hämta meddelanden');
         return;
       }
+
+      console.log('Fetched conversations rows', data);
 
       const conversationsData: Conversation[] = (data || []).map((conv: any) => ({
         partnerId: conv.partner_id,
@@ -72,6 +114,7 @@ export default function MessagesScreen() {
       }));
 
       setConversations(conversationsData);
+      console.log('Conversation list state updated', conversationsData);
     } catch (err) {
       console.error('Error fetching conversations:', err);
       setError('Ett fel uppstod vid hämtning av meddelanden');
