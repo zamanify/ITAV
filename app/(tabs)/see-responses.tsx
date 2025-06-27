@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Refre
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useCallback } from 'react';
 import { ArrowLeft, MessageCircle, User, Clock } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -62,9 +62,9 @@ export default function SeeResponsesScreen() {
     if (session?.user?.id && requestId) {
       fetchResponsesAndRequest();
     }
-  }, [session?.user?.id, requestId]);
+  }, [session?.user?.id, requestId, fetchResponsesAndRequest]);
 
-  const fetchResponsesAndRequest = async () => {
+  const fetchResponsesAndRequest = useCallback(async () => {
     if (!requestId || !session?.user?.id) return;
 
     try {
@@ -168,7 +168,40 @@ export default function SeeResponsesScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [requestId, session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id || !requestId) return;
+
+    console.log('Subscribing to request response updates');
+    const filter = `request_id=eq.${requestId}`;
+    const channel = supabase
+      .channel(`public:request_responses:${requestId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'request_responses', filter },
+        payload => {
+          console.log('Received INSERT on request_responses', payload);
+          fetchResponsesAndRequest();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'request_responses', filter },
+        payload => {
+          console.log('Received UPDATE on request_responses', payload);
+          fetchResponsesAndRequest();
+        }
+      )
+      .subscribe(status => {
+        console.log('request_responses subscription status:', status);
+      });
+
+    return () => {
+      console.log('Unsubscribing from request response updates');
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id, requestId, fetchResponsesAndRequest]);
 
   const onRefresh = async () => {
     setRefreshing(true);
