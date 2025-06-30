@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, Modal, ActivityIndicator, TextInput } from 'react-native';
-import { X, Users, Edit, Save } from 'lucide-react-native';
+import { X, Users, CreditCard as Edit, Save } from 'lucide-react-native';
 import { useState, useEffect, useContext } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
