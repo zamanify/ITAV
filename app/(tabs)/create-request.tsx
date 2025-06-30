@@ -85,6 +85,16 @@ export default function CreateRequestScreen() {
     });
   }, [selectedHoods]);
 
+  // Auto-calculate duration when timeType is specific and both dates are set
+  useEffect(() => {
+    if (timeType === 'specific' && startDate && endDate) {
+      const diffInMinutes = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
+      if (diffInMinutes > 0) {
+        setDuration(diffInMinutes.toString());
+      }
+    }
+  }, [timeType, startDate, endDate]);
+
   // Reset form when screen gains focus (user navigates to it)
   useFocusEffect(
     useCallback(() => {
@@ -287,6 +297,9 @@ export default function CreateRequestScreen() {
 
   const isFormValid = message.trim() && duration.trim() && (selectedVillagers.length > 0 || selectedHoods.length > 0);
 
+  // Check if duration should be read-only (when specific time is selected)
+  const isDurationReadOnly = timeType === 'specific';
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -458,14 +471,24 @@ export default function CreateRequestScreen() {
 
         <View style={styles.row}>
           <View style={[styles.halfWidth, { zIndex: 1 }]}>
-            <Text style={styles.label}>ESTIMERAD TID*</Text>
+            <Text style={styles.label}>
+              ESTIMERAD TID*
+              {isDurationReadOnly && (
+                <Text style={styles.autoCalculatedLabel}> (Automatiskt beräknad)</Text>
+              )}
+            </Text>
             <TextInput
-              style={[styles.input, styles.durationInput]}
+              style={[
+                styles.input, 
+                styles.durationInput,
+                isDurationReadOnly && styles.readOnlyInput
+              ]}
               value={duration}
-              onChangeText={setDuration}
+              onChangeText={isDurationReadOnly ? undefined : setDuration}
               placeholder="Ange minuter"
               placeholderTextColor="#999"
               keyboardType="numeric"
+              editable={!isDurationReadOnly}
             />
           </View>
 
@@ -622,6 +645,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-Regular',
     marginBottom: 10,
   },
+  autoCalculatedLabel: {
+    fontSize: 12,
+    color: '#87CEEB',
+    fontStyle: 'italic',
+  },
   messageInput: {
     borderWidth: 1,
     borderColor: '#FF69B4',
@@ -735,6 +763,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-Regular',
     fontSize: 16,
     color: '#333',
+  },
+  readOnlyInput: {
+    backgroundColor: '#F8F8F8',
+    color: '#666',
   },
   inputText: {
     fontSize: 16,
