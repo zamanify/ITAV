@@ -5,6 +5,7 @@ import { useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchPairBalance } from '@/lib/balance';
 import { AuthContext } from '@/contexts/AuthContext';
+import UserMessageModal from './UserMessageModal';
 
 type RequestOfferModalProps = {
   visible: boolean;
@@ -27,6 +28,7 @@ type RequestOfferModalProps = {
 export default function RequestOfferModal({ visible, onClose, data }: RequestOfferModalProps) {
   const { session } = useContext(AuthContext);
   const [pairBalance, setPairBalance] = useState<number | null>(null);
+  const [messageModalVisible, setMessageModalVisible] = useState(false);
 
   useEffect(() => {
     const logView = async () => {
@@ -61,6 +63,7 @@ export default function RequestOfferModal({ visible, onClose, data }: RequestOff
 
     loadBalance();
   }, [visible, session?.user?.id, data.senderId]);
+  
   const getBalanceText = () => {
     if (pairBalance === null) return '';
     if (pairBalance === 0) return 'NI HAR 0 MIN MELLAN ER';
@@ -82,63 +85,83 @@ export default function RequestOfferModal({ visible, onClose, data }: RequestOff
     });
   };
 
+  const handleSendMessage = () => {
+    setMessageModalVisible(true);
+  };
+
+  const handleCloseMessageModal = () => {
+    setMessageModalVisible(false);
+  };
+
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={false}
-      onRequestClose={onClose}
-    >
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.senderName}>{data.senderName}</Text>
-          {data.groupName && (
-            <Text style={styles.groupName}>MEDLEM I {data.groupName}</Text>
-          )}
-          <Pressable style={styles.closeButton} onPress={onClose}>
-            <X color="#87CEEB" size={24} />
-          </Pressable>
-        </View>
-
-        <View style={styles.content}>
-          <Text style={styles.message}>{data.message}</Text>
-
-          <View style={styles.detailsContainer}>
-            <Text style={styles.dateTime}>
-              {data.date} {data.time}
-            </Text>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>AKUTNIVÅ:</Text>
-              <Text style={styles.detailValue}>{data.urgency}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>VÄRDE:</Text>
-              <Text style={styles.detailValue}>CA {data.estimatedTime} MIN</Text>
-            </View>
-            <Text style={styles.balanceText}>{getBalanceText()}</Text>
+    <>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={onClose}
+      >
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.senderName}>{data.senderName}</Text>
+            {data.groupName && (
+              <Text style={styles.groupName}>MEDLEM I {data.groupName}</Text>
+            )}
+            <Pressable style={styles.closeButton} onPress={onClose}>
+              <X color="#87CEEB" size={24} />
+            </Pressable>
           </View>
 
-          <View style={styles.buttonContainer}>
-            <Pressable style={styles.actionButton} onPress={handleRespondToItem}>
-              <Text style={styles.actionButtonText}>
-                {data.type === 'request' 
-                  ? 'RÄCK UPP HANDEN OCH ERBJUD DIG'
-                  : 'RÄCK UPP HANDEN OCH TA EMOT'
-                }
+          <View style={styles.content}>
+            <Text style={styles.message}>{data.message}</Text>
+
+            <View style={styles.detailsContainer}>
+              <Text style={styles.dateTime}>
+                {data.date} {data.time}
               </Text>
-            </Pressable>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>AKUTNIVÅ:</Text>
+                <Text style={styles.detailValue}>{data.urgency}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>VÄRDE:</Text>
+                <Text style={styles.detailValue}>CA {data.estimatedTime} MIN</Text>
+              </View>
+              <Text style={styles.balanceText}>{getBalanceText()}</Text>
+            </View>
 
-            <Pressable style={styles.messageButton}>
-              <Text style={styles.messageButtonText}>SKICKA MEDDELANDE</Text>
-            </Pressable>
+            <View style={styles.buttonContainer}>
+              <Pressable style={styles.actionButton} onPress={handleRespondToItem}>
+                <Text style={styles.actionButtonText}>
+                  {data.type === 'request' 
+                    ? 'RÄCK UPP HANDEN OCH ERBJUD DIG'
+                    : 'RÄCK UPP HANDEN OCH TA EMOT'
+                  }
+                </Text>
+              </Pressable>
 
-            <Pressable style={styles.closeModalButton} onPress={onClose}>
-              <Text style={styles.closeModalButtonText}>STÄNG</Text>
-            </Pressable>
+              <Pressable style={styles.messageButton} onPress={handleSendMessage}>
+                <Text style={styles.messageButtonText}>SKICKA MEDDELANDE</Text>
+              </Pressable>
+
+              <Pressable style={styles.closeModalButton} onPress={onClose}>
+                <Text style={styles.closeModalButtonText}>STÄNG</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      {/* User Message Modal */}
+      <UserMessageModal
+        visible={messageModalVisible}
+        onClose={handleCloseMessageModal}
+        user={{
+          id: data.senderId,
+          name: data.senderName
+        }}
+      />
+    </>
   );
 }
 
