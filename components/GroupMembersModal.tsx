@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, Modal, ActivityIndicator } from 'react-native';
-import { X, Users } from 'lucide-react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Modal, ActivityIndicator, TextInput } from 'react-native';
+import { X, Users, Edit, Save } from 'lucide-react-native';
 import { useState, useEffect, useContext } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -30,12 +30,39 @@ export default function GroupMembersModal({ visible, onClose, groupId, groupName
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedGroupName, setEditedGroupName] = useState(groupName);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isGroupCreator, setIsGroupCreator] = useState(false);
 
   useEffect(() => {
     if (visible && session?.user?.id && groupId) {
       fetchGroupMembers();
+      checkIfGroupCreator();
     }
   }, [visible, session?.user?.id, groupId]);
+
+  useEffect(() => {
+    setEditedGroupName(groupName);
+  }, [groupName]);
+
+  const checkIfGroupCreator = async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('groups')
+        .select('created_by')
+        .eq('id', groupId)
+        .single();
+
+      if (!error && data) {
+        setIsGroupCreator(data.created_by === session.user.id);
+      }
+    } catch (err) {
+      console.error('Error checking group creator:', err);
+    }
+  };
 
   const fetchGroupMembers = async () => {
     if (!session?.user?.id) return;
@@ -121,6 +148,50 @@ export default function GroupMembersModal({ visible, onClose, groupId, groupName
     }
   };
 
+  const handleEditToggle = () => {
+    if (isEditing) {
+      // Cancel editing - reset to original name
+      setEditedGroupName(groupName);
+      setIsEditing(false);
+    } else {
+      // Start editing
+      setIsEditing(true);
+    }
+  };
+
+  const handleSaveGroupName = async () => {
+    if (!session?.user?.id || !editedGroupName.trim() || isSaving) return;
+
+    try {
+      setIsSaving(true);
+      setError(null);
+
+      const { error: updateError } = await supabase
+        .from('groups')
+        .update({ name: editedGroupName.trim() })
+        .eq('id', groupId)
+        .eq('created_by', session.user.id); // Ensure only creator can update
+
+      if (updateError) {
+        console.error('Error updating group name:', updateError);
+        setError('Kunde inte uppdatera gruppnamnet');
+        return;
+      }
+
+      // Exit editing mode
+      setIsEditing(false);
+      
+      // The parent component should handle refreshing the group list
+      // We could emit an event or use a callback here if needed
+      
+    } catch (err) {
+      console.error('Error saving group name:', err);
+      setError('Ett fel uppstod vid sparande av gruppnamn');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (!fontsLoaded) {
     return null;
   }
@@ -144,7 +215,41 @@ export default function GroupMembersModal({ visible, onClose, groupId, groupName
         </View>
 
         <View style={styles.groupInfo}>
-          <Text style={styles.groupName}>{groupName}</Text>
+          <View style={styles.groupNameContainer}>
+            {isEditing ? (
+              <TextInput
+                style={styles.groupNameInput}
+                value={editedGroupName}
+                onChangeText={setEditedGroupName}
+                placeholder="Gruppnamn"
+                placeholderTextColor="#999"
+                autoFocus
+                maxLength={50}
+              />
+            ) : (
+              <Text style={styles.groupName}>{editedGroupName}</Text>
+            )}
+            
+            {isGroupCreator && (
+              <Pressable 
+                style={[styles.editButton, isSaving && styles.editButtonDisabled]}
+                onPress={isEditing ? handleSaveGroupName : handleEditToggle}
+                disabled={isSaving || (isEditing && !editedGroupName.trim())}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="#87CEEB" />
+                ) : isEditing ? (
+                  <Save size={20} color="#87CEEB" />
+                ) : (
+                  <Edit size={20} color="#87CEEB" />
+                )}
+                <Text style={[styles.editButtonText, isSaving && styles.editButtonTextDisabled]}>
+                  {isSaving ? 'Sparar...' : isEditing ? 'Spara' : 'Ändra'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+          
           <Text style={styles.groupSubtext}>
             {members.length} {members.length === 1 ? 'medlem' : 'medlemmar'} i gruppen
           </Text>
@@ -231,11 +336,51 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E4F1FF',
   },
+  groupNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 12,
+  },
   groupName: {
     fontSize: 24,
     color: '#87CEEB',
     fontFamily: 'Unbounded-SemiBold',
-    marginBottom: 8,
+    flex: 1,
+  },
+  groupNameInput: {
+    fontSize: 24,
+    color: '#87CEEB',
+    fontFamily: 'Unbounded-SemiBold',
+    flex: 1,
+    borderBottomWidth: 2,
+    borderBottomColor: '#87CEEB',
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#87CEEB',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+    minWidth: 80,
+    justifyContent: 'center',
+  },
+  editButtonDisabled: {
+    opacity: 0.6,
+  },
+  editButtonText: {
+    color: '#87CEEB',
+    fontSize: 12,
+    fontFamily: 'Unbounded-Regular',
+  },
+  editButtonTextDisabled: {
+    color: '#999',
   },
   groupSubtext: {
     fontSize: 16,
