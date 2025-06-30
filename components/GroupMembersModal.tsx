@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, Modal, ActivityIndicator, TextInput } from 'react-native';
-import { X, Users, CreditCard as Edit, Save, UserPlus } from 'lucide-react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Modal, ActivityIndicator, TextInput, Alert, Platform } from 'react-native';
+import { X, Users, CreditCard as Edit, Save, UserPlus, UserMinus } from 'lucide-react-native';
 import { useState, useEffect, useContext } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -11,6 +11,7 @@ type GroupMember = {
   phoneNumber: string;
   memberSince: string;
   balance: number;
+  firstName: string; // Add firstName for confirmation dialog
 };
 
 type Villager = {
@@ -42,6 +43,7 @@ export default function GroupMembersModal({ visible, onClose, groupId, groupName
   const [editedGroupName, setEditedGroupName] = useState(groupName);
   const [isSaving, setIsSaving] = useState(false);
   const [isGroupCreator, setIsGroupCreator] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   
   // Villager selection modal state
   const [showVillagerModal, setShowVillagerModal] = useState(false);
@@ -50,6 +52,10 @@ export default function GroupMembersModal({ visible, onClose, groupId, groupName
   const [villagerSearchQuery, setVillagerSearchQuery] = useState('');
   const [isLoadingVillagers, setIsLoadingVillagers] = useState(false);
   const [isAddingVillagers, setIsAddingVillagers] = useState(false);
+
+  // Confirmation modal state
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<GroupMember | null>(null);
 
   useEffect(() => {
     if (visible && session?.user?.id && groupId) {
@@ -137,6 +143,7 @@ export default function GroupMembersModal({ visible, onClose, groupId, groupName
           return {
             id: user.id,
             name: `${user.first_name} ${user.last_name}`,
+            firstName: user.first_name,
             phoneNumber: user.phone_number || '',
             memberSince: new Date(user.created_at).toLocaleDateString('sv-SE', {
               day: 'numeric',
@@ -340,6 +347,52 @@ export default function GroupMembersModal({ visible, onClose, groupId, groupName
     }
   };
 
+  const handleRemoveMemberPress = (member: GroupMember) => {
+    // Don't allow removing yourself
+    if (member.id === session?.user?.id) return;
+    
+    setMemberToRemove(member);
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmRemoval = async () => {
+    if (!memberToRemove || !session?.user?.id || removingMemberId) return;
+
+    try {
+      setRemovingMemberId(memberToRemove.id);
+
+      const { error } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('user_id', memberToRemove.id);
+
+      if (error) {
+        console.error('Error removing member from group:', error);
+        setError('Kunde inte ta bort medlemmen från gruppen');
+        return;
+      }
+
+      // Remove member from local state
+      setMembers(prev => prev.filter(member => member.id !== memberToRemove.id));
+      
+      // Close confirmation modal
+      setShowConfirmModal(false);
+      setMemberToRemove(null);
+
+    } catch (err) {
+      console.error('Error removing member:', err);
+      setError('Ett fel uppstod vid borttagning av medlem');
+    } finally {
+      setRemovingMemberId(null);
+    }
+  };
+
+  const handleCancelRemoval = () => {
+    setShowConfirmModal(false);
+    setMemberToRemove(null);
+  };
+
   const filteredVillagers = availableVillagers.filter(villager =>
     villager.name.toLowerCase().includes(villagerSearchQuery.toLowerCase()) ||
     villager.phoneNumber.includes(villagerSearchQuery)
@@ -439,13 +492,31 @@ export default function GroupMembersModal({ visible, onClose, groupId, groupName
             ) : (
               members.map((member) => (
                 <View key={member.id} style={styles.memberCard}>
-                  <View style={styles.memberHeader}>
-                    <Text style={styles.memberName}>
-                      {member.name}
-                      {member.id === session?.user?.id && (
-                        <Text style={styles.youIndicator}> (Du)</Text>
-                      )}
-                    </Text>
+                  <View style={styles.memberCardHeader}>
+                    <View style={styles.memberHeader}>
+                      <Text style={styles.memberName}>
+                        {member.name}
+                        {member.id === session?.user?.id && (
+                          <Text style={styles.youIndicator}> (Du)</Text>
+                        )}
+                      </Text>
+                    </View>
+                    {isGroupCreator && member.id !== session?.user?.id && (
+                      <Pressable 
+                        style={[styles.removeButton, removingMemberId === member.id && styles.removeButtonDisabled]}
+                        onPress={() => handleRemoveMemberPress(member)}
+                        disabled={removingMemberId === member.id}
+                      >
+                        {removingMemberId === member.id ? (
+                          <ActivityIndicator size="small" color="#FF4444" />
+                        ) : (
+                          <UserMinus size={16} color="#FF4444" />
+                        )}
+                        <Text style={[styles.removeButtonText, removingMemberId === member.id && styles.removeButtonTextDisabled]}>
+                          {removingMemberId === member.id ? 'Tar bort...' : 'Ta bort'}
+                        </Text>
+                      </Pressable>
+                    )}
                   </View>
                   <View style={styles.memberDetails}>
                     <Text style={styles.memberPhone}>{member.phoneNumber}</Text>
@@ -551,6 +622,43 @@ export default function GroupMembersModal({ visible, onClose, groupId, groupName
               </Pressable>
             </View>
           )}
+        </View>
+      </Modal>
+
+      {/* Confirmation Modal */}
+      <Modal
+        visible={showConfirmModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={handleCancelRemoval}
+      >
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmModal}>
+            <Text style={styles.confirmTitle}>
+              Är du säker att du vill ta bort {memberToRemove?.firstName} från {editedGroupName}?
+            </Text>
+            
+            <View style={styles.confirmButtons}>
+              <Pressable 
+                style={styles.confirmButtonNo}
+                onPress={handleCancelRemoval}
+              >
+                <Text style={styles.confirmButtonNoText}>Nej</Text>
+              </Pressable>
+              
+              <Pressable 
+                style={[styles.confirmButtonYes, removingMemberId && styles.confirmButtonYesDisabled]}
+                onPress={handleConfirmRemoval}
+                disabled={!!removingMemberId}
+              >
+                {removingMemberId ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.confirmButtonYesText}>Ja</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
         </View>
       </Modal>
     </>
@@ -712,8 +820,14 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
-  memberHeader: {
+  memberCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 8,
+  },
+  memberHeader: {
+    flex: 1,
   },
   memberName: {
     fontSize: 18,
@@ -725,6 +839,30 @@ const styles = StyleSheet.create({
     color: '#666',
     fontFamily: 'Unbounded-Regular',
     fontWeight: 'normal',
+  },
+  removeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#FF4444',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    gap: 4,
+    minWidth: 70,
+    justifyContent: 'center',
+  },
+  removeButtonDisabled: {
+    opacity: 0.6,
+  },
+  removeButtonText: {
+    color: '#FF4444',
+    fontSize: 10,
+    fontFamily: 'Unbounded-Regular',
+  },
+  removeButtonTextDisabled: {
+    color: '#999',
   },
   memberDetails: {
     flexDirection: 'row',
@@ -856,6 +994,68 @@ const styles = StyleSheet.create({
   },
   addSelectedButtonText: {
     color: 'white',
+    fontSize: 16,
+    fontFamily: 'Unbounded-SemiBold',
+  },
+  // Confirmation Modal Styles
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  confirmModal: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  confirmTitle: {
+    fontSize: 18,
+    color: '#333',
+    fontFamily: 'Unbounded-SemiBold',
+    textAlign: 'center',
+    lineHeight: 26,
+    marginBottom: 32,
+  },
+  confirmButtons: {
+    flexDirection: 'column',
+    gap: 12,
+    width: '100%',
+  },
+  confirmButtonNo: {
+    backgroundColor: '#87CEEB',
+    borderRadius: 25,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    minHeight: 56,
+    justifyContent: 'center',
+  },
+  confirmButtonNoText: {
+    color: 'white',
+    fontSize: 16,
+    fontFamily: 'Unbounded-SemiBold',
+  },
+  confirmButtonYes: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#FF4444',
+    borderRadius: 25,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    minHeight: 56,
+    justifyContent: 'center',
+  },
+  confirmButtonYesDisabled: {
+    opacity: 0.6,
+  },
+  confirmButtonYesText: {
+    color: '#FF4444',
     fontSize: 16,
     fontFamily: 'Unbounded-SemiBold',
   },
