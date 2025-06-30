@@ -29,7 +29,13 @@ export default function CreateRequestScreen() {
   const [message, setMessage] = useState('');
   const [timeType, setTimeType] = useState<TimeType>('flexible');
   const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(() => {
+    const end = new Date();
+    end.setHours(end.getHours() + 2); // Default to 2 hours later
+    return end;
+  });
   const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
   const [duration, setDuration] = useState('');
   const [priority, setPriority] = useState<PriorityType>('Normal');
   const [showPriorityPicker, setShowPriorityPicker] = useState(false);
@@ -79,6 +85,16 @@ export default function CreateRequestScreen() {
     });
   }, [selectedHoods]);
 
+  // Auto-calculate duration when timeType is specific and both dates are set
+  useEffect(() => {
+    if (timeType === 'specific' && startDate && endDate) {
+      const diffInMinutes = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
+      if (diffInMinutes > 0) {
+        setDuration(diffInMinutes.toString());
+      }
+    }
+  }, [timeType, startDate, endDate]);
+
   // Reset form when screen gains focus (user navigates to it)
   useFocusEffect(
     useCallback(() => {
@@ -93,7 +109,11 @@ export default function CreateRequestScreen() {
     setMessage('');
     setTimeType('flexible');
     setStartDate(new Date());
+    const newEndDate = new Date();
+    newEndDate.setHours(newEndDate.getHours() + 2);
+    setEndDate(newEndDate);
     setShowStartPicker(false);
+    setShowEndPicker(false);
     setDuration('');
     setPriority('Normal');
     setShowPriorityPicker(false);
@@ -240,6 +260,22 @@ export default function CreateRequestScreen() {
     setShowStartPicker(false);
     if (selectedDate) {
       setStartDate(selectedDate);
+      // Auto-adjust end date to be at least 1 hour after start date
+      if (selectedDate >= endDate) {
+        const newEndDate = new Date(selectedDate);
+        newEndDate.setHours(newEndDate.getHours() + 1);
+        setEndDate(newEndDate);
+      }
+    }
+  };
+
+  const onEndDateChange = (event: any, selectedDate?: Date) => {
+    setShowEndPicker(false);
+    if (selectedDate) {
+      // Ensure end date is after start date
+      if (selectedDate > startDate) {
+        setEndDate(selectedDate);
+      }
     }
   };
 
@@ -260,6 +296,9 @@ export default function CreateRequestScreen() {
   };
 
   const isFormValid = message.trim() && duration.trim() && (selectedVillagers.length > 0 || selectedHoods.length > 0);
+
+  // Check if duration should be read-only (when specific time is selected)
+  const isDurationReadOnly = timeType === 'specific';
 
   return (
     <View style={styles.container}>
@@ -350,7 +389,16 @@ export default function CreateRequestScreen() {
                     <input
                       type="datetime-local"
                       value={startDate.toISOString().slice(0, 16)}
-                      onChange={(e) => setStartDate(new Date(e.target.value))}
+                      onChange={(e) => {
+                        const newStartDate = new Date(e.target.value);
+                        setStartDate(newStartDate);
+                        // Auto-adjust end date if needed
+                        if (newStartDate >= endDate) {
+                          const newEndDate = new Date(newStartDate);
+                          newEndDate.setHours(newEndDate.getHours() + 1);
+                          setEndDate(newEndDate);
+                        }
+                      }}
                       style={{
                         border: 'none',
                         fontFamily: 'Unbounded-Regular',
@@ -367,19 +415,80 @@ export default function CreateRequestScreen() {
                 </View>
               )}
             </View>
+
+            <View style={styles.dateRow}>
+              <Text style={styles.dateLabel}>Till</Text>
+              {Platform.OS === 'ios' ? (
+                <View style={styles.datePickerContainer}>
+                  <Pressable
+                    style={styles.dateInput}
+                    onPress={() => setShowEndPicker(true)}
+                  >
+                    <Text style={styles.dateText}>{formatDate(endDate)}</Text>
+                  </Pressable>
+                  {showEndPicker && (
+                    <View style={styles.datePickerWrapper}>
+                      <DateTimePicker
+                        value={endDate}
+                        mode="datetime"
+                        display="inline"
+                        onChange={onEndDateChange}
+                        minimumDate={new Date(startDate.getTime() + 60000)} // At least 1 minute after start
+                        style={styles.iosDatePicker}
+                        textColor="#333"
+                        accentColor="#FF69B4"
+                        themeVariant="light"
+                      />
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.dateInput}>
+                  {Platform.OS === 'web' ? (
+                    <input
+                      type="datetime-local"
+                      value={endDate.toISOString().slice(0, 16)}
+                      min={new Date(startDate.getTime() + 60000).toISOString().slice(0, 16)}
+                      onChange={(e) => setEndDate(new Date(e.target.value))}
+                      style={{
+                        border: 'none',
+                        fontFamily: 'Unbounded-Regular',
+                        fontSize: 16,
+                        color: '#333',
+                        width: '100%',
+                      }}
+                    />
+                  ) : (
+                    <Text style={styles.dateText}>
+                      {formatDate(endDate)}
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
         )}
 
         <View style={styles.row}>
           <View style={[styles.halfWidth, { zIndex: 1 }]}>
-            <Text style={styles.label}>ESTIMERAD TID*</Text>
+            <Text style={styles.label}>
+              ESTIMERAD TID*
+              {isDurationReadOnly && (
+                <Text style={styles.autoCalculatedLabel}> (Automatiskt beräknad)</Text>
+              )}
+            </Text>
             <TextInput
-              style={[styles.input, styles.durationInput]}
+              style={[
+                styles.input, 
+                styles.durationInput,
+                isDurationReadOnly && styles.readOnlyInput
+              ]}
               value={duration}
-              onChangeText={setDuration}
+              onChangeText={isDurationReadOnly ? undefined : setDuration}
               placeholder="Ange minuter"
               placeholderTextColor="#999"
               keyboardType="numeric"
+              editable={!isDurationReadOnly}
             />
           </View>
 
@@ -536,6 +645,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-Regular',
     marginBottom: 10,
   },
+  autoCalculatedLabel: {
+    fontSize: 12,
+    color: '#87CEEB',
+    fontStyle: 'italic',
+  },
   messageInput: {
     borderWidth: 1,
     borderColor: '#FF69B4',
@@ -649,6 +763,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-Regular',
     fontSize: 16,
     color: '#333',
+  },
+  readOnlyInput: {
+    backgroundColor: '#F8F8F8',
+    color: '#666',
   },
   inputText: {
     fontSize: 16,

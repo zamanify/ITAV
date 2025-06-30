@@ -1,7 +1,10 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { useState, useEffect, useContext } from 'react';
+
+import { SplashScreen } from 'expo-router';
+import { useState, useEffect, useContext, useCallback } from 'react';
+
 import { ArrowLeft, UserPlus } from 'lucide-react-native';
 import * as Contacts from 'expo-contacts';
 import { supabase } from '@/lib/supabase';
@@ -37,9 +40,9 @@ export default function InviteScreen() {
     if (session?.user?.id) {
       loadContacts();
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, loadContacts]);
 
-  const loadContacts = async () => {
+  const loadContacts = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -84,27 +87,35 @@ export default function InviteScreen() {
       const currentUserPhone = currentUserData?.phone_number ? 
         normalizePhoneNumber(currentUserData.phone_number) : null;
 
-      // Get all app users to check if contacts are existing users
-      const { data: allAppUsers, error: allUsersError } = await supabase
-        .from('users')
-        .select('id, phone_number, first_name, last_name');
+      // Extract and normalize all phone numbers from device contacts
+      const allPhoneNumbers = deviceContacts
+        .map(contact => normalizePhoneNumber(contact.phoneNumber))
+        .filter(phone => phone && phone !== currentUserPhone); // Exclude current user's phone
 
-      if (allUsersError) {
-        console.error('Error fetching all app users:', allUsersError);
-      }
+      // Use RPC function to get existing users by phone numbers
+      let existingUsersMap = new Map();
+      if (allPhoneNumbers.length > 0) {
+        const { data: existingUsers, error: rpcError } = await supabase.rpc('get_users_by_phones', {
+          p_phone_numbers: allPhoneNumbers
+        });
 
-      // Create a map of normalized phone numbers to user data
-      const allAppUsersMap = new Map();
-      (allAppUsers || []).forEach(user => {
-        if (user.phone_number) {
-          const normalized = normalizePhoneNumber(user.phone_number);
-          allAppUsersMap.set(normalized, {
-            userId: user.id,
-            name: `${user.first_name} ${user.last_name}`,
-            isExistingUser: true
+        if (rpcError) {
+          console.error('Error calling get_users_by_phones:', rpcError);
+          setError('Ett fel uppstod vid sökning av användare');
+        } else {
+          // Create map of normalized phone numbers to user data
+          (existingUsers || []).forEach(user => {
+            if (user.phone_number) {
+              const normalized = normalizePhoneNumber(user.phone_number);
+              existingUsersMap.set(normalized, {
+                userId: user.id,
+                name: `${user.first_name} ${user.last_name}`,
+                isExistingUser: true
+              });
+            }
           });
         }
-      });
+      }
 
       // Get blocking relationships
       const [blockedByMeResult, blockedByThemResult] = await Promise.all([
@@ -163,7 +174,7 @@ export default function InviteScreen() {
       }>();
 
       // First, add blocking relationships (highest priority)
-      allAppUsersMap.forEach((userData, phoneNumber) => {
+      existingUsersMap.forEach((userData, phoneNumber) => {
         if (blockedByMe.has(userData.userId)) {
           detailedStatusMap.set(phoneNumber, {
             status: 'blocked_by_me',
@@ -215,7 +226,7 @@ export default function InviteScreen() {
       });
 
       // Finally, add app users who aren't connected, invited, or blocked (lowest priority)
-      allAppUsersMap.forEach((userData, phoneNumber) => {
+      existingUsersMap.forEach((userData, phoneNumber) => {
         if (!detailedStatusMap.has(phoneNumber) && phoneNumber !== currentUserPhone) {
           detailedStatusMap.set(phoneNumber, {
             status: 'in_app',
@@ -290,7 +301,42 @@ export default function InviteScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    console.log('Subscribing to villager connection updates for invites');
+    const filter = `sender_id=eq.${session.user.id}`;
+    const channel = supabase
+      .channel('public:villager_connections_invite')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'villager_connections', filter },
+        payload => {
+          console.log('Invite screen received UPDATE', payload);
+          if (payload.new.status === 'accepted' || payload.new.status === 'rejected') {
+            loadContacts();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'villager_connections', filter },
+        payload => {
+          console.log('Invite screen received INSERT', payload);
+          loadContacts();
+        }
+      )
+      .subscribe(status => {
+        console.log('Invite connection subscription status:', status);
+      });
+
+    return () => {
+      console.log('Unsubscribing from invite connection updates');
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id, loadContacts]);
 
   const handleBack = () => {
     router.back();

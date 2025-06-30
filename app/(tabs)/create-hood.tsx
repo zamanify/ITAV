@@ -110,6 +110,16 @@ export default function CreateHoodScreen() {
     }
   };
 
+
+  // Function to reset the form to initial state
+  const resetForm = () => {
+    setGroupName('');
+    setSearchQuery('');
+    setSelectedVillagers([]);
+    setError(null);
+  };
+
+
   // Don't render anything if fonts aren't loaded yet
   if (!fontsLoaded) {
     return null;
@@ -167,7 +177,11 @@ export default function CreateHoodScreen() {
         }
       }
 
-      router.back();
+      // Clear the form after successful creation
+      resetForm();
+
+      // Redirect to the "Dina hoods" screen
+      router.replace('/groups');
     } catch (err) {
       console.error('Error creating hood:', err);
       setError('Ett fel uppstod vid skapande av hood');

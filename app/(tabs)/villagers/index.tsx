@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platfo
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useEffect, useState, useContext } from 'react';
+import { useEffect, useState, useContext, useCallback } from 'react';
 import { ArrowLeft, UserPlus, MessageCircle, UserX, Check, X, UserCheck } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -69,19 +69,7 @@ export default function VillagersScreen() {
   const [messageModalVisible, setMessageModalVisible] = useState(false);
   const [selectedVillagerForMessage, setSelectedVillagerForMessage] = useState<{ id: string; name: string } | null>(null);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
-
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchVillagersAndRequests();
-    }
-  }, [session?.user?.id]);
-
-  const fetchVillagersAndRequests = async () => {
+  const fetchVillagersAndRequests = useCallback(async () => {
     if (!session?.user?.id) return;
 
     try {
@@ -243,7 +231,50 @@ export default function VillagersScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session?.user?.id]);
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchVillagersAndRequests();
+    }
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    console.log('Subscribing to villager connection changes');
+    const channel = supabase
+      .channel(`villager-connections-${session.user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'villager_connections' },
+        payload => {
+          if (
+            payload.new?.sender_id === session.user.id ||
+            payload.new?.receiver_id === session.user.id ||
+            payload.old?.sender_id === session.user.id ||
+            payload.old?.receiver_id === session.user.id
+          ) {
+            console.log('Villager connection change relevant to user', payload);
+            fetchVillagersAndRequests();
+          }
+        }
+      )
+      .subscribe(status => {
+        console.log('Villager connection subscription status:', status);
+      });
+
+    return () => {
+      console.log('Unsubscribing from villager connection changes');
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id, fetchVillagersAndRequests]);
+
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -565,6 +596,13 @@ export default function VillagersScreen() {
           <ArrowLeft color="#FF69B4" size={24} />
         </Pressable>
         <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
+        <Pressable
+          onPress={() => router.push('/invite')}
+          style={styles.headerInviteButton}
+          accessibilityLabel="Bjud in villagers"
+        >
+          <UserPlus color="#FF69B4" size={24} />
+        </Pressable>
       </View>
 
       {!isLoading && !error && (villagers.length > 0 || pendingRequests.length > 0 || sentRequests.length > 0 || blockedVillagers.length > 0) && (
@@ -790,6 +828,9 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginRight: 15,
+  },
+  headerInviteButton: {
+    marginLeft: 15,
   },
   headerTitle: {
     fontSize: 20,

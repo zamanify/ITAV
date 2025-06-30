@@ -1,18 +1,16 @@
 import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
-import { X, MessageCircle } from 'lucide-react-native';
+import { X, MessageSquare, Gift } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
-  villager: {
-    id: string;
-    name: string;
-  };
+  groupId: string;
+  groupName: string;
 };
 
-export default function VillagerMessageModal({ visible, onClose, villager }: Props) {
+export default function CreateRequestOfferModal({ visible, onClose, groupId, groupName }: Props) {
   const [fontsLoaded] = useFonts({
     'Unbounded-Regular': Unbounded_400Regular,
     'Unbounded-SemiBold': Unbounded_600SemiBold,
@@ -22,10 +20,22 @@ export default function VillagerMessageModal({ visible, onClose, villager }: Pro
     return null;
   }
 
-  const handleSendMessage = () => {
+  const handleCreateRequest = () => {
     onClose();
-    // Navigate directly to the chat screen with the villager
-    router.push(`/messages/${villager.id}`);
+    // Navigate to create request page with preselected hood
+    router.push({
+      pathname: '/create-request',
+      params: { preselectedHood: groupId }
+    });
+  };
+
+  const handleCreateOffer = () => {
+    onClose();
+    // Navigate to create offer page with preselected hood
+    router.push({
+      pathname: '/create-offer',
+      params: { preselectedHood: groupId }
+    });
   };
 
   return (
@@ -38,32 +48,41 @@ export default function VillagerMessageModal({ visible, onClose, villager }: Pro
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
           <View style={styles.header}>
-            <View style={styles.headerContent}>
-              <MessageCircle size={24} color="#FF69B4" />
-              <Text style={styles.headerTitle}>SKICKA MEDDELANDE</Text>
-            </View>
+            <Text style={styles.headerTitle}>SKAPA FÖRFRÅGAN</Text>
             <Pressable onPress={onClose} style={styles.closeButton}>
               <X color="#666" size={24} />
             </Pressable>
           </View>
 
-          <View style={styles.villagerInfo}>
-            <Text style={styles.villagerName}>{villager.name}</Text>
-            <Text style={styles.villagerSubtext}>
-              Öppna chatten med {villager.name.split(' ')[0]} för att skicka meddelanden
+          <View style={styles.groupInfo}>
+            <Text style={styles.groupName}>{groupName}</Text>
+            <Text style={styles.groupSubtext}>
+              Vad vill du skapa för denna grupp?
             </Text>
           </View>
 
-          <View style={styles.buttonContainer}>
-            <Pressable style={styles.messageButton} onPress={handleSendMessage}>
-              <View style={styles.buttonContent}>
-                <MessageCircle size={24} color="#FF69B4" />
-                <View style={styles.buttonTextContainer}>
-                  <Text style={styles.buttonTitle}>Öppna chat</Text>
-                  <Text style={styles.buttonSubtitle}>
-                    Skicka meddelanden till {villager.name.split(' ')[0]}
-                  </Text>
-                </View>
+          <View style={styles.optionsContainer}>
+            <Pressable style={styles.optionButton} onPress={handleCreateRequest}>
+              <View style={styles.optionIconContainer}>
+                <MessageSquare size={32} color="#FF69B4" />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>Skapa förfrågan</Text>
+                <Text style={styles.optionDescription}>
+                  Be om hjälp från medlemmarna i {groupName}
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable style={styles.optionButton} onPress={handleCreateOffer}>
+              <View style={styles.optionIconContainer}>
+                <Gift size={32} color="#87CEEB" />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>Skapa erbjudande</Text>
+                <Text style={styles.optionDescription}>
+                  Erbjud din hjälp till medlemmarna i {groupName}
+                </Text>
               </View>
             </Pressable>
           </View>
@@ -90,18 +109,13 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 40,
     paddingHorizontal: 20,
-    minHeight: 250,
+    minHeight: 400,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
   },
   headerTitle: {
     fontSize: 18,
@@ -111,49 +125,61 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 8,
   },
-  villagerInfo: {
+  groupInfo: {
     marginBottom: 30,
     paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
-  villagerName: {
+  groupName: {
     fontSize: 24,
-    color: '#FF69B4',
+    color: '#87CEEB',
     fontFamily: 'Unbounded-SemiBold',
     marginBottom: 8,
   },
-  villagerSubtext: {
+  groupSubtext: {
     fontSize: 16,
     color: '#666',
     fontFamily: 'Unbounded-Regular',
     lineHeight: 22,
   },
-  buttonContainer: {
-    marginBottom: 24,
+  optionsContainer: {
+    gap: 16,
+    marginBottom: 30,
   },
-  messageButton: {
-    backgroundColor: '#FFF8FC',
-    borderWidth: 2,
-    borderColor: '#FF69B4',
-    borderRadius: 16,
-    padding: 20,
-  },
-  buttonContent: {
+  optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderWidth: 2,
+    borderColor: '#E9ECEF',
+    borderRadius: 16,
+    padding: 20,
     gap: 16,
   },
-  buttonTextContainer: {
+  optionIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  optionContent: {
     flex: 1,
   },
-  buttonTitle: {
+  optionTitle: {
     fontSize: 18,
-    color: '#FF69B4',
+    color: '#333',
     fontFamily: 'Unbounded-SemiBold',
     marginBottom: 4,
   },
-  buttonSubtitle: {
+  optionDescription: {
     fontSize: 14,
     color: '#666',
     fontFamily: 'Unbounded-Regular',
