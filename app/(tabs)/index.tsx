@@ -76,46 +76,7 @@ export default function Dashboard() {
     }
   }, [fontsLoaded]);
 
-  // Auto-refresh dashboard when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      if (session?.user?.id) {
-        fetchDashboardData();
-      }
-    }, [session?.user?.id])
-  );
-
-  useEffect(() => {
-    if (!session?.user?.id) return;
-
-    console.log('Subscribing to dashboard request updates');
-    const channel = supabase
-      .channel(`dashboard-${session.user.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'requests' },
-        () => {
-          fetchDashboardData();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'request_responses' },
-        () => {
-          fetchDashboardData();
-        }
-      )
-      .subscribe(status => {
-        console.log('Dashboard subscription status:', status);
-      });
-
-    return () => {
-      console.log('Unsubscribing from dashboard request updates');
-      supabase.removeChannel(channel);
-    };
-  }, [session?.user?.id, fetchDashboardData]);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     if (!session?.user?.id) return;
 
     try {
@@ -454,7 +415,46 @@ export default function Dashboard() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session?.user?.id]);
+
+  // Auto-refresh dashboard when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (session?.user?.id) {
+        fetchDashboardData();
+      }
+    }, [session?.user?.id, fetchDashboardData])
+  );
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    console.log('Subscribing to dashboard request updates');
+    const channel = supabase
+      .channel(`dashboard-${session.user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'requests' },
+        () => {
+          fetchDashboardData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'request_responses' },
+        () => {
+          fetchDashboardData();
+        }
+      )
+      .subscribe(status => {
+        console.log('Dashboard subscription status:', status);
+      });
+
+    return () => {
+      console.log('Unsubscribing from dashboard request updates');
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id, fetchDashboardData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
