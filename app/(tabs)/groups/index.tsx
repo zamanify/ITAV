@@ -3,12 +3,13 @@ import { router, useFocusEffect } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
 import { useEffect, useState, useContext, useCallback } from 'react';
-import { ArrowLeft, Users, MessageCircle, Settings, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Users, MessageCircle, Plus, Trash2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../../components/AppFooter';
 import GroupMembersModal from '../../../components/GroupMembersModal';
 import GroupMessageModal from '../../../components/GroupMessageModal';
+import CreateRequestOfferModal from '../../../components/CreateRequestOfferModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,6 +36,8 @@ export default function GroupsScreen() {
   const [selectedGroup, setSelectedGroup] = useState<{ id: string; name: string } | null>(null);
   const [messageModalVisible, setMessageModalVisible] = useState(false);
   const [selectedGroupForMessage, setSelectedGroupForMessage] = useState<{ id: string; name: string } | null>(null);
+  const [createRequestOfferModalVisible, setCreateRequestOfferModalVisible] = useState(false);
+  const [selectedGroupForRequest, setSelectedGroupForRequest] = useState<{ id: string; name: string } | null>(null);
   
   // Group deletion state
   const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
@@ -171,6 +174,16 @@ export default function GroupsScreen() {
     setSelectedGroupForMessage(null);
   };
 
+  const handleCreateRequest = (group: Group) => {
+    setSelectedGroupForRequest({ id: group.id, name: group.name });
+    setCreateRequestOfferModalVisible(true);
+  };
+
+  const handleCloseCreateRequestModal = () => {
+    setCreateRequestOfferModalVisible(false);
+    setSelectedGroupForRequest(null);
+  };
+
   const handleDeleteGroupPress = (group: Group) => {
     setGroupToDelete(group);
     setShowDeleteConfirm(true);
@@ -239,12 +252,13 @@ export default function GroupsScreen() {
         <MessageCircle size={16} color="#666" />
         <Text style={styles.actionButtonText}>SKICKA{'\n'}MEDDELANDE</Text>
       </Pressable>
-      {group.isCreator && (
-        <Pressable style={styles.actionButton}>
-          <Settings size={16} color="#666" />
-          <Text style={styles.actionButtonText}>HANTERA{'\n'}GRUPP</Text>
-        </Pressable>
-      )}
+      <Pressable 
+        style={styles.actionButton}
+        onPress={() => handleCreateRequest(group)}
+      >
+        <Plus size={16} color="#666" />
+        <Text style={styles.actionButtonText}>SKAPA{'\n'}FÖRFRÅGAN</Text>
+      </Pressable>
     </View>
   );
 
@@ -367,6 +381,16 @@ export default function GroupsScreen() {
             visible={messageModalVisible}
             onClose={handleCloseMessageModal}
             group={selectedGroupForMessage}
+          />
+        )}
+
+        {/* Create Request/Offer Modal */}
+        {selectedGroupForRequest && (
+          <CreateRequestOfferModal
+            visible={createRequestOfferModalVisible}
+            onClose={handleCloseCreateRequestModal}
+            groupId={selectedGroupForRequest.id}
+            groupName={selectedGroupForRequest.name}
           />
         )}
 
