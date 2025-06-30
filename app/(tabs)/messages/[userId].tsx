@@ -17,6 +17,8 @@ type Message = {
   isRead: boolean;
   createdAt: string;
   viaGroupName?: string;
+  viaRequestTitle?: string;
+  viaIsOffer?: boolean;
 };
 
 type UserInfo = {
@@ -100,7 +102,9 @@ export default function ChatScreen() {
           message_text,
           is_read,
           created_at,
-          via_group:via_group_id(name)
+          via_group:via_group_id(name),
+          via_request_title,
+          via_is_offer
         `)
         .or(`and(sender_id.eq.${session.user.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${session.user.id})`)
         .order('created_at', { ascending: true });
@@ -118,7 +122,9 @@ export default function ChatScreen() {
         messageText: msg.message_text,
         isRead: msg.is_read,
         createdAt: msg.created_at,
-        viaGroupName: msg.via_group?.name
+        viaGroupName: msg.via_group?.name,
+        viaRequestTitle: msg.via_request_title,
+        viaIsOffer: msg.via_is_offer
       }));
 
       setMessages(messagesData);
@@ -281,6 +287,14 @@ export default function ChatScreen() {
                     isFromMe ? styles.myViaGroupText : styles.theirViaGroupText
                   ]}>
                     Via {message.viaGroupName}
+                  </Text>
+                )}
+                {message.viaRequestTitle && (
+                  <Text style={[
+                    styles.viaGroupText,
+                    isFromMe ? styles.myViaGroupText : styles.theirViaGroupText
+                  ]}>
+                    Via {message.viaIsOffer ? 'erbjudande' : 'förfrågan'}: {message.viaRequestTitle}
                   </Text>
                 )}
                 <Text style={[

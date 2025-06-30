@@ -160,6 +160,11 @@ export default function RequestOfferModal({ visible, onClose, data }: RequestOff
           id: data.senderId,
           name: data.senderName
         }}
+        requestInfo={{
+          id: data.id,
+          title: data.message,
+          isOffer: data.type === 'offer'
+        }}
       />
     </>
   );

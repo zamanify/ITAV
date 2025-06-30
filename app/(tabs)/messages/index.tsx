@@ -18,6 +18,8 @@ type Conversation = {
   isLatestFromMe: boolean;
   unreadCount: number;
   viaGroupName?: string;
+  viaRequestTitle?: string;
+  viaIsOffer?: boolean;
 };
 
 export default function MessagesScreen() {
@@ -68,7 +70,9 @@ export default function MessagesScreen() {
         latestMessageTime: formatMessageTime(conv.latest_message_time),
         isLatestFromMe: conv.is_latest_from_me,
         unreadCount: parseInt(conv.unread_count) || 0,
-        viaGroupName: conv.via_group_name
+        viaGroupName: conv.via_group_name,
+        viaRequestTitle: conv.via_request_title,
+        viaIsOffer: conv.via_is_offer
       }));
 
       setConversations(conversationsData);
@@ -180,6 +184,11 @@ export default function MessagesScreen() {
                   <Text style={styles.partnerName}>{conversation.partnerName}</Text>
                   {conversation.viaGroupName && (
                     <Text style={styles.viaGroupText}>Via {conversation.viaGroupName}</Text>
+                  )}
+                  {conversation.viaRequestTitle && (
+                    <Text style={styles.viaGroupText}>
+                      Via {conversation.viaIsOffer ? 'erbjudande' : 'förfrågan'}: {conversation.viaRequestTitle}
+                    </Text>
                   )}
                 </View>
                 <View style={styles.conversationMeta}>

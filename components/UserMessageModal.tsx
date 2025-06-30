@@ -13,9 +13,14 @@ type Props = {
     id: string;
     name: string;
   };
+  requestInfo?: {
+    id: string;
+    title: string;
+    isOffer: boolean;
+  };
 };
 
-export default function UserMessageModal({ visible, onClose, user }: Props) {
+export default function UserMessageModal({ visible, onClose, user, requestInfo }: Props) {
   const [fontsLoaded] = useFonts({
     'Unbounded-Regular': Unbounded_400Regular,
     'Unbounded-SemiBold': Unbounded_600SemiBold,
@@ -62,7 +67,10 @@ export default function UserMessageModal({ visible, onClose, user }: Props) {
           sender_id: session.user.id,
           receiver_id: user.id,
           message_text: message.trim(),
-          via_group_id: null // Direct message, not via group
+          via_group_id: null, // Direct message, not via group
+          via_request_id: requestInfo?.id || null, // Add the request ID if available
+          via_request_title: requestInfo?.title || null, // Add the request title if available
+          via_is_offer: requestInfo?.isOffer || null // Add whether it's an offer if available
         });
 
       if (insertError) {
@@ -118,6 +126,7 @@ export default function UserMessageModal({ visible, onClose, user }: Props) {
             <Text style={styles.userName}>{user.name}</Text>
             <Text style={styles.userSubtext}>
               Skicka ett meddelande till {user.name.split(' ')[0]}
+              {requestInfo ? ` angående ${requestInfo.isOffer ? 'erbjudandet' : 'förfrågan'}` : ''}
             </Text>
           </View>
 
