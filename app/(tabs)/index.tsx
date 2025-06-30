@@ -85,6 +85,36 @@ export default function Dashboard() {
     }, [session?.user?.id])
   );
 
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    console.log('Subscribing to dashboard request updates');
+    const channel = supabase
+      .channel(`dashboard-${session.user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'requests' },
+        () => {
+          fetchDashboardData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'request_responses' },
+        () => {
+          fetchDashboardData();
+        }
+      )
+      .subscribe(status => {
+        console.log('Dashboard subscription status:', status);
+      });
+
+    return () => {
+      console.log('Unsubscribing from dashboard request updates');
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id, fetchDashboardData]);
+
   const fetchDashboardData = async () => {
     if (!session?.user?.id) return;
 
