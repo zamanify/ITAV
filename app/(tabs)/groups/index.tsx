@@ -1,17 +1,17 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platform, ActivityIndicator } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
+
 import { SplashScreen } from 'expo-router';
 import { useEffect, useState, useContext, useCallback } from 'react';
 import { ArrowLeft, Users, MessageCircle, Plus, Trash2 } from 'lucide-react-native';
+
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../../components/AppFooter';
 import GroupMembersModal from '../../../components/GroupMembersModal';
 import GroupMessageModal from '../../../components/GroupMessageModal';
 import CreateRequestOfferModal from '../../../components/CreateRequestOfferModal';
-
-SplashScreen.preventAutoHideAsync();
 
 type Group = {
   id: string;
@@ -51,6 +51,7 @@ export default function GroupsScreen() {
   }, [fontsLoaded]);
 
   const fetchGroups = useCallback(async () => {
+
     if (!session?.user?.id) return;
 
     try {
@@ -146,6 +147,7 @@ export default function GroupsScreen() {
     }, [session?.user?.id, fetchGroups])
   );
 
+  // Don't render anything if fonts aren't loaded yet
   if (!fontsLoaded) {
     return null;
   }
