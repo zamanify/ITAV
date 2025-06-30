@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
-import { useEffect, useState, useContext } from 'react';
+import { useEffect, useState, useContext, useCallback } from 'react';
 import { ArrowLeft, Users, MessageCircle, Settings } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -42,13 +42,7 @@ export default function GroupsScreen() {
     }
   }, [fontsLoaded]);
 
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchGroups();
-    }
-  }, [session?.user?.id]);
-
-  const fetchGroups = async () => {
+  const fetchGroups = useCallback(async () => {
     if (!session?.user?.id) return;
 
     try {
@@ -133,7 +127,16 @@ export default function GroupsScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session?.user?.id]);
+
+  // Auto-refresh groups when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (session?.user?.id) {
+        fetchGroups();
+      }
+    }, [session?.user?.id, fetchGroups])
+  );
 
   if (!fontsLoaded) {
     return null;
