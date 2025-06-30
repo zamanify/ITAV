@@ -1,9 +1,9 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platform, ActivityIndicator } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
 import { useEffect, useState, useContext, useCallback } from 'react';
-import { ArrowLeft, Users, MessageCircle, Settings } from 'lucide-react-native';
+import { ArrowLeft, Users, MessageCircle, Settings, Trash2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../../components/AppFooter';
@@ -35,6 +35,11 @@ export default function GroupsScreen() {
   const [selectedGroup, setSelectedGroup] = useState<{ id: string; name: string } | null>(null);
   const [messageModalVisible, setMessageModalVisible] = useState(false);
   const [selectedGroupForMessage, setSelectedGroupForMessage] = useState<{ id: string; name: string } | null>(null);
+  
+  // Group deletion state
+  const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<Group | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -166,6 +171,54 @@ export default function GroupsScreen() {
     setSelectedGroupForMessage(null);
   };
 
+  const handleDeleteGroupPress = (group: Group) => {
+    setGroupToDelete(group);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!groupToDelete || !session?.user?.id || deletingGroupId) return;
+
+    const performDelete = async () => {
+      try {
+        setDeletingGroupId(groupToDelete.id);
+
+        // Delete the group (this will cascade delete group_members due to foreign key constraints)
+        const { error } = await supabase
+          .from('groups')
+          .delete()
+          .eq('id', groupToDelete.id)
+          .eq('created_by', session.user.id); // Ensure only creator can delete
+
+        if (error) {
+          console.error('Error deleting group:', error);
+          setError('Kunde inte ta bort gruppen. Försök igen.');
+          return;
+        }
+
+        // Remove group from local state
+        setGroups(prev => prev.filter(g => g.id !== groupToDelete.id));
+        
+        // Close confirmation modal
+        setShowDeleteConfirm(false);
+        setGroupToDelete(null);
+
+      } catch (err) {
+        console.error('Error deleting group:', err);
+        setError('Ett fel uppstod vid borttagning av grupp');
+      } finally {
+        setDeletingGroupId(null);
+      }
+    };
+
+    await performDelete();
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setGroupToDelete(null);
+  };
+
   const filteredGroups = groups.filter(group =>
     group.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -204,102 +257,154 @@ export default function GroupsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={handleBack} style={styles.backButton}>
-          <ArrowLeft color="#87CEEB" size={24} />
-        </Pressable>
-        <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
+    <>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable onPress={handleBack} style={styles.backButton}>
+            <ArrowLeft color="#87CEEB" size={24} />
+          </Pressable>
+          <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
+        </View>
+
+        {!isLoading && !error && groups.length > 0 && (
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Sök bland dina hoods"
+              placeholderTextColor="#999"
+            />
+          </View>
+        )}
+
+        <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+          {isLoading ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.loadingText}>Laddar dina hoods...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+              <Pressable style={styles.retryButton} onPress={fetchGroups}>
+                <Text style={styles.retryButtonText}>Försök igen</Text>
+              </Pressable>
+            </View>
+          ) : groups.length === 0 ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.emptyTitle}>Inga hoods än</Text>
+              <Text style={styles.emptyDescription}>
+                Du är inte medlem i några hoods ännu. Skapa din första hood eller vänta på en inbjudan!
+              </Text>
+              <Pressable 
+                style={styles.createButton} 
+                onPress={() => router.push('/create-hood')}
+              >
+                <Text style={styles.createButtonText}>Skapa din första hood</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              {filteredGroups.map((group) => (
+                <View key={group.id} style={styles.groupCard}>
+                  <View style={styles.groupCardHeader}>
+                    <View style={styles.groupHeader}>
+                      <Text style={styles.groupName}>{group.name}</Text>
+                    </View>
+                    {group.isCreator && (
+                      <Pressable 
+                        style={[styles.deleteButton, deletingGroupId === group.id && styles.deleteButtonDisabled]}
+                        onPress={() => handleDeleteGroupPress(group)}
+                        disabled={deletingGroupId === group.id}
+                      >
+                        {deletingGroupId === group.id ? (
+                          <ActivityIndicator size="small" color="#FF4444" />
+                        ) : (
+                          <Trash2 size={16} color="#FF4444" />
+                        )}
+                        <Text style={[styles.deleteButtonText, deletingGroupId === group.id && styles.deleteButtonTextDisabled]}>
+                          {deletingGroupId === group.id ? 'Tar bort...' : 'Ta bort'}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                  <View style={styles.groupDetails}>
+                    <Text style={styles.groupMemberCount}>
+                      {group.memberCount} medlemmar
+                    </Text>
+                    <Text style={styles.groupCreatedDate}>
+                      Skapad {group.createdAt}
+                    </Text>
+                  </View>
+                  {renderGroupActions(group)}
+                </View>
+              ))}
+              
+              {filteredGroups.length === 0 && searchQuery && (
+                <View style={styles.centerContainer}>
+                  <Text style={styles.noResultsText}>
+                    Inga hoods matchar "{searchQuery}"
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+        </ScrollView>
+
+        {/* Group Members Modal */}
+        {selectedGroup && (
+          <GroupMembersModal
+            visible={membersModalVisible}
+            onClose={handleCloseMembersModal}
+            groupId={selectedGroup.id}
+            groupName={selectedGroup.name}
+          />
+        )}
+
+        {/* Group Message Modal */}
+        {selectedGroupForMessage && (
+          <GroupMessageModal
+            visible={messageModalVisible}
+            onClose={handleCloseMessageModal}
+            group={selectedGroupForMessage}
+          />
+        )}
+
+        <AppFooter />
       </View>
 
-      {!isLoading && !error && groups.length > 0 && (
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Sök bland dina hoods"
-            placeholderTextColor="#999"
-          />
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && groupToDelete && (
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmModal}>
+            <Text style={styles.confirmTitle}>
+              Är du säker att du vill ta bort {groupToDelete.name} med {groupToDelete.memberCount} medlemmar?
+            </Text>
+            
+            <View style={styles.confirmButtons}>
+              <Pressable 
+                style={styles.confirmButtonNo}
+                onPress={handleCancelDelete}
+              >
+                <Text style={styles.confirmButtonNoText}>Nej</Text>
+              </Pressable>
+              
+              <Pressable 
+                style={[styles.confirmButtonYes, deletingGroupId && styles.confirmButtonYesDisabled]}
+                onPress={handleConfirmDelete}
+                disabled={!!deletingGroupId}
+              >
+                {deletingGroupId ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.confirmButtonYesText}>Ja</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
         </View>
       )}
-
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        {isLoading ? (
-          <View style={styles.centerContainer}>
-            <Text style={styles.loadingText}>Laddar dina hoods...</Text>
-          </View>
-        ) : error ? (
-          <View style={styles.centerContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Pressable style={styles.retryButton} onPress={fetchGroups}>
-              <Text style={styles.retryButtonText}>Försök igen</Text>
-            </Pressable>
-          </View>
-        ) : groups.length === 0 ? (
-          <View style={styles.centerContainer}>
-            <Text style={styles.emptyTitle}>Inga hoods än</Text>
-            <Text style={styles.emptyDescription}>
-              Du är inte medlem i några hoods ännu. Skapa din första hood eller vänta på en inbjudan!
-            </Text>
-            <Pressable 
-              style={styles.createButton} 
-              onPress={() => router.push('/create-hood')}
-            >
-              <Text style={styles.createButtonText}>Skapa din första hood</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <>
-            {filteredGroups.map((group) => (
-              <View key={group.id} style={styles.groupCard}>
-                <View style={styles.groupHeader}>
-                  <Text style={styles.groupName}>{group.name}</Text>
-                </View>
-                <View style={styles.groupDetails}>
-                  <Text style={styles.groupMemberCount}>
-                    {group.memberCount} medlemmar
-                  </Text>
-                  <Text style={styles.groupCreatedDate}>
-                    Skapad {group.createdAt}
-                  </Text>
-                </View>
-                {renderGroupActions(group)}
-              </View>
-            ))}
-            
-            {filteredGroups.length === 0 && searchQuery && (
-              <View style={styles.centerContainer}>
-                <Text style={styles.noResultsText}>
-                  Inga hoods matchar "{searchQuery}"
-                </Text>
-              </View>
-            )}
-          </>
-        )}
-      </ScrollView>
-
-      {/* Group Members Modal */}
-      {selectedGroup && (
-        <GroupMembersModal
-          visible={membersModalVisible}
-          onClose={handleCloseMembersModal}
-          groupId={selectedGroup.id}
-          groupName={selectedGroup.name}
-        />
-      )}
-
-      {/* Group Message Modal */}
-      {selectedGroupForMessage && (
-        <GroupMessageModal
-          visible={messageModalVisible}
-          onClose={handleCloseMessageModal}
-          group={selectedGroupForMessage}
-        />
-      )}
-
-      <AppFooter />
-    </View>
+    </>
   );
 }
 
@@ -415,13 +520,43 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
-  groupHeader: {
+  groupCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 8,
+  },
+  groupHeader: {
+    flex: 1,
   },
   groupName: {
     fontSize: 18,
     color: '#87CEEB',
     fontFamily: 'Unbounded-SemiBold',
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#FF4444',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    gap: 4,
+    minWidth: 70,
+    justifyContent: 'center',
+  },
+  deleteButtonDisabled: {
+    opacity: 0.6,
+  },
+  deleteButtonText: {
+    color: '#FF4444',
+    fontSize: 10,
+    fontFamily: 'Unbounded-Regular',
+  },
+  deleteButtonTextDisabled: {
+    color: '#999',
   },
   groupDetails: {
     flexDirection: 'row',
@@ -462,5 +597,72 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontFamily: 'Unbounded-Regular',
     lineHeight: 10,
+  },
+  // Confirmation Modal Styles
+  confirmOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    zIndex: 1000,
+  },
+  confirmModal: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  confirmTitle: {
+    fontSize: 18,
+    color: '#333',
+    fontFamily: 'Unbounded-SemiBold',
+    textAlign: 'center',
+    lineHeight: 26,
+    marginBottom: 32,
+  },
+  confirmButtons: {
+    flexDirection: 'column',
+    gap: 12,
+    width: '100%',
+  },
+  confirmButtonNo: {
+    backgroundColor: '#87CEEB',
+    borderRadius: 25,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    minHeight: 56,
+    justifyContent: 'center',
+  },
+  confirmButtonNoText: {
+    color: 'white',
+    fontSize: 16,
+    fontFamily: 'Unbounded-SemiBold',
+  },
+  confirmButtonYes: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#FF4444',
+    borderRadius: 25,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    minHeight: 56,
+    justifyContent: 'center',
+  },
+  confirmButtonYesDisabled: {
+    opacity: 0.6,
+  },
+  confirmButtonYesText: {
+    color: '#FF4444',
+    fontSize: 16,
+    fontFamily: 'Unbounded-SemiBold',
   },
 });
