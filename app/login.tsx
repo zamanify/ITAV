@@ -70,7 +70,7 @@ export default function LoginScreen() {
   };
 
   const handleForgotPassword = () => {
-    // Will implement forgot password functionality later
+    router.push("/forgotPassword");
   };
 
   return (
