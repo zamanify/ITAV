@@ -47,7 +47,7 @@ export default function ForgotPasswordScreen() {
       setSuccess(false);
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://courageous-dolphin-14c910.netlify.app/updatePassword',
+        redirectTo: 'https://relaxed-madeleine-590801.netlify.app/updatePassword',
       });
 
       if (error) {
