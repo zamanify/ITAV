@@ -1,0 +1,8 @@
+# Netlify configuration file
+
+# This redirect rule tells Netlify to serve the index.html for any path
+# This allows the client-side router (Expo Router) to handle the routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
