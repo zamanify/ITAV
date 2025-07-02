@@ -47,17 +47,17 @@ export default function ForgotPasswordScreen() {
       setSuccess(false);
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'myapp://updatePassword',
+        redirectTo: 'https://courageous-dolphin-14c910.netlify.app/updatePassword',
       });
 
       if (error) {
-        setError('Kunde inte skicka l\u00e4nk.');
+        setError('Kunde inte skicka länk.');
         return;
       }
 
       setSuccess(true);
     } catch (err) {
-      setError('N\u00e5got gick fel. F\u00f6rs\u00f6k igen.');
+      setError('Något gick fel. Försök igen.');
     } finally {
       setIsLoading(false);
     }
@@ -72,7 +72,7 @@ export default function ForgotPasswordScreen() {
         <Image source={require('../assets/images/Logo_ITAV.png')} style={styles.logo} />
       </View>
 
-      <Text style={styles.title}>Gl\u00f6mt l\u00f6senord?</Text>
+      <Text style={styles.title}>Glömt lösenord?</Text>
 
       <View style={styles.form}>
         <View style={styles.inputContainer}>
@@ -92,8 +92,7 @@ export default function ForgotPasswordScreen() {
         {error && <Text style={styles.errorText}>{error}</Text>}
         {success && (
           <Text style={styles.successText}>
-            Kontrollera din e-post f\u00f6r l\u00e4nk f\u00f6r att \u00e5terst\u00e4lla
-            l\u00f6senordet.
+            Kontrollera din e-post för länk för att återställa lösenordet.
           </Text>
         )}
 
@@ -103,7 +102,7 @@ export default function ForgotPasswordScreen() {
           disabled={!isValid || isLoading}
         >
           <Text style={[styles.buttonText, (!isValid || isLoading) && styles.buttonTextDisabled]}>
-            {isLoading ? 'Skickar...' : '\u00c5terst\u00e4ll l\u00f6senord'}
+            {isLoading ? 'Skickar...' : 'Återställ lösenord'}
           </Text>
         </Pressable>
       </View>

@@ -49,14 +49,14 @@ export default function UpdatePasswordScreen() {
 
       const { error } = await supabase.auth.updateUser({ password });
       if (error) {
-        setError('Kunde inte uppdatera l\u00f6senordet.');
+        setError('Kunde inte uppdatera lösenordet.');
         return;
       }
 
       setSuccess(true);
       router.replace('/login');
     } catch (err) {
-      setError('N\u00e5got gick fel. F\u00f6rs\u00f6k igen.');
+      setError('Något gick fel. Försök igen.');
     } finally {
       setIsLoading(false);
     }
@@ -71,11 +71,11 @@ export default function UpdatePasswordScreen() {
         <Image source={require('../assets/images/Logo_ITAV.png')} style={styles.logo} />
       </View>
 
-      <Text style={styles.title}>Ny l\u00f6senord</Text>
+      <Text style={styles.title}>Nytt lösenord</Text>
 
       <View style={styles.form}>
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>L\u00d6SENORD</Text>
+          <Text style={styles.label}>LÖSENORD</Text>
           <TextInput
             style={styles.input}
             value={password}
@@ -87,12 +87,12 @@ export default function UpdatePasswordScreen() {
           />
         </View>
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>BEKR\u00c4FTA L\u00d6SENORD</Text>
+          <Text style={styles.label}>BEKRÄFTA LÖSENORD</Text>
           <TextInput
             style={styles.input}
             value={confirm}
             onChangeText={setConfirm}
-            placeholder="Upprepa l\u00f6senord"
+            placeholder="Upprepa lösenord"
             placeholderTextColor="#999"
             secureTextEntry
             autoCapitalize="none"
@@ -100,7 +100,7 @@ export default function UpdatePasswordScreen() {
         </View>
 
         {error && <Text style={styles.errorText}>{error}</Text>}
-        {success && <Text style={styles.successText}>L\u00f6senordet uppdaterat.</Text>}
+        {success && <Text style={styles.successText}>Lösenordet uppdaterat.</Text>}
 
         <Pressable
           style={[styles.button, (!isValid || isLoading) && styles.buttonDisabled]}
@@ -108,7 +108,7 @@ export default function UpdatePasswordScreen() {
           disabled={!isValid || isLoading}
         >
           <Text style={[styles.buttonText, (!isValid || isLoading) && styles.buttonTextDisabled]}>
-            {isLoading ? 'Sparar...' : 'Spara l\u00f6senord'}
+            {isLoading ? 'Sparar...' : 'Spara lösenord'}
           </Text>
         </Pressable>
       </View>
