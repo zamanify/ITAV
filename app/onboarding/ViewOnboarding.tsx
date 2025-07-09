@@ -1,4 +1,4 @@
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRight } from "lucide-react-native";
 import React from "react";
 import { Button } from "../../components/ui/button";
 import { Checkbox } from "../../components/ui/checkbox";
@@ -191,7 +191,7 @@ export const ViewOnboarding = (): JSX.Element => {
                   </div>
                 </div>
                 <div className="inline-flex items-center gap-2.5 relative">
-                  <ArrowRightIcon className="w-[26px] h-[26px] text-white" />
+                  <ArrowRight size={26} color="white" />
                 </div>
               </Button>
             </div>
