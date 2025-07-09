@@ -320,9 +320,9 @@ export default function OnboardingStep1() {
                   onPress={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff color="#666\" size={16} />
+                    <EyeOff color="#666" size={16} />
                   ) : (
-                    <Eye color="#666\" size={16} />
+                    <Eye color="#666" size={16} />
                   )}
                 </Pressable>
               </View>
@@ -382,7 +382,6 @@ export default function OnboardingStep1() {
             </View>
           </View>
 
-          <Pressable 
           <Pressable 
             style={styles.checkboxContainer} 
             onPress={() => {
