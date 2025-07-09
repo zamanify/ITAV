@@ -1,10 +1,13 @@
 import { ArrowRight } from "lucide-react-native";
-import React from "react";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ScrollView, Image } from "react-native";
 import { Button } from "../../components/ui/button";
 import { Checkbox } from "../../components/ui/checkbox";
 import { Separator } from "../../components/ui/separator";
 
 export const ViewOnboarding = (): JSX.Element => {
+  const [gdprAccepted, setGdprAccepted] = useState(false);
+
   // Progress steps data
   const progressSteps = [
     { id: "person", label: "Person", step: "1/3", active: true },
@@ -33,171 +36,432 @@ export const ViewOnboarding = (): JSX.Element => {
   ];
 
   return (
-    <div className="flex flex-col items-start relative bg-m-3white min-h-screen">
+    <View style={styles.container}>
       {/* Status bar */}
-      <div className="flex flex-col items-start gap-2.5 relative self-stretch w-full">
-        <div className="flex h-[52px] items-end justify-between px-6 py-2.5 relative self-stretch w-full">
-          <div className="relative w-fit [font-family:'Roboto',Helvetica] font-medium text-m3syslighton-surface text-sm tracking-[0.14px] leading-5 whitespace-nowrap">
-            9:30
-          </div>
-
-          <div className="relative w-[46px] h-[17px]">
-            <div className="w-[33px] top-0 left-0 absolute h-[17px]">
-              <div className="absolute w-[17px] h-[17px] top-0 left-0">
-                <img
-                  className="h-3.5 top-px absolute w-[17px] left-0"
-                  alt="Signal icon"
-                  src="/path.svg"
-                />
-              </div>
-
-              <img
-                className="absolute w-[17px] h-[17px] top-0 left-4"
-                alt="Signal"
-                src="/signal.png"
+      <View style={styles.statusBar}>
+        <View style={styles.statusBarContent}>
+          <Text style={styles.timeText}>9:30</Text>
+          
+          <View style={styles.statusIcons}>
+            <View style={styles.signalContainer}>
+              <Image
+                style={styles.signalIcon}
+                source={{ uri: "https://images.pexels.com/photos/1000445/pexels-photo-1000445.jpeg?auto=compress&cs=tinysrgb&w=17&h=14" }}
               />
-            </div>
-
-            <img
-              className="absolute w-2 h-[15px] top-px left-[38px]"
-              alt="Battery"
-              src="/battery.svg"
+              <Image
+                style={styles.signalIcon}
+                source={{ uri: "https://images.pexels.com/photos/1000445/pexels-photo-1000445.jpeg?auto=compress&cs=tinysrgb&w=17&h=17" }}
+              />
+            </View>
+            <Image
+              style={styles.batteryIcon}
+              source={{ uri: "https://images.pexels.com/photos/1000445/pexels-photo-1000445.jpeg?auto=compress&cs=tinysrgb&w=8&h=15" }}
             />
-          </div>
+          </View>
 
-          <img
-            className="absolute w-6 h-6 top-[18px] left-[183px]"
-            alt="Camera cutout"
-            src="/camera-cutout.svg"
+          <Image
+            style={styles.cameraIcon}
+            source={{ uri: "https://images.pexels.com/photos/1000445/pexels-photo-1000445.jpeg?auto=compress&cs=tinysrgb&w=24&h=24" }}
           />
-        </div>
-      </div>
+        </View>
+      </View>
 
       {/* Header with logo and menu */}
-      <div className="flex items-end gap-[25px] p-4 relative self-stretch w-full">
-        <div className="flex items-center gap-4 relative flex-1 grow">
-          <div className="flex flex-col w-[120px] items-start gap-2.5 h-[55px] relative">
-            <img
-              className="self-stretch w-full object-cover h-[55px] relative"
-              alt="Logo"
-              src="/logo.png"
-            />
-          </div>
-        </div>
+      <View style={styles.header}>
+        <View style={styles.logoContainer}>
+          <Image
+            style={styles.logo}
+            source={{ uri: "https://images.pexels.com/photos/1000445/pexels-photo-1000445.jpeg?auto=compress&cs=tinysrgb&w=120&h=55" }}
+          />
+        </View>
 
         {/* Hamburger menu */}
-        <div className="inline-flex flex-col items-start gap-[5px] relative">
-          <div className="relative w-[22px] h-[3px] bg-[#001f27] rounded-[100px]" />
-          <div className="relative w-[22px] h-[3px] bg-[#001f27] rounded-[100px]" />
-          <div className="relative w-[22px] h-[3px] bg-[#001f27] rounded-[100px]" />
-        </div>
-      </div>
+        <View style={styles.hamburgerMenu}>
+          <View style={styles.hamburgerLine} />
+          <View style={styles.hamburgerLine} />
+          <View style={styles.hamburgerLine} />
+        </View>
+      </View>
 
       {/* Main content */}
-      <div className="flex flex-col items-start justify-end gap-4 pt-4 pb-0 px-4 relative self-stretch w-full flex-1">
-        <div className="flex flex-col items-start gap-7 pt-5 pb-6 px-5 relative self-stretch w-full rounded-[40px_40px_0px_0px] bg-[linear-gradient(180deg,rgba(3,193,222,1)_0%,rgba(149,0,194,1)_100%)]">
+      <View style={styles.mainContent}>
+        <View style={styles.contentCard}>
           {/* Heading */}
-          <div className="flex items-start gap-2 relative self-stretch w-full">
-            <div className="flex items-center gap-2.5 relative flex-1">
-              <h1 className="relative flex-1 mt-[-1.00px] [font-family:'Helvetica_Neue-Bold',Helvetica] font-bold text-white text-[38px] tracking-[0] leading-10">
-                Först, några <br />
-                snabba frågor.
-              </h1>
-            </div>
-          </div>
+          <View style={styles.headingContainer}>
+            <Text style={styles.heading}>
+              Först, några {'\n'}
+              snabba frågor.
+            </Text>
+          </View>
 
           {/* Progress tabs */}
-          <div className="flex-col items-start gap-2.5 flex relative self-stretch w-full">
-            <div className="items-center gap-1.5 flex relative self-stretch w-full">
+          <View style={styles.progressContainer}>
+            <View style={styles.progressTabs}>
               {progressSteps.map((step, index) => (
-                <div
-                  key={step.id}
-                  className="flex flex-col items-start gap-1 relative flex-1"
-                >
-                  <div
-                    className={`relative w-fit mt-[-1.00px] [font-family:'Helvetica_Neue-Bold',Helvetica] font-bold ${step.active ? "text-[#02f1e7]" : "text-white"} text-sm text-center tracking-[0] leading-[17px] whitespace-nowrap`}
-                  >
+                <View key={step.id} style={styles.progressStep}>
+                  <Text style={[
+                    styles.progressLabel,
+                    step.active ? styles.progressLabelActive : styles.progressLabelInactive
+                  ]}>
                     {step.label} {step.step}
-                  </div>
-                  <div
-                    className={`${step.active ? "bg-[#02f1e7]" : "bg-white"} relative self-stretch w-full h-1.5`}
-                  />
-                </div>
+                  </Text>
+                  <View style={[
+                    styles.progressBar,
+                    step.active ? styles.progressBarActive : styles.progressBarInactive
+                  ]} />
+                </View>
               ))}
-            </div>
-          </div>
+            </View>
+          </View>
 
           {/* Form fields */}
-          <div className="flex flex-col items-start gap-5 relative self-stretch w-full">
-            <div className="flex-col items-start gap-3.5 flex relative self-stretch w-full">
+          <ScrollView style={styles.formContainer}>
+            <View style={styles.formFields}>
               {formFields.map((row, rowIndex) => (
-                <div
-                  key={`row-${rowIndex}`}
-                  className="items-start gap-2.5 flex relative self-stretch w-full"
-                >
+                <View key={`row-${rowIndex}`} style={styles.formRow}>
                   {row.map((field, fieldIndex) => (
-                    <div
-                      key={`field-${rowIndex}-${fieldIndex}`}
-                      className="flex flex-col items-start gap-2.5 relative flex-1"
-                    >
-                      <div className="flex flex-col items-start justify-center gap-[35px] relative self-stretch w-full">
-                        <div className="relative w-fit mt-[-1.00px] [font-family:'Helvetica_Neue-Bold',Helvetica] font-bold text-white text-xl tracking-[0] leading-5 whitespace-nowrap">
-                          {field.label}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2.5 relative self-stretch w-full">
-                        <Separator
-                          orientation="vertical"
-                          className="relative w-0.5 h-[47px] bg-white"
-                        />
-                        <div className="h-5 whitespace-nowrap overflow-hidden text-ellipsis [display:-webkit-box] [-webkit-line-clamp:1] [-webkit-box-orient:vertical] relative flex-1 [font-family:'Helvetica_Neue-Light',Helvetica] font-light text-[#ffffff80] text-3xl tracking-[0] leading-5">
-                          {field.value}
-                        </div>
-                      </div>
-                    </div>
+                    <View key={`field-${rowIndex}-${fieldIndex}`} style={styles.fieldContainer}>
+                      <View style={styles.fieldLabelContainer}>
+                        <Text style={styles.fieldLabel}>{field.label}</Text>
+                      </View>
+                      <View style={styles.fieldValueContainer}>
+                        <Separator orientation="vertical" style={styles.fieldSeparator} />
+                        <Text style={styles.fieldValue}>{field.value}</Text>
+                      </View>
+                    </View>
                   ))}
-                </div>
+                </View>
               ))}
 
               {/* GDPR Checkbox */}
-              <div className="items-center gap-3.5 pt-4 pb-8 px-0 flex relative self-stretch w-full">
+              <View style={styles.gdprContainer}>
                 <Checkbox
                   id="gdpr"
-                  className="relative w-[33px] h-[33px] border-2 border-solid border-white rounded-none"
+                  checked={gdprAccepted}
+                  onCheckedChange={setGdprAccepted}
+                  className={styles.gdprCheckbox}
                 />
-                <label
-                  htmlFor="gdpr"
-                  className="relative w-[348px] h-[33px] mt-[-1.00px] mr-[-77.00px] [font-family:'Helvetica_Neue-Light',Helvetica] font-light text-white text-[15px] tracking-[0] leading-[25px]"
-                >
-                  <span className="[font-family:'Helvetica_Neue-Light',Helvetica] font-light text-white text-[15px] tracking-[0] leading-[25px]">
-                    Jag godkänner{" "}
-                  </span>
-                  <span className="underline">GDPR </span>
-                  <span className="[font-family:'Helvetica_Neue-Light',Helvetica] font-light text-white text-[15px] tracking-[0] leading-[25px]">
-                    och{" "}
-                  </span>
-                  <span className="underline">integritetspolicy</span>
-                </label>
-              </div>
+                <Text style={styles.gdprText}>
+                  <Text style={styles.gdprNormalText}>Jag godkänner </Text>
+                  <Text style={styles.gdprUnderlineText}>GDPR </Text>
+                  <Text style={styles.gdprNormalText}>och </Text>
+                  <Text style={styles.gdprUnderlineText}>integritetspolicy</Text>
+                </Text>
+              </View>
 
               {/* Submit button */}
               <Button
                 variant="outline"
-                className="flex items-center justify-center gap-2.5 px-5 py-4 relative self-stretch w-full rounded-[56px] border-2 border-solid border-white bg-transparent h-auto"
+                onPress={() => console.log('Form submitted')}
+                style={styles.submitButton}
               >
-                <div className="flex items-center justify-center gap-2.5 relative flex-1">
-                  <div className="relative flex-1 h-6 mt-[-1.00px] [font-family:'Helvetica_Neue-Bold',Helvetica] font-bold text-white text-xl tracking-[0] leading-5 whitespace-nowrap">
-                    Fyll i för att gå vidare
-                  </div>
-                </div>
-                <div className="inline-flex items-center gap-2.5 relative">
+                <View style={styles.buttonContent}>
+                  <Text style={styles.buttonText}>Fyll i för att gå vidare</Text>
                   <ArrowRight size={26} color="white" />
-                </div>
+                </View>
               </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    minHeight: '100%',
+  },
+  statusBar: {
+    width: '100%',
+  },
+  statusBarContent: {
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    position: 'relative',
+  },
+  timeText: {
+    fontFamily: 'Roboto',
+    fontWeight: '500',
+    color: '#000000',
+    fontSize: 14,
+    letterSpacing: 0.14,
+    lineHeight: 20,
+  },
+  statusIcons: {
+    width: 46,
+    height: 17,
+    position: 'relative',
+  },
+  signalContainer: {
+    width: 33,
+    height: 17,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    flexDirection: 'row',
+  },
+  signalIcon: {
+    width: 17,
+    height: 17,
+    marginRight: 4,
+  },
+  batteryIcon: {
+    width: 8,
+    height: 15,
+    position: 'absolute',
+    top: 1,
+    right: 0,
+  },
+  cameraIcon: {
+    width: 24,
+    height: 24,
+    position: 'absolute',
+    top: 18,
+    left: '50%',
+    marginLeft: -12,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 25,
+  },
+  logoContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  logo: {
+    width: 120,
+    height: 55,
+    resizeMode: 'cover',
+  },
+  hamburgerMenu: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 5,
+  },
+  hamburgerLine: {
+    width: 22,
+    height: 3,
+    backgroundColor: '#001f27',
+    borderRadius: 100,
+  },
+  mainContent: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    gap: 16,
+    paddingTop: 16,
+    paddingHorizontal: 16,
+  },
+  contentCard: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 28,
+    paddingTop: 20,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    backgroundColor: 'transparent',
+    backgroundImage: 'linear-gradient(180deg, rgba(3,193,222,1) 0%, rgba(149,0,194,1) 100%)',
+  },
+  headingContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  heading: {
+    flex: 1,
+    fontFamily: 'Helvetica_Neue-Bold',
+    fontWeight: 'bold',
+    color: 'white',
+    fontSize: 38,
+    lineHeight: 40,
+    marginTop: -1,
+  },
+  progressContainer: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  progressTabs: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  progressStep: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  progressLabel: {
+    fontFamily: 'Helvetica_Neue-Bold',
+    fontWeight: 'bold',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 17,
+    marginTop: -1,
+  },
+  progressLabelActive: {
+    color: '#02f1e7',
+  },
+  progressLabelInactive: {
+    color: 'white',
+  },
+  progressBar: {
+    width: '100%',
+    height: 6,
+  },
+  progressBarActive: {
+    backgroundColor: '#02f1e7',
+  },
+  progressBarInactive: {
+    backgroundColor: 'white',
+  },
+  formContainer: {
+    width: '100%',
+    flex: 1,
+  },
+  formFields: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 20,
+  },
+  formRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  fieldContainer: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  fieldLabelContainer: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    gap: 35,
+  },
+  fieldLabel: {
+    fontFamily: 'Helvetica_Neue-Bold',
+    fontWeight: 'bold',
+    color: 'white',
+    fontSize: 20,
+    lineHeight: 20,
+    marginTop: -1,
+  },
+  fieldValueContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  fieldSeparator: {
+    width: 2,
+    height: 47,
+    backgroundColor: 'white',
+  },
+  fieldValue: {
+    flex: 1,
+    fontFamily: 'Helvetica_Neue-Light',
+    fontWeight: '300',
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 24,
+    lineHeight: 20,
+    height: 20,
+  },
+  gdprContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  gdprCheckbox: {
+    width: 33,
+    height: 33,
+    borderWidth: 2,
+    borderColor: 'white',
+    borderRadius: 0,
+  },
+  gdprText: {
+    width: 348,
+    height: 33,
+    marginTop: -1,
+    marginRight: -77,
+  },
+  gdprNormalText: {
+    fontFamily: 'Helvetica_Neue-Light',
+    fontWeight: '300',
+    color: 'white',
+    fontSize: 15,
+    lineHeight: 25,
+  },
+  gdprUnderlineText: {
+    fontFamily: 'Helvetica_Neue-Light',
+    fontWeight: '300',
+    color: 'white',
+    fontSize: 15,
+    lineHeight: 25,
+    textDecorationLine: 'underline',
+  },
+  submitButton: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 56,
+    borderWidth: 2,
+    borderColor: 'white',
+    backgroundColor: 'transparent',
+    minHeight: 'auto',
+  },
+  buttonContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  buttonText: {
+    flex: 1,
+    fontFamily: 'Helvetica_Neue-Bold',
+    fontWeight: 'bold',
+    color: 'white',
+    fontSize: 20,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: -1,
+  },
+});
+
+export default ViewOnboarding;
