@@ -1,12 +1,12 @@
 import { View, Text, StyleSheet, TextInput, Pressable, Image, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Link, router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { SplashScreen } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { ArrowRight, Check } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { normalizePhoneNumber } from '@/lib/phone';
+import { LinearGradient } from 'expo-linear-gradient';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -15,11 +15,9 @@ type ValidationErrors = {
 };
 
 export default function OnboardingStep1() {
-  const [fontsLoaded, fontError] = useFonts({
+  const [fontsLoaded] = useFonts({
     'Unbounded-Regular': Unbounded_400Regular,
     'Unbounded-SemiBold': Unbounded_600SemiBold,
-    'Poppins-Regular': Poppins_400Regular,
-    'Poppins-SemiBold': Poppins_600SemiBold,
   });
 
   const [formData, setFormData] = useState({
@@ -39,12 +37,12 @@ export default function OnboardingStep1() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsLoaded]);
 
-  if (!fontsLoaded && !fontError) {
+  if (!fontsLoaded) {
     return null;
   }
 
@@ -223,406 +221,452 @@ export default function OnboardingStep1() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.mainContainer}
-    >
+    <View style={styles.container}>
+      {/* Status bar */}
+      <View style={styles.statusBar}>
+        <View style={styles.statusBarContent}>
+          <Text style={styles.statusBarTime}>9:30</Text>
+          <View style={styles.statusBarIcons}></View>
+        </View>
+      </View>
+
+      {/* Header with logo and menu */}
       <View style={styles.header}>
-        <Image 
-          source={require('../../assets/images/logo.png')}
-          style={styles.logo}
-        />
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('../../assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
+        
+        {/* Hamburger menu */}
+        <View style={styles.menuContainer}>
+          <View style={styles.menuLine} />
+          <View style={styles.menuLine} />
+          <View style={styles.menuLine} />
+        </View>
       </View>
 
-      <View style={styles.titleContainer}>
-        <Text style={styles.title}>Först, några{'\n'}snabba frågor.</Text>
-        <Image 
-          source={require('../../assets/images/image.png')}
-          style={styles.titleIcon}
-        />
-      </View>
-
-      <View style={styles.progressContainer}>
-        <View style={styles.progressStep}>
-          <Text style={styles.stepText}>STEG 1:{'\n'}PERSON</Text>
-          <View style={[styles.progressBar, styles.activeStep]} />
-        </View>
-        <View style={styles.progressStep}>
-          <Text style={styles.stepText}>STEG 2:{'\n'}VÄNNER</Text>
-          <View style={styles.progressBar} />
-        </View>
-        <View style={styles.progressStep}>
-          <Text style={styles.stepText}>STEG 3:{'\n'}GRUPPER</Text>
-          <View style={styles.progressBar} />
-        </View>
-      </View>
-      
-      <View style={styles.container}>
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+      {/* Main content */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.mainContent}
       >
-        <View style={styles.form}>
-          <View style={styles.row}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>FÖRNAMN*</Text>
-              <TextInput 
-                style={[styles.input, fieldErrors.firstName && styles.inputError]}
-                value={formData.firstName}
-                onChangeText={(value) => handleInputChange('firstName', value)}
-                placeholder="Ditt förnamn"
-                placeholderTextColor="#999"
-              />
-              {renderError('firstName')}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <LinearGradient
+            colors={['rgba(3,193,222,1)', 'rgba(149,0,194,1)']}
+            style={styles.gradientContainer}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+          >
+            {/* Heading */}
+            <View style={styles.headingContainer}>
+              <Text style={styles.heading}>
+                Först, några{'\n'}
+                snabba frågor.
+              </Text>
             </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>EFTERNAMN*</Text>
-              <TextInput 
-                style={[styles.input, fieldErrors.lastName && styles.inputError]}
-                value={formData.lastName}
-                onChangeText={(value) => handleInputChange('lastName', value)}
-                placeholder="Ditt efternamn"
-                placeholderTextColor="#999"
-              />
-              {renderError('lastName')}
-            </View>
-          </View>
 
-          <View style={styles.row}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>E-POST*</Text>
-              <TextInput 
-                style={[styles.input, fieldErrors.email && styles.inputError]}
-                keyboardType="email-address"
-                value={formData.email}
-                onChangeText={(value) => handleInputChange('email', value)}
-                placeholder="Din e-postadress"
-                placeholderTextColor="#999"
-                autoCapitalize="none"
-              />
-              {renderError('email')}
+            {/* Progress tabs */}
+            <View style={styles.progressContainer}>
+              <View style={styles.progressSteps}>
+                <View style={styles.progressStep}>
+                  <Text style={styles.progressStepTextActive}>Person 1/3</Text>
+                  <View style={styles.progressBarActive} />
+                </View>
+                <View style={styles.progressStep}>
+                  <Text style={styles.progressStepText}>Vänner 2/3</Text>
+                  <View style={styles.progressBar} />
+                </View>
+                <View style={styles.progressStep}>
+                  <Text style={styles.progressStepText}>Grupper 3/3</Text>
+                  <View style={styles.progressBar} />
+                </View>
+              </View>
             </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>LÖSENORD*</Text>
-              <View style={[styles.passwordContainer, fieldErrors.password && styles.inputError]}>
-                <TextInput 
-                  style={styles.passwordInput}
-                  secureTextEntry={!showPassword}
-                  value={formData.password}
-                  onChangeText={(value) => handleInputChange('password', value)}
-                  placeholder="Minst 6 tecken"
-                  placeholderTextColor="#999"
-                  autoCapitalize="none"
-                />
+
+            {/* Form fields */}
+            <View style={styles.formContainer}>
+              {/* Row 1: First Name and Last Name */}
+              <View style={styles.formRow}>
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>Förnamn</Text>
+                  <View style={styles.inputWrapper}>
+                    <View style={styles.inputSeparator} />
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={formData.firstName}
+                      onChangeText={(value) => handleInputChange('firstName', value)}
+                      placeholder="Ditt förnamn"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    />
+                  </View>
+                  {renderError('firstName')}
+                </View>
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>Efternamn</Text>
+                  <View style={styles.inputWrapper}>
+                    <View style={styles.inputSeparator} />
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={formData.lastName}
+                      onChangeText={(value) => handleInputChange('lastName', value)}
+                      placeholder="Ditt efternamn"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    />
+                  </View>
+                  {renderError('lastName')}
+                </View>
+              </View>
+
+              {/* Row 2: Street Address and Postal Code */}
+              <View style={styles.formRow}>
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>Gatuadress</Text>
+                  <View style={styles.inputWrapper}>
+                    <View style={styles.inputSeparator} />
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={formData.streetAddress}
+                      onChangeText={(value) => handleInputChange('streetAddress', value)}
+                      placeholder="Din gatuadress"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    />
+                  </View>
+                  {renderError('streetAddress')}
+                </View>
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>Postnummer</Text>
+                  <View style={styles.inputWrapper}>
+                    <View style={styles.inputSeparator} />
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={formData.postalCode}
+                      onChangeText={(value) => handleInputChange('postalCode', value)}
+                      placeholder="12345"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  {renderError('postalCode')}
+                </View>
+              </View>
+
+              {/* Row 3: City and Email */}
+              <View style={styles.formRow}>
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>Stad</Text>
+                  <View style={styles.inputWrapper}>
+                    <View style={styles.inputSeparator} />
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={formData.city}
+                      onChangeText={(value) => handleInputChange('city', value)}
+                      placeholder="Din stad"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    />
+                  </View>
+                  {renderError('city')}
+                </View>
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>Epost</Text>
+                  <View style={styles.inputWrapper}>
+                    <View style={styles.inputSeparator} />
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={formData.email}
+                      onChangeText={(value) => handleInputChange('email', value)}
+                      placeholder="Din e-postadress"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                  </View>
+                  {renderError('email')}
+                </View>
+              </View>
+
+              {/* Row 4: Mobile and Password */}
+              <View style={styles.formRow}>
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>Mobil</Text>
+                  <View style={styles.inputWrapper}>
+                    <View style={styles.inputSeparator} />
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={formData.mobile}
+                      onChangeText={(value) => handleInputChange('mobile', value)}
+                      placeholder="070 123 45 67"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                      keyboardType="phone-pad"
+                    />
+                  </View>
+                  {renderError('mobile')}
+                </View>
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>Lösenord</Text>
+                  <View style={styles.inputWrapper}>
+                    <View style={styles.inputSeparator} />
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={formData.password}
+                      onChangeText={(value) => handleInputChange('password', value)}
+                      placeholder="Minst 6 tecken"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                    />
+                  </View>
+                  {renderError('password')}
+                </View>
+              </View>
+
+              {/* GDPR Checkbox */}
+              <View style={styles.checkboxContainer}>
                 <Pressable 
-                  style={styles.eyeButton}
-                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.checkbox}
+                  onPress={() => {
+                    setIsChecked(!isChecked);
+                    setFieldErrors(prev => ({ ...prev, terms: '' }));
+                  }}
                 >
-                  {showPassword ? (
-                    <EyeOff color="#666" size={16} />
-                  ) : (
-                    <Eye color="#666" size={16} />
+                  {isChecked && (
+                    <Check size={24} color="white" />
                   )}
                 </Pressable>
+                <Text style={styles.checkboxLabel}>
+                  Jag godkänner{' '}
+                  <Link href="/gdpr" style={styles.link}>GDPR</Link>
+                  {' '}och{' '}
+                  <Link href="/privacy" style={styles.link}>integritetspolicy</Link>
+                </Text>
               </View>
-              {renderError('password')}
-            </View>
-          </View>
+              {renderError('terms')}
 
-          <View style={styles.row}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>GATUADRESS*</Text>
-              <TextInput 
-                style={[styles.input, fieldErrors.streetAddress && styles.inputError]}
-                value={formData.streetAddress}
-                onChangeText={(value) => handleInputChange('streetAddress', value)}
-                placeholder="Din gatuadress"
-                placeholderTextColor="#999"
-              />
-              {renderError('streetAddress')}
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>POSTNUMMER*</Text>
-              <TextInput 
-                style={[styles.input, fieldErrors.postalCode && styles.inputError]}
-                keyboardType="numeric"
-                value={formData.postalCode}
-                onChangeText={(value) => handleInputChange('postalCode', value)}
-                placeholder="12345"
-                placeholderTextColor="#999"
-              />
-              {renderError('postalCode')}
-            </View>
-          </View>
-
-          <View style={styles.row}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>STAD*</Text>
-              <TextInput 
-                style={[styles.input, fieldErrors.city && styles.inputError]}
-                value={formData.city}
-                onChangeText={(value) => handleInputChange('city', value)}
-                placeholder="Din stad"
-                placeholderTextColor="#999"
-              />
-              {renderError('city')}
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>MOBIL*</Text>
-              <TextInput 
-                style={[styles.input, fieldErrors.mobile && styles.inputError]}
-                keyboardType="phone-pad"
-                value={formData.mobile}
-                onChangeText={(value) => handleInputChange('mobile', value)}
-                placeholder="070 123 45 67"
-                placeholderTextColor="#999"
-              />
-              {renderError('mobile')}
-            </View>
-          </View>
-
-          <Pressable 
-            style={styles.checkboxContainer} 
-            onPress={() => {
-              setIsChecked(!isChecked);
-              setFieldErrors(prev => ({ ...prev, terms: '' }));
-            }}
-          >
-            <View style={styles.customCheckbox}>
-              {isChecked && (
-                <View style={styles.checkedBox}>
-                  <Text style={styles.checkmark}>✓</Text>
-                </View>
+              {fieldErrors.submit && (
+                <Text style={styles.submitError}>{fieldErrors.submit}</Text>
               )}
+
+              {/* Submit button */}
+              <Pressable 
+                style={styles.submitButton}
+                onPress={handleNextStep}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.submitButtonText}>
+                  {isSubmitting ? 'Skapar konto...' : 'Fyll i för att gå vidare'}
+                </Text>
+                <ArrowRight size={26} color="white" />
+              </Pressable>
             </View>
-            <Text style={styles.checkboxLabel}>
-              JAG GODKÄNNER{' '}
-              <Link href="/gdpr" style={styles.link}>GDPR</Link>
-              {' '}OCH{' '}
-              <Link href="/privacy" style={styles.link}>PRIVACY POLICY</Link>
-            </Text>
-          </Pressable>
-          {renderError('terms')}
-
-          {fieldErrors.submit && (
-            <Text style={styles.submitError}>{fieldErrors.submit}</Text>
-          )}
-        </View>
-      </ScrollView>
-
-      <Pressable 
-        style={styles.button}
-        onPress={handleNextStep}
-        disabled={isSubmitting}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.buttonText}>
-          {isSubmitting ? 'Skapar konto...' : 'Till steg 2'}
-        </Text>
-      </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+          </LinearGradient>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  mainContainer: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    backgroundColor: 'white',
+  },
+  statusBar: {
+    paddingTop: 40,
+    paddingHorizontal: 24,
+  },
+  statusBarContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    height: 20,
+  },
+  statusBarTime: {
+    fontFamily: 'Unbounded-Regular',
+    fontSize: 14,
+    color: '#333',
+  },
+  statusBarIcons: {
+    flexDirection: 'row',
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingTop: 60,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  logoContainer: {
+    flex: 1,
   },
   logo: {
     width: 120,
-    height: 36,
-    resizeMode: 'contain',
+    height: 55,
   },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginBottom: 30,
+  menuContainer: {
+    flexDirection: 'column',
+    gap: 5,
   },
-  title: {
-    fontSize: 32,
-    color: '#00BCD4',
-    fontFamily: 'Unbounded-SemiBold',
-    lineHeight: 40,
+  menuLine: {
+    width: 22,
+    height: 3,
+    backgroundColor: '#001f27',
+    borderRadius: 100,
+  },
+  mainContent: {
     flex: 1,
-  },
-  titleIcon: {
-    width: 60,
-    height: 60,
-    resizeMode: 'contain',
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 30,
-    paddingHorizontal: 20,
-  },
-  progressStep: {
-    flex: 1,
-    marginHorizontal: 4,
-  },
-  stepText: {
-    fontSize: 10,
-    color: '#00BCD4',
-    textAlign: 'center',
-    fontFamily: 'Unbounded-Regular',
-    marginBottom: 8,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 2,
-  },
-  activeStep: {
-    backgroundColor: '#00BCD4',
-    borderRadius: 2,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
-  },
-  form: {
     flex: 1,
   },
-  row: {
+  gradientContainer: {
+    flex: 1,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    padding: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  headingContainer: {
+    marginBottom: 28,
+  },
+  heading: {
+    fontFamily: 'Unbounded-SemiBold',
+    fontSize: 38,
+    color: 'white',
+    lineHeight: 40,
+  },
+  progressContainer: {
+    marginBottom: 28,
+  },
+  progressSteps: {
     flexDirection: 'row',
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  progressStep: {
+    flex: 1,
+  },
+  progressStepText: {
+    fontFamily: 'Unbounded-SemiBold',
+    fontSize: 14,
+    color: 'white',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  progressStepTextActive: {
+    fontFamily: 'Unbounded-SemiBold',
+    fontSize: 14,
+    color: '#02f1e7',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: 'white',
+  },
+  progressBarActive: {
+    height: 6,
+    backgroundColor: '#02f1e7',
+  },
+  formContainer: {
+    flex: 1,
+    gap: 14,
+  },
+  formRow: {
+    flexDirection: 'row',
     gap: 10,
   },
-  inputContainer: {
+  formField: {
     flex: 1,
-    marginBottom: 16,
   },
-  label: {
-    fontSize: 12,
-    color: '#757575',
+  fieldLabel: {
+    fontFamily: 'Unbounded-SemiBold',
+    fontSize: 20,
+    color: 'white',
+    marginBottom: 10,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 5,
+  },
+  inputSeparator: {
+    width: 2,
+    height: 47,
+    backgroundColor: 'white',
+    marginRight: 10,
+  },
+  fieldInput: {
+    flex: 1,
     fontFamily: 'Unbounded-Regular',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    padding: 12,
-    fontFamily: 'Poppins-Regular',
-    fontSize: 16,
-    color: '#333',
-    height: 48,
-  },
-  inputError: {
-    borderColor: '#F44336',
+    fontSize: 30,
+    color: 'rgba(255, 255, 255, 0.5)',
+    height: 47,
   },
   fieldError: {
-    color: '#F44336',
+    color: '#FF0000',
     fontSize: 12,
     fontFamily: 'Unbounded-Regular',
     marginTop: 4,
   },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    height: 48,
-    overflow: 'hidden',
-  },
-  passwordInput: {
-    flex: 1,
-    paddingLeft: 12,
-    paddingRight: 0,
-    fontFamily: 'Poppins-Regular',
-    fontSize: 16,
-    color: '#333',
-    height: '100%',
-  },
-  eyeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 36,
-  },
   checkboxContainer: {
-    marginTop: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingTop: 16,
+    paddingBottom: 32,
+    gap: 14,
   },
-  customCheckbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 1,
-    borderColor: '#00BCD4',
-    marginRight: 10,
-    borderRadius: 6,
+  checkbox: {
+    width: 33,
+    height: 33,
+    borderWidth: 2,
+    borderColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  checkedBox: {
-    width: 20,
-    height: 20,
-    backgroundColor: '#00BCD4',
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkmark: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
   checkboxLabel: {
-    fontSize: 12,
-    color: '#757575',
-    flex: 1,
     fontFamily: 'Unbounded-Regular',
+    fontSize: 15,
+    color: 'white',
+    flex: 1,
+    lineHeight: 25,
   },
   link: {
-    color: '#00BCD4',
     textDecorationLine: 'underline',
+    color: 'white',
   },
   submitError: {
-    color: '#F44336',
+    color: '#FF0000',
     fontSize: 14,
-    fontFamily: 'Unbounded-Regular',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  button: {
-    backgroundColor: '#00BCD4',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
     fontFamily: 'Unbounded-SemiBold',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  submitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: 'white',
+    borderRadius: 56,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  submitButtonText: {
+    fontFamily: 'Unbounded-SemiBold',
+    fontSize: 20,
+    color: 'white',
+    flex: 1,
+    textAlign: 'center',
   },
 });
