@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TextInput, Pressable, Image, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Link, router } from 'expo-router';
-import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
-import { Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
+import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
+import { Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { SplashScreen } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react-native';
@@ -16,10 +16,10 @@ type ValidationErrors = {
 
 export default function OnboardingStep1() {
   const [fontsLoaded, fontError] = useFonts({
-    'Poppins-Regular': Poppins_400Regular,
-    'Poppins-SemiBold': Poppins_600SemiBold,
     'Unbounded-Regular': Unbounded_400Regular,
     'Unbounded-SemiBold': Unbounded_600SemiBold,
+    'Poppins-Regular': Poppins_400Regular,
+    'Poppins-SemiBold': Poppins_600SemiBold,
   });
 
   const [formData, setFormData] = useState({
@@ -225,16 +225,22 @@ export default function OnboardingStep1() {
   return (
     <KeyboardAvoidingView 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={styles.mainContainer}
     >
       <View style={styles.header}>
         <Image 
-          source={require('../../assets/images/Logo_ITAV.png')}
+          source={require('../../assets/images/logo.png')}
           style={styles.logo}
         />
       </View>
 
-      <Text style={styles.title}>Först, några{'\n'}snabba frågor.</Text>
+      <View style={styles.titleContainer}>
+        <Text style={styles.title}>Först, några{'\n'}snabba frågor.</Text>
+        <Image 
+          source={require('../../assets/images/image.png')}
+          style={styles.titleIcon}
+        />
+      </View>
 
       <View style={styles.progressContainer}>
         <View style={styles.progressStep}>
@@ -250,7 +256,8 @@ export default function OnboardingStep1() {
           <View style={styles.progressBar} />
         </View>
       </View>
-
+      
+      <View style={styles.container}>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -313,9 +320,9 @@ export default function OnboardingStep1() {
                   onPress={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff color="#666\" size={16} />
+                    <EyeOff color="#666" size={16} />
                   ) : (
-                    <Eye color="#666\" size={16} />
+                    <Eye color="#666" size={16} />
                   )}
                 </Pressable>
               </View>
@@ -382,11 +389,13 @@ export default function OnboardingStep1() {
               setFieldErrors(prev => ({ ...prev, terms: '' }));
             }}
           >
-            <View style={[
-              styles.checkbox, 
-              isChecked && styles.checkedBox,
-              fieldErrors.terms && styles.checkboxError
-            ]} />
+            <View style={styles.customCheckbox}>
+              {isChecked && (
+                <View style={styles.checkedBox}>
+                  <Text style={styles.checkmark}>✓</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.checkboxLabel}>
               JAG GODKÄNNER{' '}
               <Link href="/gdpr" style={styles.link}>GDPR</Link>
@@ -406,66 +415,83 @@ export default function OnboardingStep1() {
         style={styles.button}
         onPress={handleNextStep}
         disabled={isSubmitting}
+        activeOpacity={0.8}
       >
         <Text style={styles.buttonText}>
           {isSubmitting ? 'Skapar konto...' : 'Till steg 2'}
         </Text>
       </Pressable>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    paddingHorizontal: 20,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 30,
-    paddingHorizontal: 20,
+    marginBottom: 20,
     paddingTop: 60,
   },
   logo: {
-    width: 100,
-    height: 30,
+    width: 120,
+    height: 36,
     resizeMode: 'contain',
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 30,
   },
   title: {
     fontSize: 32,
-    color: '#FF69B4',
+    color: '#00BCD4',
     fontFamily: 'Unbounded-SemiBold',
-    marginBottom: 30,
-    textAlign: 'center',
-    paddingHorizontal: 20,
+    lineHeight: 40,
+    flex: 1,
+  },
+  titleIcon: {
+    width: 60,
+    height: 60,
+    resizeMode: 'contain',
   },
   progressContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 40,
+    marginBottom: 30,
     paddingHorizontal: 20,
   },
   progressStep: {
     flex: 1,
-    marginHorizontal: 5,
+    marginHorizontal: 4,
   },
   stepText: {
     fontSize: 10,
-    color: '#FF69B4',
+    color: '#00BCD4',
     textAlign: 'center',
     fontFamily: 'Unbounded-Regular',
     marginBottom: 8,
   },
   progressBar: {
     height: 4,
-    backgroundColor: '#E5E5E5',
+    backgroundColor: '#E0E0E0',
+    borderRadius: 2,
   },
   activeStep: {
-    backgroundColor: '#FF69B4',
+    backgroundColor: '#00BCD4',
+    borderRadius: 2,
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   scrollContent: {
     paddingBottom: 100,
@@ -475,33 +501,34 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: 16,
     gap: 10,
   },
   inputContainer: {
     flex: 1,
+    marginBottom: 16,
   },
   label: {
     fontSize: 12,
-    color: '#666',
+    color: '#757575',
     marginBottom: 5,
     fontFamily: 'Unbounded-Regular',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 4,
-    padding: 10,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    padding: 12,
     fontFamily: 'Poppins-Regular',
     fontSize: 16,
     color: '#333',
-    height: 44,
+    height: 48,
   },
   inputError: {
-    borderColor: '#FF0000',
+    borderColor: '#F44336',
   },
   fieldError: {
-    color: '#FF0000',
+    color: '#F44336',
     fontSize: 12,
     fontFamily: 'Unbounded-Regular',
     marginTop: 4,
@@ -510,14 +537,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 4,
-    height: 44,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    height: 48,
     overflow: 'hidden',
   },
   passwordInput: {
     flex: 1,
-    paddingLeft: 10,
+    paddingLeft: 12,
     paddingRight: 0,
     fontFamily: 'Poppins-Regular',
     fontSize: 16,
@@ -526,57 +553,72 @@ const styles = StyleSheet.create({
   },
   eyeButton: {
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     minWidth: 36,
   },
   checkboxContainer: {
+    marginTop: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
-  checkbox: {
+  customCheckbox: {
     width: 20,
     height: 20,
     borderWidth: 1,
-    borderColor: '#FF69B4',
+    borderColor: '#00BCD4',
     marginRight: 10,
-    borderRadius: 4,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   checkedBox: {
-    backgroundColor: '#FF69B4',
+    width: 20,
+    height: 20,
+    backgroundColor: '#00BCD4',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  checkboxError: {
-    borderColor: '#FF0000',
+  checkmark: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   checkboxLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#757575',
     flex: 1,
     fontFamily: 'Unbounded-Regular',
   },
   link: {
-    color: '#FF69B4',
+    color: '#00BCD4',
     textDecorationLine: 'underline',
   },
   submitError: {
-    color: '#FF0000',
+    color: '#F44336',
     fontSize: 14,
     fontFamily: 'Unbounded-Regular',
     textAlign: 'center',
     marginBottom: 20,
   },
   button: {
-    backgroundColor: '#FF69B4',
-    padding: 15,
-    borderRadius: 25,
+    backgroundColor: '#00BCD4',
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
     position: 'absolute',
     bottom: 20,
     left: 20,
     right: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   buttonText: {
     color: 'white',
