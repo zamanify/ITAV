@@ -36,12 +36,6 @@ export default function InviteScreen() {
   const [invitingContactId, setInvitingContactId] = useState<string | null>(null);
   const [userFirstName, setUserFirstName] = useState('');
 
-  useEffect(() => {
-    if (session?.user?.id) {
-      loadContacts();
-    }
-  }, [session?.user?.id, loadContacts]);
-
   const loadContacts = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -302,6 +296,12 @@ export default function InviteScreen() {
       setIsLoading(false);
     }
   }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      loadContacts();
+    }
+  }, [session?.user?.id, loadContacts]);
 
   useEffect(() => {
     if (!session?.user?.id) return;
