@@ -75,14 +75,33 @@ export default function OnboardingStep3() {
         created_by: session.user.id
       }));
 
-      const { error: insertError } = await supabase
+      // Insert groups and return the created rows so we get their ids
+      const { data: createdGroups, error: insertError } = await supabase
         .from('groups')
-        .insert(groupsToInsert);
+        .insert(groupsToInsert)
+        .select();
 
       if (insertError) {
         console.error('Error creating groups:', insertError);
         setError('Ett fel uppstod vid skapande av grupper. Försök igen.');
         return;
+      }
+
+      // Add the creator as a member of each created group
+      if (createdGroups && createdGroups.length > 0) {
+        const memberRows = createdGroups.map(group => ({
+          group_id: group.id,
+          user_id: session.user.id
+        }));
+
+        const { error: memberError } = await supabase
+          .from('group_members')
+          .insert(memberRows);
+
+        if (memberError) {
+          console.error('Error adding creator as group member:', memberError);
+          // Don't return here; the groups were created successfully so the user can add themselves later
+        }
       }
 
       // Navigate to main app
