@@ -147,7 +147,7 @@ export default function EditProfileScreen() {
         .from('profile-images')
         .upload(filePath, blob, {
           cacheControl: '3600',
-          upsert: true
+          upsert: false
         });
 
       if (uploadError) {
