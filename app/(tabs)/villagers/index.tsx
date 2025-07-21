@@ -77,6 +77,34 @@ export default function VillagersScreen() {
       setIsLoading(true);
       setError(null);
 
+      // Fetch blocked users first
+      const { data: blockedUsers, error: blockedError } = await supabase
+        .from('user_blocks')
+        .select(`
+          id,
+          blocked:blocked_id(id, first_name, last_name, phone_number, minute_balance, created_at)
+        `)
+        .eq('blocker_id', session.user.id);
+
+      if (blockedError) {
+        console.error('Error fetching blocked users:', blockedError);
+      }
+
+      // Get sets of blocked user IDs for filtering
+      const blockedUserIds = new Set((blockedUsers || []).map(block => block.blocked?.id).filter(Boolean));
+      
+      // Also fetch users who have blocked the current user
+      const { data: blockingUsers, error: blockingError } = await supabase
+        .from('user_blocks')
+        .select('blocker_id')
+        .eq('blocked_id', session.user.id);
+
+      if (blockingError) {
+        console.error('Error fetching blocking users:', blockingError);
+      }
+
+      const blockingUserIds = new Set((blockingUsers || []).map(block => block.blocker_id).filter(Boolean));
+
       // Fetch villager connections with user details, excluding blocked users
       const { data: connections, error: connectionsError } = await supabase
         .from('villager_connections')
@@ -123,6 +151,10 @@ export default function VillagersScreen() {
 
         if (!otherUser) return null;
 
+        return {
+          id: otherUser.id,
+          name: `${otherUser.first_name} ${otherUser.last_name}`,
+          phoneNumber: otherUser.phone_number || '',
           memberSince: new Date(otherUser.created_at).toLocaleDateString('sv-SE', {
             day: 'numeric',
             month: 'long',
@@ -130,12 +162,13 @@ export default function VillagersScreen() {
           }),
           balance: otherUser.minute_balance || 0,
           status: 'connected' as const,
-          connectionId: connection.id
+          connectionId: connection.id,
+          profileImageUrl: otherUser.profile_image_url
         };
       }).filter(Boolean) as Villager[];
 
-          connectionId: connection.id,
-          profileImageUrl: otherUser.profile_image_url
+      // Transform incoming requests
+      const requestsData: VillagerRequest[] = incomingRequests.map(connection => {
         const sender = connection.sender;
         if (!sender) return null;
 
@@ -200,6 +233,7 @@ export default function VillagersScreen() {
       setIsLoading(false);
     }
   }, [session?.user?.id]);
+  
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
@@ -719,8 +753,8 @@ export default function VillagersScreen() {
                   onPress={() => router.push('/invite')}
                 >
                   <Text style={styles.inviteButtonText}>Bjud in villagers</Text>
-            {villager.profileImageUrl ? (
-              <Image source={{ uri: villager.profileImageUrl }} style={styles.villagerAvatar} />
+                </Pressable>
+              </View>
             ) : (
               <>
                 {villagers.length > 0 && (
@@ -732,8 +766,8 @@ export default function VillagersScreen() {
                       <View key={villager.id} style={styles.villagerCard}>
                         <View style={styles.villagerHeader}>
                           <View style={styles.villagerAvatarContainer}>
-                            {villager.imageUri ? (
-                              <Image source={{ uri: villager.imageUri }} style={styles.villagerAvatar} />
+                            {villager.profileImageUrl ? (
+                              <Image source={{ uri: villager.profileImageUrl }} style={styles.villagerAvatar} />
                             ) : (
                               <View style={styles.villagerAvatarPlaceholder} />
                             )}
