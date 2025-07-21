@@ -1,9 +1,10 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
+import { Image } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
 import { useEffect, useState, useContext, useCallback } from 'react';
-import { ArrowLeft, MessageCircle, Clock } from 'lucide-react-native';
+import { ArrowLeft, MessageCircle, Clock, User } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import AppFooter from '../../../components/AppFooter';
@@ -13,6 +14,7 @@ SplashScreen.preventAutoHideAsync();
 type Conversation = {
   partnerId: string;
   partnerName: string;
+  partnerProfileImageUrl?: string;
   latestMessage: string;
   latestMessageTime: string;
   isLatestFromMe: boolean;
@@ -63,9 +65,30 @@ export default function MessagesScreen() {
         return;
       }
 
+      // Get partner profile images for all conversations
+      const partnerIds = (data || []).map((conv: any) => conv.partner_id);
+      let partnerProfileImages: { [key: string]: string } = {};
+      
+      if (partnerIds.length > 0) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('users')
+          .select('id, profile_image_url')
+          .in('id', partnerIds);
+
+        if (!profileError && profileData) {
+          partnerProfileImages = profileData.reduce((acc, user) => {
+            if (user.profile_image_url) {
+              acc[user.id] = user.profile_image_url;
+            }
+            return acc;
+          }, {} as { [key: string]: string });
+        }
+      }
+
       const conversationsData: Conversation[] = (data || []).map((conv: any) => ({
         partnerId: conv.partner_id,
         partnerName: conv.partner_name,
+        partnerProfileImageUrl: partnerProfileImages[conv.partner_id],
         latestMessage: conv.latest_message,
         latestMessageTime: formatMessageTime(conv.latest_message_time),
         isLatestFromMe: conv.is_latest_from_me,
@@ -74,7 +97,6 @@ export default function MessagesScreen() {
         viaRequestTitle: conv.via_request_title,
         viaIsOffer: conv.via_is_offer
       }));
-
       setConversations(conversationsData);
     } catch (err) {
       console.error('Error fetching conversations:', err);
@@ -180,16 +202,29 @@ export default function MessagesScreen() {
               onPress={() => handleConversationPress(conversation.partnerId)}
             >
               <View style={styles.conversationHeader}>
-                <View style={styles.conversationInfo}>
-                  <Text style={styles.partnerName}>{conversation.partnerName}</Text>
-                  {conversation.viaGroupName && (
-                    <Text style={styles.viaGroupText}>Via {conversation.viaGroupName}</Text>
-                  )}
-                  {conversation.viaRequestTitle && (
-                    <Text style={styles.viaGroupText}>
-                      Via {conversation.viaIsOffer ? 'erbjudande' : 'förfrågan'}: {conversation.viaRequestTitle}
+                <View style={styles.conversationLeft}>
+                  <View style={styles.conversationAvatarContainer}>
+                    {conversation.partnerProfileImageUrl ? (
+                      <Image source={{ uri: conversation.partnerProfileImageUrl }} style={styles.conversationAvatar} />
+                    ) : (
+                      <View style={styles.conversationAvatarPlaceholder}>
+                        <User size={20} color="#FF69B4" />
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.conversationInfo}>
+                    <Text style={styles.partnerName}>
+                      {conversation.partnerName}
                     </Text>
-                  )}
+                    {conversation.viaGroupName && (
+                      <Text style={styles.viaGroupText}>Via {conversation.viaGroupName}</Text>
+                    )}
+                    {conversation.viaRequestTitle && (
+                      <Text style={styles.viaGroupText}>
+                        Via {conversation.viaIsOffer ? 'erbjudande' : 'förfrågan'}: {conversation.viaRequestTitle}
+                      </Text>
+                    )}
+                  </View>
                 </View>
                 <View style={styles.conversationMeta}>
                   <Text style={styles.messageTime}>
@@ -306,8 +341,32 @@ const styles = StyleSheet.create({
   conversationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
     marginBottom: 8,
+  },
+  conversationLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  conversationAvatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  conversationAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  conversationAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFE4F1',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   conversationInfo: {
     flex: 1,

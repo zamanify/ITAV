@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platform, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platform, RefreshControl, Image } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
@@ -20,6 +20,7 @@ type Villager = {
   balance: number;
   status: 'connected' | 'pending' | 'request_received';
   connectionId: string;
+  profileImageUrl?: string;
 };
 
 type VillagerRequest = {
@@ -76,26 +77,7 @@ export default function VillagersScreen() {
       setIsLoading(true);
       setError(null);
 
-      // Fetch villager connections with user details, excluding blocked users
-      const { data: connections, error: connectionsError } = await supabase
-        .from('villager_connections')
-        .select(`
-          id,
-          status,
-          created_at,
-          sender:sender_id(id, first_name, last_name, phone_number, minute_balance, created_at),
-          receiver:receiver_id(id, first_name, last_name, phone_number, minute_balance, created_at)
-        `)
-        .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
-        .in('status', ['pending', 'accepted', 'rejected']);
-
-      if (connectionsError) {
-        console.error('Error fetching villager connections:', connectionsError);
-        setError('Kunde inte hämta dina villagers');
-        return;
-      }
-
-      // Fetch blocked users (users that current user has blocked)
+      // Fetch blocked users first
       const { data: blockedUsers, error: blockedError } = await supabase
         .from('user_blocks')
         .select(`
@@ -108,21 +90,39 @@ export default function VillagersScreen() {
         console.error('Error fetching blocked users:', blockedError);
       }
 
-      // Get list of blocked user IDs to filter out from connections
+      // Get sets of blocked user IDs for filtering
       const blockedUserIds = new Set((blockedUsers || []).map(block => block.blocked?.id).filter(Boolean));
-
-      // Also get users who have blocked the current user
+      
+      // Also fetch users who have blocked the current user
       const { data: blockingUsers, error: blockingError } = await supabase
         .from('user_blocks')
         .select('blocker_id')
         .eq('blocked_id', session.user.id);
 
       if (blockingError) {
-        console.error('Error fetching users who blocked current user:', blockingError);
+        console.error('Error fetching blocking users:', blockingError);
       }
 
-      const blockingUserIds = new Set((blockingUsers || []).map(block => block.blocker_id));
+      const blockingUserIds = new Set((blockingUsers || []).map(block => block.blocker_id).filter(Boolean));
 
+      // Fetch villager connections with user details, excluding blocked users
+      const { data: connections, error: connectionsError } = await supabase
+        .from('villager_connections')
+        .select(`
+          id,
+          status,
+          created_at,
+          sender:sender_id(id, first_name, last_name, phone_number, minute_balance, created_at, profile_image_url),
+          receiver:receiver_id(id, first_name, last_name, phone_number, minute_balance, created_at, profile_image_url)
+        `)
+        .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
+        .in('status', ['pending', 'accepted', 'rejected']);
+
+      if (connectionsError) {
+        console.error('Error fetching villager connections:', connectionsError);
+        setError('Kunde inte hämta dina villagers');
+        return;
+      }
       // Filter connections to exclude blocked relationships
       const filteredConnections = (connections || []).filter(connection => {
         const otherUserId = connection.sender?.id === session.user.id 
@@ -162,7 +162,8 @@ export default function VillagersScreen() {
           }),
           balance: otherUser.minute_balance || 0,
           status: 'connected' as const,
-          connectionId: connection.id
+          connectionId: connection.id,
+          profileImageUrl: otherUser.profile_image_url
         };
       }).filter(Boolean) as Villager[];
 
@@ -232,6 +233,7 @@ export default function VillagersScreen() {
       setIsLoading(false);
     }
   }, [session?.user?.id]);
+  
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
@@ -751,6 +753,7 @@ export default function VillagersScreen() {
                   onPress={() => router.push('/invite')}
                 >
                   <Text style={styles.inviteButtonText}>Bjud in villagers</Text>
+           {console.log('Villager Profile Image URL:', villager.profileImageUrl)}
                 </Pressable>
               </View>
             ) : (
@@ -763,6 +766,13 @@ export default function VillagersScreen() {
                     {filteredVillagers.map((villager) => (
                       <View key={villager.id} style={styles.villagerCard}>
                         <View style={styles.villagerHeader}>
+                          <View style={styles.villagerAvatarContainer}>
+                            {villager.profileImageUrl ? (
+                              <Image source={{ uri: villager.profileImageUrl }} style={styles.villagerAvatar} />
+                            ) : (
+                              <View style={styles.villagerAvatarPlaceholder} />
+                            )}
+                          </View>
                           <Text style={styles.villagerName}>{villager.name}</Text>
                         </View>
                         <View style={styles.villagerDetails}>
@@ -1096,9 +1106,30 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   villagerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
+    gap: 12,
+  },
+  villagerAvatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  villagerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  villagerAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFE4F1',
   },
   villagerName: {
+    flex: 1,
     fontSize: 18,
     color: '#FF69B4',
     fontFamily: 'Unbounded-SemiBold',
