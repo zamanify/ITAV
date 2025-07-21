@@ -151,10 +151,11 @@ export default function EditProfileScreen() {
         });
 
       if (uploadError) {
-        console.error('Error uploading image:', uploadError);
-        setError('Kunde inte ladda upp bilden. Försök igen.');
+        console.error('Error uploading image to Supabase Storage:', uploadError);
+        setError('Kunde inte ladda upp bilden till lagring. Försök igen.');
         return;
       }
+      console.log('Supabase Storage upload data:', uploadData);
 
       // Get the public URL
       const { data: urlData } = supabase.storage
@@ -165,6 +166,7 @@ export default function EditProfileScreen() {
         setError('Kunde inte få bildlänk. Försök igen.');
         return;
       }
+      console.log('Public URL data:', urlData);
 
       // Update the form data with the new image URL
       setFormData(prev => ({
