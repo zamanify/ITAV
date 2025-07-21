@@ -330,12 +330,7 @@ export default function EditProfileScreen() {
             <View style={styles.profileImageWrapper}>
              {console.log('Profile Image URL (Edit Screen):', formData.profileImageUrl)}
               {formData.profileImageUrl ? (
-                <Image 
-                  source={{ uri: formData.profileImageUrl }} 
-                  style={styles.profileImage}
-                  onError={(error) => console.log('Profile Image Load Error:', error.nativeEvent.error)}
-                  onLoad={() => console.log('Profile Image Loaded Successfully')}
-                />
+                <Image source={{ uri: formData.profileImageUrl }} style={styles.profileImage} />
               ) : (
                 <View style={styles.profileImagePlaceholder}>
                   <User size={40} color="#FF69B4" strokeWidth={1.5} />
