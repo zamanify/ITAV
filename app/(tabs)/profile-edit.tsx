@@ -134,10 +134,9 @@ export default function EditProfileScreen() {
         return; // Exit if fetch failed
       }
 
-      const blob = await response.blob();
-      console.log('Blob type:', blob.type);
-      console.log('Blob size:', blob.size); // This is the most important check
-      if (blob.size === 0) {
+      const arrayBuffer = await response.arrayBuffer();
+      console.log('ArrayBuffer size:', arrayBuffer.byteLength);
+      if (arrayBuffer.byteLength === 0) {
         setError('Selected image file is empty or could not be read.');
         return; // Exit if blob is empty
       }
@@ -145,7 +144,7 @@ export default function EditProfileScreen() {
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('profile-images')
-        .upload(filePath, blob, {
+        .upload(filePath, arrayBuffer, {
           cacheControl: '3600',
           upsert: false
         });
@@ -193,7 +192,7 @@ export default function EditProfileScreen() {
           if (oldPath) {
             await supabase.storage
               .from('profile-images')
-              .remove([`profile-images/${oldPath}`]);
+              .remove([`public/${oldPath}`]);
           }
         } catch (err) {
           console.error('Error deleting old image:', err);
