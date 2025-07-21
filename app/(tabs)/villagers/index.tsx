@@ -20,7 +20,7 @@ type Villager = {
   balance: number;
   status: 'connected' | 'pending' | 'request_received';
   connectionId: string;
-  imageUri?: string;
+  profileImageUrl?: string;
 };
 
 type VillagerRequest = {
@@ -84,8 +84,8 @@ export default function VillagersScreen() {
           id,
           status,
           created_at,
-          sender:sender_id(id, first_name, last_name, phone_number, minute_balance, created_at),
-          receiver:receiver_id(id, first_name, last_name, phone_number, minute_balance, created_at)
+          sender:sender_id(id, first_name, last_name, phone_number, minute_balance, created_at, profile_image_url),
+          receiver:receiver_id(id, first_name, last_name, phone_number, minute_balance, created_at, profile_image_url)
         `)
         .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
         .in('status', ['pending', 'accepted', 'rejected']);
@@ -95,35 +95,6 @@ export default function VillagersScreen() {
         setError('Kunde inte hämta dina villagers');
         return;
       }
-
-      // Fetch blocked users (users that current user has blocked)
-      const { data: blockedUsers, error: blockedError } = await supabase
-        .from('user_blocks')
-        .select(`
-          id,
-          blocked:blocked_id(id, first_name, last_name, phone_number, minute_balance, created_at)
-        `)
-        .eq('blocker_id', session.user.id);
-
-      if (blockedError) {
-        console.error('Error fetching blocked users:', blockedError);
-      }
-
-      // Get list of blocked user IDs to filter out from connections
-      const blockedUserIds = new Set((blockedUsers || []).map(block => block.blocked?.id).filter(Boolean));
-
-      // Also get users who have blocked the current user
-      const { data: blockingUsers, error: blockingError } = await supabase
-        .from('user_blocks')
-        .select('blocker_id')
-        .eq('blocked_id', session.user.id);
-
-      if (blockingError) {
-        console.error('Error fetching users who blocked current user:', blockingError);
-      }
-
-      const blockingUserIds = new Set((blockingUsers || []).map(block => block.blocker_id));
-
       // Filter connections to exclude blocked relationships
       const filteredConnections = (connections || []).filter(connection => {
         const otherUserId = connection.sender?.id === session.user.id 
@@ -152,10 +123,6 @@ export default function VillagersScreen() {
 
         if (!otherUser) return null;
 
-        return {
-          id: otherUser.id,
-          name: `${otherUser.first_name} ${otherUser.last_name}`,
-          phoneNumber: otherUser.phone_number || '',
           memberSince: new Date(otherUser.created_at).toLocaleDateString('sv-SE', {
             day: 'numeric',
             month: 'long',
@@ -167,8 +134,8 @@ export default function VillagersScreen() {
         };
       }).filter(Boolean) as Villager[];
 
-      // Transform incoming requests
-      const requestsData: VillagerRequest[] = incomingRequests.map(connection => {
+          connectionId: connection.id,
+          profileImageUrl: otherUser.profile_image_url
         const sender = connection.sender;
         if (!sender) return null;
 
@@ -752,8 +719,8 @@ export default function VillagersScreen() {
                   onPress={() => router.push('/invite')}
                 >
                   <Text style={styles.inviteButtonText}>Bjud in villagers</Text>
-                </Pressable>
-              </View>
+            {villager.profileImageUrl ? (
+              <Image source={{ uri: villager.profileImageUrl }} style={styles.villagerAvatar} />
             ) : (
               <>
                 {villagers.length > 0 && (
