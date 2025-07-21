@@ -164,6 +164,7 @@ export default function VillagersScreen() {
           status: 'connected' as const,
           connectionId: connection.id,
           profileImageUrl: otherUser.profile_image_url
+          profileImageUrl: otherUser.profile_image_url
         };
       }).filter(Boolean) as Villager[];
 
