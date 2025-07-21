@@ -755,7 +755,12 @@ export default function VillagersScreen() {
                   <Text style={styles.inviteButtonText}>Bjud in villagers</Text>
            {console.log('Villager Profile Image URL:', villager.profileImageUrl)}
                 </Pressable>
-              </View>
+                      <Image 
+                        source={{ uri: villager.profileImageUrl }} 
+                        style={styles.villagerAvatar}
+                        onError={(error) => console.log('Villager Image Load Error:', error.nativeEvent.error)}
+                        onLoad={() => console.log('Villager Image Loaded Successfully')}
+                      />
             ) : (
               <>
                 {villagers.length > 0 && (
