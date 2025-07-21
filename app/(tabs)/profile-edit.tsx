@@ -123,7 +123,7 @@ export default function EditProfileScreen() {
       // Create a unique filename
       const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `profile-images/${fileName}`;
+      const filePath = `public/${fileName}`;
 
       // Convert image URI to blob for upload
       const response = await fetch(imageUri);
