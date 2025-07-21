@@ -200,6 +200,8 @@ export default function MessagesScreen() {
               key={conversation.partnerId}
               style={styles.conversationCard}
               onPress={() => handleConversationPress(conversation.partnerId)}
+            >
+              <View style={styles.conversationHeader}>
                 <View style={styles.conversationLeft}>
                   <View style={styles.conversationAvatarContainer}>
                     {conversation.partnerProfileImageUrl ? (
