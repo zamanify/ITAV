@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Platform, ActivityIndicator, Image } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 
@@ -12,6 +12,8 @@ import { AuthContext } from '@/contexts/AuthContext';
 import { normalizePhoneNumber } from '@/lib/phone';
 import AppFooter from '../../components/AppFooter';
 
+// Add import for normalizePhoneNumber at the top if not already imported
+
 type Contact = {
   id: string;
   name: string;
@@ -19,6 +21,7 @@ type Contact = {
   status: 'pending' | 'invited' | 'in_app' | 'connected' | 'self' | 'not_app_user' | 'blocked_by_me' | 'blocked_by_them';
   isExistingUser?: boolean;
   userId?: string;
+  imageUri?: string;
 };
 
 export default function InviteScreen() {
@@ -50,7 +53,11 @@ export default function InviteScreen() {
 
         if (status === 'granted') {
           const { data } = await Contacts.getContactsAsync({
-            fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
+            fields: [
+              Contacts.Fields.Name,
+              Contacts.Fields.PhoneNumbers,
+              Contacts.Fields.Image,
+            ],
           });
 
           deviceContacts = data
@@ -59,6 +66,7 @@ export default function InviteScreen() {
               id: contact.id,
               name: contact.name || '',
               phoneNumber: contact.phoneNumbers?.[0]?.number || '',
+              imageUri: contact.image?.uri,
             }));
         }
       }
@@ -256,6 +264,7 @@ export default function InviteScreen() {
             status: (dbInfo?.status as any) || 'not_app_user',
             isExistingUser: dbInfo?.isExistingUser || false,
             userId: dbInfo?.userId,
+            imageUri: contact.imageUri,
           };
         })
         .filter(Boolean) as Contact[];
@@ -275,6 +284,7 @@ export default function InviteScreen() {
             status: (info.status as any) || 'not_app_user',
             isExistingUser: info.isExistingUser || false,
             userId: info.userId,
+            imageUri: undefined, // Database contacts don't have images
           });
         }
       });
@@ -537,11 +547,20 @@ export default function InviteScreen() {
             filteredContacts.map((contact) => (
               <View key={contact.id} style={styles.contactItem}>
                 <View style={styles.contactInfo}>
-                  <Text style={styles.contactName}>{contact.name}</Text>
-                  <Text style={styles.contactPhone}>{contact.phoneNumber}</Text>
-                  {contact.isExistingUser && contact.status !== 'self' && (
-                    <Text style={styles.existingUserBadge}>Använder appen</Text>
-                  )}
+                  <View style={styles.contactAvatarContainer}>
+                    {contact.imageUri ? (
+                      <Image source={{ uri: contact.imageUri }} style={styles.contactAvatar} />
+                    ) : (
+                      <View style={styles.contactAvatarPlaceholder} />
+                    )}
+                  </View>
+                  <View style={styles.contactDetails}>
+                    <Text style={styles.contactName}>{contact.name}</Text>
+                    <Text style={styles.contactPhone}>{contact.phoneNumber}</Text>
+                    {contact.isExistingUser && contact.status !== 'self' && (
+                      <Text style={styles.existingUserBadge}>Använder appen</Text>
+                    )}
+                  </View>
                 </View>
                 {canInvite(contact) ? (
                   <Pressable 
@@ -684,6 +703,29 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E5E5E5',
   },
   contactInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  contactAvatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  contactAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  contactAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFE4F1',
+  },
+  contactDetails: {
     flex: 1,
   },
   contactName: {

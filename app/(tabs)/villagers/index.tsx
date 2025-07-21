@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platform, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platform, RefreshControl, Image } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
@@ -20,6 +20,7 @@ type Villager = {
   balance: number;
   status: 'connected' | 'pending' | 'request_received';
   connectionId: string;
+  imageUri?: string;
 };
 
 type VillagerRequest = {
@@ -763,6 +764,13 @@ export default function VillagersScreen() {
                     {filteredVillagers.map((villager) => (
                       <View key={villager.id} style={styles.villagerCard}>
                         <View style={styles.villagerHeader}>
+                          <View style={styles.villagerAvatarContainer}>
+                            {villager.imageUri ? (
+                              <Image source={{ uri: villager.imageUri }} style={styles.villagerAvatar} />
+                            ) : (
+                              <View style={styles.villagerAvatarPlaceholder} />
+                            )}
+                          </View>
                           <Text style={styles.villagerName}>{villager.name}</Text>
                         </View>
                         <View style={styles.villagerDetails}>
@@ -1096,9 +1104,30 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   villagerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
+    gap: 12,
+  },
+  villagerAvatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  villagerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  villagerAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFE4F1',
   },
   villagerName: {
+    flex: 1,
     fontSize: 18,
     color: '#FF69B4',
     fontFamily: 'Unbounded-SemiBold',
