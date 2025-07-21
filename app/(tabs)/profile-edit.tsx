@@ -328,6 +328,7 @@ export default function EditProfileScreen() {
           <Text style={styles.label}>PROFILBILD</Text>
           <View style={styles.profileImageContainer}>
             <View style={styles.profileImageWrapper}>
+             {console.log('Profile Image URL (Edit Screen):', formData.profileImageUrl)}
               {formData.profileImageUrl ? (
                 <Image source={{ uri: formData.profileImageUrl }} style={styles.profileImage} />
               ) : (

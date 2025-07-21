@@ -753,6 +753,7 @@ export default function VillagersScreen() {
                   onPress={() => router.push('/invite')}
                 >
                   <Text style={styles.inviteButtonText}>Bjud in villagers</Text>
+           {console.log('Villager Profile Image URL:', villager.profileImageUrl)}
                 </Pressable>
               </View>
             ) : (
