@@ -117,6 +117,9 @@ export default function EditProfileScreen() {
       setIsUploadingImage(true);
       setError(null);
 
+      // Log the image URI we're trying to upload
+      console.log('Attempting to upload image. Image URI:', imageUri);
+
       // Create a unique filename
       const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
@@ -124,7 +127,20 @@ export default function EditProfileScreen() {
 
       // Convert image URI to blob for upload
       const response = await fetch(imageUri);
+      console.log('Fetch response status:', response.status, 'OK:', response.ok);
+      if (!response.ok) {
+        console.error('Fetch failed with status:', response.status);
+        setError(`Failed to fetch image data: ${response.status}`);
+        return; // Exit if fetch failed
+      }
+
       const blob = await response.blob();
+      console.log('Blob type:', blob.type);
+      console.log('Blob size:', blob.size); // This is the most important check
+      if (blob.size === 0) {
+        setError('Selected image file is empty or could not be read.');
+        return; // Exit if blob is empty
+      }
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
