@@ -1,12 +1,14 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, Image, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
 import { useState, useEffect, useContext } from 'react';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Camera, User } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import { normalizePhoneNumber } from '@/lib/phone';
+import * as ImagePicker from 'expo-image-picker';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -18,6 +20,7 @@ type UserData = {
   streetAddress: string;
   postalCode: string;
   city: string;
+  profileImageUrl: string;
 };
 
 export default function EditProfileScreen() {
@@ -32,10 +35,12 @@ export default function EditProfileScreen() {
     phone: '',
     streetAddress: '',
     postalCode: '',
-    city: ''
+    city: '',
+    profileImageUrl: ''
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<ValidationErrors>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +60,7 @@ export default function EditProfileScreen() {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('email, phone_number, street_address, zip_code, city')
+        .select('email, phone_number, street_address, zip_code, city, profile_image_url')
         .eq('id', session?.user?.id)
         .single();
 
@@ -69,10 +74,121 @@ export default function EditProfileScreen() {
         phone: data.phone_number || '',
         streetAddress: data.street_address || '',
         postalCode: data.zip_code || '',
-        city: data.city || ''
+        city: data.city || '',
+        profileImageUrl: data.profile_image_url || ''
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleImagePicker = async () => {
+    if (isUploadingImage) return;
+
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Tillstånd krävs', 'Vi behöver tillgång till dina foton för att du ska kunna välja en profilbild.');
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1], // Square aspect ratio
+        quality: 0.8,
+        base64: false,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfileImage(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.error('Error picking image:', err);
+      Alert.alert('Fel', 'Kunde inte öppna bildgalleriet. Försök igen.');
+    }
+  };
+
+  const uploadProfileImage = async (imageUri: string) => {
+    if (!session?.user?.id) return;
+
+    try {
+      setIsUploadingImage(true);
+      setError(null);
+
+      // Create a unique filename
+      const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `profile-images/${fileName}`;
+
+      // Convert image URI to blob for upload
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('profile-images')
+        .upload(filePath, blob, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Error uploading image:', uploadError);
+        setError('Kunde inte ladda upp bilden. Försök igen.');
+        return;
+      }
+
+      // Get the public URL
+      const { data: urlData } = supabase.storage
+        .from('profile-images')
+        .getPublicUrl(filePath);
+
+      if (!urlData?.publicUrl) {
+        setError('Kunde inte få bildlänk. Försök igen.');
+        return;
+      }
+
+      // Update the form data with the new image URL
+      setFormData(prev => ({
+        ...prev,
+        profileImageUrl: urlData.publicUrl
+      }));
+
+      // Update the database immediately
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ profile_image_url: urlData.publicUrl })
+        .eq('id', session.user.id);
+
+      if (updateError) {
+        console.error('Error updating profile image in database:', updateError);
+        setError('Kunde inte spara profilbilden. Försök igen.');
+        return;
+      }
+
+      // Delete old image if it exists and is different
+      if (formData.profileImageUrl && formData.profileImageUrl !== urlData.publicUrl) {
+        try {
+          const oldPath = formData.profileImageUrl.split('/').pop();
+          if (oldPath) {
+            await supabase.storage
+              .from('profile-images')
+              .remove([`profile-images/${oldPath}`]);
+          }
+        } catch (err) {
+          console.error('Error deleting old image:', err);
+          // Don't show error to user for cleanup failures
+        }
+      }
+
+    } catch (err) {
+      console.error('Error uploading profile image:', err);
+      setError('Ett fel uppstod vid uppladdning av bild');
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -140,6 +256,7 @@ export default function EditProfileScreen() {
         street_address: formData.streetAddress,
         zip_code: formData.postalCode,
         city: formData.city,
+        profile_image_url: formData.profileImageUrl,
       })
       .eq('id', session.user.id);
 
@@ -190,6 +307,32 @@ export default function EditProfileScreen() {
       </View>
 
       <ScrollView style={styles.form} keyboardShouldPersistTaps="handled">
+        {/* Profile Image Section */}
+        <View style={styles.profileImageSection}>
+          <Text style={styles.label}>PROFILBILD</Text>
+          <View style={styles.profileImageContainer}>
+            <View style={styles.profileImageWrapper}>
+              {formData.profileImageUrl ? (
+                <Image source={{ uri: formData.profileImageUrl }} style={styles.profileImage} />
+              ) : (
+                <View style={styles.profileImagePlaceholder}>
+                  <User size={40} color="#FF69B4" strokeWidth={1.5} />
+                </View>
+              )}
+            </View>
+            <Pressable 
+              style={[styles.changeImageButton, isUploadingImage && styles.changeImageButtonDisabled]}
+              onPress={handleImagePicker}
+              disabled={isUploadingImage}
+            >
+              <Camera size={20} color={isUploadingImage ? "#999" : "#FF69B4"} />
+              <Text style={[styles.changeImageButtonText, isUploadingImage && styles.changeImageButtonTextDisabled]}>
+                {isUploadingImage ? 'Laddar upp...' : 'Ändra bild'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
         <View style={styles.inputGroup}>
           <Text style={styles.label}>E-POST</Text>
           <TextInput
@@ -275,6 +418,56 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-SemiBold',
   },
   form: { flex: 1, paddingHorizontal: 20 },
+  profileImageSection: {
+    marginBottom: 30,
+    alignItems: 'center',
+  },
+  profileImageContainer: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  profileImageWrapper: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#FF69B4',
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+  },
+  profileImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#FFF8FC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  changeImageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#FF69B4',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  changeImageButtonDisabled: {
+    borderColor: '#E5E5E5',
+    opacity: 0.6,
+  },
+  changeImageButtonText: {
+    color: '#FF69B4',
+    fontSize: 14,
+    fontFamily: 'Unbounded-SemiBold',
+  },
+  changeImageButtonTextDisabled: {
+    color: '#999',
+  },
   inputGroup: { marginBottom: 20 },
   row: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   inputContainer: { flex: 1 },
