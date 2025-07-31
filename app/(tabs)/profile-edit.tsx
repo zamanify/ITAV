@@ -155,7 +155,7 @@ export default function EditProfileScreen() {
       }
 
       // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { data: uploadResult, error: uploadError } = await supabase.storage
         .from('profile-images')
         .upload(filePath, uploadData, {
           cacheControl: '3600',
@@ -167,7 +167,7 @@ export default function EditProfileScreen() {
         setError('Kunde inte ladda upp bilden till lagring. Försök igen.');
         return;
       }
-      console.log('Supabase Storage upload successful:', uploadData);
+      console.log('Supabase Storage upload successful:', uploadResult);
 
       // Get the public URL
       const { data: urlData } = supabase.storage
