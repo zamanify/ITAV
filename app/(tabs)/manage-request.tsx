@@ -168,78 +168,10 @@ export default function ManageRequestScreen() {
   };
 
   const handleCompleteRequest = async () => {
-    if (!requestData || !session?.user?.id || isProcessing || !requestData.responder) return;
-
-    const performComplete = async () => {
-      try {
-        setIsProcessing(true);
-
-        // 1. Update request status to 'completed'
-        const { error: updateRequestError } = await supabase
-          .from('requests')
-          .update({ status: 'completed' })
-          .eq('id', requestId);
-
-        if (updateRequestError) {
-          console.error('Error completing request:', updateRequestError);
-          setError('Kunde inte markera ärendet som klart. Försök igen.');
-          return;
-        }
-
-        // 2. Create a transaction with correct from_user and to_user based on request type
-        const fromUser = requestData.is_offer
-          ? requestData.responder.id  // For offers: responder gives minutes
-          : requestData.requester_id; // For requests: requester gives minutes
-
-        const toUser = requestData.is_offer
-          ? requestData.requester_id  // For offers: requester receives minutes
-          : requestData.responder.id; // For requests: responder receives minutes
-
-        const { error: transactionError } = await supabase
-          .from('transactions')
-          .insert({
-            from_user: fromUser,
-            to_user: toUser,
-            minutes: requestData.minutes_logged,
-            related_request: requestData.id
-          });
-
-        if (transactionError) {
-          console.error('Error creating transaction:', transactionError);
-          setError('Kunde inte skapa transaktionen. Försök igen.');
-          return;
-        }
-
-        // 3. Update minute balances for both users (this is handled by a database trigger on transactions table)
-        //    No explicit client-side update needed here if trigger is set up.
-        //    Assuming a trigger exists that updates users.minute_balance based on transactions.
-
-        Alert.alert('Ärende klart!', 'Saldo har överförts.');
-        router.replace('/(tabs)'); // Go back to dashboard
-
-      } catch (err) {
-        console.error('Error during complete request:', err);
-        setError('Ett fel uppstod vid klar-markering av ärende.');
-      } finally {
-        setIsProcessing(false);
-      }
-    };
-
-    if (Platform.OS === 'web') {
-      const confirmed = confirm(`Är du säker på att du vill markera detta ärende som klart? ${requestData.minutes_logged} minuter kommer att överföras.`);
-      if (confirmed) {
-        await performComplete();
-      }
-    } else {
-      Alert.alert(
-        'Markera som klart',
-        `Är du säker på att du vill markera detta ärende som klart? ${requestData.minutes_logged} minuter kommer att överföras.`,
-        [
-          { text: 'Nej', style: 'cancel' },
-          { text: 'Ja', onPress: performComplete },
-        ]
-      );
-    }
+    if (!requestData || !requestData.responder) return;
+    
+    // Open the time logging modal
+    setShowTimeLoggingModal(true);
   };
 
   const formatDate = (dateString: string) => {
