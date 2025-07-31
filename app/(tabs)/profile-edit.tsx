@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import { normalizePhoneNumber } from '@/lib/phone';
 import * as ImagePicker from 'expo-image-picker';
+import { ImagePickerAsset } from 'expo-image-picker';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -102,7 +103,7 @@ export default function EditProfileScreen() {
       });
 
       if (!result.canceled && result.assets[0]) {
-        await uploadProfileImage(result.assets[0].uri);
+        await uploadProfileImage(result.assets[0]);
       }
     } catch (err) {
       console.error('Error picking image:', err);
@@ -110,41 +111,53 @@ export default function EditProfileScreen() {
     }
   };
 
-  const uploadProfileImage = async (imageUri: string) => {
+  const uploadProfileImage = async (asset: ImagePickerAsset) => {
     if (!session?.user?.id) return;
 
     try {
       setIsUploadingImage(true);
       setError(null);
 
-      // Log the image URI we're trying to upload
-      console.log('Attempting to upload image. Image URI:', imageUri);
+      // Log the asset we're trying to upload
+      console.log('Attempting to upload image. Asset:', asset);
 
       // Create a unique filename
-      const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
       const filePath = `public/${fileName}`;
 
-      // Convert image URI to blob for upload
-      const response = await fetch(imageUri);
-      console.log('Fetch response status:', response.status, 'OK:', response.ok);
-      if (!response.ok) {
-        console.error('Fetch failed with status:', response.status);
-        setError(`Failed to fetch image data: ${response.status}`);
-        return; // Exit if fetch failed
+      let uploadData: ArrayBuffer;
+
+      // Handle different platforms differently
+      if (Platform.OS === 'web' && (asset as any).file) {
+        // On web, use the file blob directly if available
+        console.log('Using web file blob for upload');
+        const blob = (asset as any).file as Blob;
+        uploadData = await blob.arrayBuffer();
+        console.log('Blob ArrayBuffer size:', uploadData.byteLength);
+      } else {
+        // On mobile platforms, fetch the URI and convert to ArrayBuffer
+        console.log('Fetching image URI for mobile upload:', asset.uri);
+        const response = await fetch(asset.uri);
+        console.log('Fetch response status:', response.status, 'OK:', response.ok);
+        if (!response.ok) {
+          console.error('Fetch failed with status:', response.status);
+          setError(`Failed to fetch image data: ${response.status}`);
+          return;
+        }
+        uploadData = await response.arrayBuffer();
+        console.log('URI ArrayBuffer size:', uploadData.byteLength);
       }
 
-      const arrayBuffer = await response.arrayBuffer();
-      console.log('ArrayBuffer size:', arrayBuffer.byteLength);
-      if (arrayBuffer.byteLength === 0) {
+      if (uploadData.byteLength === 0) {
         setError('Selected image file is empty or could not be read.');
-        return; // Exit if blob is empty
+        return;
       }
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('profile-images')
-        .upload(filePath, arrayBuffer, {
+        .upload(filePath, uploadData, {
           cacheControl: '3600',
           upsert: false
         });
@@ -154,7 +167,7 @@ export default function EditProfileScreen() {
         setError('Kunde inte ladda upp bilden till lagring. Försök igen.');
         return;
       }
-      console.log('Supabase Storage upload data:', uploadData);
+      console.log('Supabase Storage upload successful:', uploadData);
 
       // Get the public URL
       const { data: urlData } = supabase.storage
