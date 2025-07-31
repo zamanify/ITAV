@@ -88,6 +88,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="accepted-item-details"
+        options={{
+          href: null, // This hides the tab from the tab bar
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',

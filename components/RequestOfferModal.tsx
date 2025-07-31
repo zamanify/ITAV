@@ -22,6 +22,8 @@ type RequestOfferModalProps = {
     balance: number;
     groupName?: string;
     senderId: string;
+    status: string;
+    acceptedResponderId?: string;
   };
 };
 
@@ -29,10 +31,33 @@ export default function RequestOfferModal({ visible, onClose, data }: RequestOff
   const { session } = useContext(AuthContext);
   const [pairBalance, setPairBalance] = useState<number | null>(null);
   const [messageModalVisible, setMessageModalVisible] = useState(false);
+  
+  // Check if current user is the accepted responder
+  const isAcceptedResponder = data.status === 'accepted' && 
+    data.acceptedResponderId === session?.user?.id;
 
   useEffect(() => {
     const logView = async () => {
       if (visible && session?.user?.id && data.senderId !== session.user.id) {
+        // First check if user already has an accepted or rejected response
+        const { data: existingResponse, error: checkError } = await supabase
+          .from('request_responses')
+          .select('status')
+          .eq('request_id', data.id)
+          .eq('responder_id', session.user.id)
+          .in('status', ['accepted', 'rejected'])
+          .maybeSingle();
+
+        if (checkError) {
+          console.error('Failed to check existing response:', checkError);
+          return;
+        }
+
+        // If user already has an accepted or rejected response, don't log view
+        if (existingResponse) {
+          return;
+        }
+
         const { error } = await supabase
           .from('request_responses')
           .upsert(
@@ -72,17 +97,29 @@ export default function RequestOfferModal({ visible, onClose, data }: RequestOff
     return `DU ÄR SKYLDIG ${data.senderName} ${Math.abs(pairBalance)} MIN`;
   };
 
-  const handleRespondToItem = () => {
+  const handleMainAction = () => {
     onClose();
-    // Navigate to the response screen with the necessary parameters
-    router.push({
-      pathname: '/respond-to-item',
-      params: {
-        itemId: data.id,
-        senderId: data.senderId,
-        itemType: data.type
-      }
-    });
+    
+    if (isAcceptedResponder) {
+      // Navigate to the accepted item details screen
+      router.push({
+        pathname: '/accepted-item-details',
+        params: {
+          itemId: data.id,
+          requesterId: data.senderId
+        }
+      });
+    } else {
+      // Navigate to the response screen with the necessary parameters
+      router.push({
+        pathname: '/respond-to-item',
+        params: {
+          itemId: data.id,
+          senderId: data.senderId,
+          itemType: data.type
+        }
+      });
+    }
   };
 
   const handleSendMessage = () => {
@@ -131,11 +168,13 @@ export default function RequestOfferModal({ visible, onClose, data }: RequestOff
             </View>
 
             <View style={styles.buttonContainer}>
-              <Pressable style={styles.actionButton} onPress={handleRespondToItem}>
+              <Pressable style={styles.actionButton} onPress={handleMainAction}>
                 <Text style={styles.actionButtonText}>
-                  {data.type === 'request' 
-                    ? 'RÄCK UPP HANDEN OCH ERBJUD DIG'
-                    : 'RÄCK UPP HANDEN OCH TA EMOT'
+                  {isAcceptedResponder
+                    ? 'VISA ÄRENDEDETALJER'
+                    : data.type === 'request' 
+                      ? 'RÄCK UPP HANDEN OCH ERBJUD DIG'
+                      : 'RÄCK UPP HANDEN OCH TA EMOT'
                   }
                 </Text>
               </Pressable>
