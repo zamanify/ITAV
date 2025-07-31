@@ -58,27 +58,6 @@ export default function RequestOfferModal({ visible, onClose, data }: RequestOff
           return;
         }
 
-        // Only log view if user hasn't already responded
-        // First check if user already has an accepted or rejected response
-        const { data: existingResponse, error: checkError } = await supabase
-          .from('request_responses')
-          .select('status')
-          .eq('request_id', data.id)
-          .eq('responder_id', session.user.id)
-          .in('status', ['accepted', 'rejected'])
-          .maybeSingle();
-
-        if (checkError) {
-          console.error('Failed to check existing response:', checkError);
-          return;
-        }
-
-        // If user already has an accepted or rejected response, don't log view
-        if (existingResponse) {
-          return;
-        }
-
-        // Only log view if user hasn't already responded
         const { error } = await supabase
           .from('request_responses')
           .upsert(
