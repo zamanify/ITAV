@@ -6,6 +6,7 @@ import { useState, useEffect, useContext } from 'react';
 import { ArrowLeft, User, MessageCircle, CircleCheck as CheckCircle, Circle as XCircle } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
+import TimeLoggingModal from '../../components/TimeLoggingModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -44,6 +45,7 @@ export default function ManageRequestScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTimeLoggingModal, setShowTimeLoggingModal] = useState(false);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -170,8 +172,12 @@ export default function ManageRequestScreen() {
   const handleCompleteRequest = async () => {
     if (!requestData || !requestData.responder) return;
     
-    // Open the time logging modal
     setShowTimeLoggingModal(true);
+  };
+
+  const handleTimeLoggingConfirmed = () => {
+    setShowTimeLoggingModal(false);
+    router.replace('/(tabs)');
   };
 
   const formatDate = (dateString: string) => {
@@ -310,6 +316,21 @@ export default function ManageRequestScreen() {
           </Text>
         </Pressable>
       </View>
+
+      {/* Time Logging Modal */}
+      {requestData && requestData.responder && (
+        <TimeLoggingModal
+          visible={showTimeLoggingModal}
+          onClose={() => setShowTimeLoggingModal(false)}
+          requestId={requestData.id}
+          requesterId={requestData.requester_id}
+          responderId={requestData.responder.id}
+          estimatedMinutes={requestData.minutes_logged}
+          requesterFirstName={requestData.responder.first_name}
+          responderFirstName={requestData.responder.first_name}
+          onConfirm={handleTimeLoggingConfirmed}
+        />
+      )}
     </View>
   );
 }
