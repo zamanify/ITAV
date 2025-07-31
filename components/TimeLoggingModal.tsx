@@ -1,5 +1,5 @@
 import { Modal, View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator, Platform, Alert } from 'react-native';
-import { X, Circle, CheckCircle, Send } from 'lucide-react-native';
+import { X, Circle, CircleCheck as CheckCircle, Send } from 'lucide-react-native';
 import { useState, useEffect, useContext } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
