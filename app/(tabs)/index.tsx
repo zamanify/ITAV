@@ -39,6 +39,8 @@ type ReceivedItem = {
   balance: number;
   groupName?: string;
   senderId: string;
+  status: string;
+  acceptedResponderId?: string;
 };
 
 type UserStats = {
@@ -298,6 +300,7 @@ export default function Dashboard() {
             flexible,
             minutes_logged,
             created_at,
+            accepted_responder_id,
             requester:requester_id(first_name, last_name, minute_balance),
             request_groups!inner(
               group:group_id(name)
@@ -305,7 +308,7 @@ export default function Dashboard() {
           `)
           .in('request_groups.group_id', groupIds)
           .neq('requester_id', session.user.id)
-          .eq('status', 'open')
+          .or(`status.eq.open,and(status.eq.accepted,accepted_responder_id.eq.${session.user.id})`)
           .order('created_at', { ascending: false });
 
         if (groupRequestsError) {
@@ -328,6 +331,7 @@ export default function Dashboard() {
           flexible,
           minutes_logged,
           created_at,
+          accepted_responder_id,
           requester:requester_id(first_name, last_name, minute_balance),
           request_villagers!inner(
             user_id
@@ -335,7 +339,7 @@ export default function Dashboard() {
         `)
         .eq('request_villagers.user_id', session.user.id)
         .neq('requester_id', session.user.id)
-        .eq('status', 'open')
+        .or(`status.eq.open,and(status.eq.accepted,accepted_responder_id.eq.${session.user.id})`)
         .order('created_at', { ascending: false });
 
       if (villagerRequestsError) {
@@ -392,7 +396,9 @@ export default function Dashboard() {
           estimatedTime: item.minutes_logged || 0,
           balance: item.requester.minute_balance || 0,
           groupName: groupName,
-          senderId: item.requester_id
+          senderId: item.requester_id,
+          status: item.status,
+          acceptedResponderId: item.accepted_responder_id
         };
 
         if (item.is_offer) {
