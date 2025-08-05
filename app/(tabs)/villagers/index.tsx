@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platform, RefreshControl, Image } from 'react-native';
 import { router } from 'expo-router';
-import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
+import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded'; // Keep this import
 import { SplashScreen } from 'expo-router';
 import { useEffect, useState, useContext, useCallback } from 'react';
 import { ArrowLeft, UserPlus, MessageCircle, UserX, Check, X, UserCheck } from 'lucide-react-native';
@@ -19,6 +19,7 @@ type Villager = {
   memberSince: string;
   balance: number;
   status: 'connected' | 'pending' | 'request_received';
+  isSeen?: boolean; // Added for new functionality
   connectionId: string;
   profileImageUrl?: string;
 };
@@ -58,6 +59,7 @@ export default function VillagersScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [villagers, setVillagers] = useState<Villager[]>([]);
   const [pendingRequests, setPendingRequests] = useState<VillagerRequest[]>([]);
+  const [newVillagers, setNewVillagers] = useState<Villager[]>([]); // New state for unseen villagers
   const [sentRequests, setSentRequests] = useState<SentRequest[]>([]);
   const [blockedVillagers, setBlockedVillagers] = useState<BlockedVillager[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -114,7 +116,9 @@ export default function VillagersScreen() {
           created_at,
           sender:sender_id(id, first_name, last_name, phone_number, minute_balance, created_at, profile_image_url),
           receiver:receiver_id(id, first_name, last_name, phone_number, minute_balance, created_at, profile_image_url)
-        `)
+        `,
+        is_seen: true // Select the new column
+        })
         .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
         .in('status', ['pending', 'accepted', 'rejected']);
 
@@ -138,6 +142,7 @@ export default function VillagersScreen() {
       const acceptedConnections = filteredConnections.filter(conn => conn.status === 'accepted');
       const incomingRequests = filteredConnections.filter(conn => 
         conn.status === 'pending' && conn.receiver?.id === session.user.id
+        // is_seen is only for accepted connections
       );
       const outgoingRequests = filteredConnections.filter(conn => 
         conn.status === 'pending' && conn.sender?.id === session.user.id
@@ -151,6 +156,8 @@ export default function VillagersScreen() {
 
         if (!otherUser) return null;
 
+        const isSeen = connection.is_seen;
+
         return {
           id: otherUser.id,
           name: `${otherUser.first_name} ${otherUser.last_name}`,
@@ -162,6 +169,7 @@ export default function VillagersScreen() {
           }),
           balance: otherUser.minute_balance || 0,
           status: 'connected' as const,
+          isSeen: isSeen,
           connectionId: connection.id,
           profileImageUrl: otherUser.profile_image_url
         };
@@ -222,7 +230,13 @@ export default function VillagersScreen() {
         };
       }).filter(Boolean) as BlockedVillager[];
 
-      setVillagers(villagersData);
+      // Separate new villagers (accepted by them, not yet seen by me)
+      const newAcceptedVillagers = villagersData.filter(v => v.isSeen === false && v.connectionId && v.id !== session.user.id);
+      const regularVillagers = villagersData.filter(v => v.isSeen === true || v.id === session.user.id);
+
+      setNewVillagers(newAcceptedVillagers);
+      setVillagers(regularVillagers);
+
       setPendingRequests(requestsData);
       setSentRequests(sentRequestsData);
       setBlockedVillagers(blockedData);
@@ -231,6 +245,32 @@ export default function VillagersScreen() {
       setError('Ett fel uppstod vid hämtning av villagers');
     } finally {
       setIsLoading(false);
+    }
+  }, [session?.user?.id]);
+
+  const markVillagersAsSeen = useCallback(async () => {
+    if (!session?.user?.id || newVillagers.length === 0) return;
+
+    try {
+      const connectionIdsToMarkSeen = newVillagers
+        .filter(v => v.isSeen === false && v.connectionId)
+        .map(v => v.connectionId);
+
+      if (connectionIdsToMarkSeen.length > 0) {
+        const { error } = await supabase
+          .from('villager_connections')
+          .update({ is_seen: true })
+          .in('id', connectionIdsToMarkSeen);
+
+        if (error) {
+          console.error('Error marking villagers as seen:', error);
+        } else {
+          // Re-fetch data to update the UI and move villagers from 'new' to 'regular' section
+          fetchVillagersAndRequests();
+        }
+      }
+    } catch (err) {
+      console.error('Error in markVillagersAsSeen:', err);
     }
   }, [session?.user?.id]);
   
@@ -243,7 +283,10 @@ export default function VillagersScreen() {
   useEffect(() => {
     if (session?.user?.id) {
       fetchVillagersAndRequests();
+      // Mark new villagers as seen when the screen is focused
+      markVillagersAsSeen();
     }
+
   }, [session?.user?.id]);
 
   useEffect(() => {
@@ -569,7 +612,7 @@ export default function VillagersScreen() {
     if (error) return 'FEL VID LADDNING';
     
     const totalItems = villagers.length + pendingRequests.length + sentRequests.length + blockedVillagers.length;
-    if (totalItems === 0) return 'INGA VILLAGERS ÄNNU';
+    if (totalItems === 0 && newVillagers.length === 0) return 'INGA VILLAGERS ÄNNU';
     
     let title = '';
     if (villagers.length > 0) {
@@ -586,6 +629,10 @@ export default function VillagersScreen() {
     if (blockedVillagers.length > 0) {
       if (title) title += ' • ';
       title += `${blockedVillagers.length} BLOCKERAD${blockedVillagers.length > 1 ? 'E' : ''}`;
+    }
+    if (newVillagers.length > 0) {
+      if (title) title += ' • ';
+      title += `${newVillagers.length} NY${newVillagers.length > 1 ? 'A' : ''}`;
     }
     
     return title.toUpperCase();
@@ -741,8 +788,44 @@ export default function VillagersScreen() {
               </View>
             )}
 
+            {/* New Villagers Section */}
+            {newVillagers.length > 0 && (
+              <View style={styles.newVillagersSection}>
+                <Text style={styles.sectionTitle}>NYA VILLAGERS</Text>
+                {newVillagers.map((villager) => (
+                  <View key={villager.id} style={styles.villagerCard}>
+                    <View style={styles.villagerHeader}>
+                      <View style={styles.villagerAvatarContainer}>
+                        {villager.profileImageUrl ? (
+                          <Image source={{ uri: villager.profileImageUrl }} style={styles.villagerAvatar} />
+                        ) : (
+                          <View style={styles.villagerAvatarPlaceholder} />
+                        )}
+                      </View>
+                      <Text style={styles.villagerName}>{villager.name}</Text>
+                    </View>
+                    <View style={styles.villagerDetails}>
+                      <Text style={styles.villagerPhone}>{villager.phoneNumber}</Text>
+                      <Text style={styles.villagerBalance}>
+                        Saldo {villager.balance > 0 ? '+' : ''}{villager.balance} min
+                      </Text>
+                    </View>
+                    {renderVillagerActions(villager)}
+                  </View>
+                ))}
+                
+                {newVillagers.length === 0 && searchQuery && (
+                  <View style={styles.centerContainer}>
+                    <Text style={styles.noResultsText}>
+                      Inga nya villagers matchar "{searchQuery}"
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* Villagers Section */}
-            {villagers.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && blockedVillagers.length === 0 ? (
+            {villagers.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && blockedVillagers.length === 0 && newVillagers.length === 0 ? (
               <View style={styles.centerContainer}>
                 <Text style={styles.emptyTitle}>Inga villagers än</Text>
                 <Text style={styles.emptyDescription}>
@@ -751,9 +834,8 @@ export default function VillagersScreen() {
                 <Pressable 
                   style={styles.inviteButton} 
                   onPress={() => router.push('/invite')}
-                >
+                > {/* Removed console.log here */}
                   <Text style={styles.inviteButtonText}>Bjud in villagers</Text>
-           {console.log('Villager Profile Image URL:', villager.profileImageUrl)}
                 </Pressable>
               </View>
             ) : (
@@ -764,7 +846,7 @@ export default function VillagersScreen() {
                       <Text style={styles.sectionTitle}>DINA VILLAGERS</Text>
                     )}
                     {filteredVillagers.map((villager) => (
-                      <View key={villager.id} style={styles.villagerCard}>
+                      <View key={villager.id} style={styles.villagerCard}> {/* Removed console.log here */}
                         <View style={styles.villagerHeader}>
                           <View style={styles.villagerAvatarContainer}>
                             {villager.profileImageUrl ? (
@@ -941,6 +1023,9 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   sentRequestsSection: {
+    marginBottom: 30,
+  },
+  newVillagersSection: {
     marginBottom: 30,
   },
   blockedSection: {
