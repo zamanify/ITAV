@@ -340,7 +340,7 @@ export default function VillagersScreen() {
 
       const { error } = await supabase
         .from('villager_connections')
-        `)
+        
         .eq('id', request.connectionId);
 
       if (error) {
