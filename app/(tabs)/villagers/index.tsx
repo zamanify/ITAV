@@ -1267,3 +1267,6 @@ const styles = StyleSheet.create({
     }
   }
 }
+    }
+  }
+}
