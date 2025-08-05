@@ -114,11 +114,10 @@ export default function VillagersScreen() {
           id,
           status,
           created_at,
+          is_seen,
           sender:sender_id(id, first_name, last_name, phone_number, minute_balance, created_at, profile_image_url),
           receiver:receiver_id(id, first_name, last_name, phone_number, minute_balance, created_at, profile_image_url)
-        `,
-        is_seen: true // Select the new column
-        })
+        `)
         .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
         .in('status', ['pending', 'accepted', 'rejected']);
 
