@@ -1270,3 +1270,6 @@ const styles = StyleSheet.create({
     }
   }
 }
+    }
+  }
+}
