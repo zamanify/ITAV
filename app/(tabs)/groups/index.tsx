@@ -4,7 +4,7 @@ import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-goo
 
 import { SplashScreen } from 'expo-router';
 import { useEffect, useState, useContext, useCallback } from 'react';
-import { ArrowLeft, Users, MessageCircle, Plus, Trash2, Edit, Check } from 'lucide-react-native';
+import { ArrowLeft, Users, MessageCircle, Plus, Trash2, CreditCard as Edit, Check } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -564,37 +564,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#87CEEB',
     fontFamily: 'Unbounded-SemiBold',
-    flex: 1,
-  },
-  groupNameInput: {
-    fontSize: 18,
-    color: '#87CEEB',
-    fontFamily: 'Unbounded-SemiBold',
-    flex: 1,
-    borderBottomWidth: 2,
-    borderBottomColor: '#87CEEB',
-    paddingVertical: 4,
-    paddingHorizontal: 0,
-    backgroundColor: 'transparent',
-    minHeight: 24,
-  },
-  editButton: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#87CEEB',
-    borderRadius: 12,
-    padding: 8,
-    marginLeft: 12,
-    shadowColor: '#87CEEB',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  editButtonDisabled: {
-    opacity: 0.6,
-    shadowOpacity: 0,
-    elevation: 0,
   },
   deleteButton: {
     flexDirection: 'row',
