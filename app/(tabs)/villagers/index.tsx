@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platform, RefreshControl, Image } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded'; // Keep this import
 import { SplashScreen } from 'expo-router';
-import { useEffect, useState, useContext, useCallback } from 'react';
+import { useEffect, useState, useContext, useCallback, useRef } from 'react';
 import { ArrowLeft, UserPlus, MessageCircle, UserX, Check, X, UserCheck } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -71,6 +71,7 @@ export default function VillagersScreen() {
   const [processingBlockId, setProcessingBlockId] = useState<string | null>(null);
   const [messageModalVisible, setMessageModalVisible] = useState(false);
   const [selectedVillagerForMessage, setSelectedVillagerForMessage] = useState<{ id: string; name: string } | null>(null);
+  const newVillagersToMarkSeen = useRef<string[]>([]);
 
   const fetchVillagersAndRequests = useCallback(async () => {
     if (!session?.user?.id) return;
@@ -234,6 +235,11 @@ export default function VillagersScreen() {
       const newAcceptedVillagers = villagersData.filter(v => v.isSeen === false && v.connectionId && v.id !== session.user.id);
       const regularVillagers = villagersData.filter(v => v.isSeen === true || v.id === session.user.id);
 
+      // Store connection IDs of new villagers that need to be marked as seen when user leaves
+      if (newAcceptedVillagers.length > 0) {
+        newVillagersToMarkSeen.current = newAcceptedVillagers.map(v => v.connectionId);
+      }
+
       setNewVillagers(newAcceptedVillagers);
       setVillagers(regularVillagers);
 
@@ -248,33 +254,22 @@ export default function VillagersScreen() {
     }
   }, [session?.user?.id]);
 
-  const markVillagersAsSeen = useCallback(async () => {
-    if (!session?.user?.id || newVillagers.length === 0) return;
+  const markVillagersAsSeen = useCallback(async (connectionIds: string[]) => {
+    if (!session?.user?.id || connectionIds.length === 0) return;
 
     try {
-      const connectionIdsToMarkSeen = newVillagers
-        .filter(v => v.isSeen === false && v.connectionId)
-        .map(v => v.connectionId);
+      const { error } = await supabase
+        .from('villager_connections')
+        .update({ is_seen: true })
+        .in('id', connectionIds);
 
-      if (connectionIdsToMarkSeen.length > 0) {
-        const { error } = await supabase
-          .from('villager_connections')
-          .update({ is_seen: true })
-          .in('id', connectionIdsToMarkSeen);
-
-        if (error) {
-          console.error('Error marking villagers as seen:', error);
-        } else {
-          // Update local state immediately to move villagers from 'new' to 'regular' section
-          const seenVillagers = newVillagers.filter(v => connectionIdsToMarkSeen.includes(v.connectionId));
-          setNewVillagers(prev => prev.filter(v => !connectionIdsToMarkSeen.includes(v.connectionId)));
-          setVillagers(prev => [...prev, ...seenVillagers.map(v => ({ ...v, isSeen: true }))]);
-        }
+      if (error) {
+        console.error('Error marking villagers as seen:', error);
       }
     } catch (err) {
       console.error('Error in markVillagersAsSeen:', err);
     }
-  }, [session?.user?.id, newVillagers]);
+  }, [session?.user?.id]);
   
   useEffect(() => {
     if (fontsLoaded) {
@@ -288,17 +283,20 @@ export default function VillagersScreen() {
     }
   }, [session?.user?.id]);
 
-  // Mark new villagers as seen when they appear
-  useEffect(() => {
-    if (newVillagers.length > 0) {
-      // Add a small delay to ensure the user actually sees them
-      const timer = setTimeout(() => {
-        markVillagersAsSeen();
-      }, 1000); // 1 second delay
-
-      return () => clearTimeout(timer);
-    }
-  }, [newVillagers, markVillagersAsSeen]);
+  // Mark new villagers as seen when user navigates away from the screen
+  useFocusEffect(
+    useCallback(() => {
+      // When screen gains focus, do nothing special
+      
+      // Return cleanup function that runs when screen loses focus
+      return () => {
+        if (newVillagersToMarkSeen.current.length > 0) {
+          markVillagersAsSeen(newVillagersToMarkSeen.current);
+          newVillagersToMarkSeen.current = []; // Clear the list after marking
+        }
+      };
+    }, [markVillagersAsSeen])
+  );
 
   useEffect(() => {
     if (!session?.user?.id) return;
