@@ -265,14 +265,16 @@ export default function VillagersScreen() {
         if (error) {
           console.error('Error marking villagers as seen:', error);
         } else {
-          // Re-fetch data to update the UI and move villagers from 'new' to 'regular' section
-          fetchVillagersAndRequests();
+          // Update local state immediately to move villagers from 'new' to 'regular' section
+          const seenVillagers = newVillagers.filter(v => connectionIdsToMarkSeen.includes(v.connectionId));
+          setNewVillagers(prev => prev.filter(v => !connectionIdsToMarkSeen.includes(v.connectionId)));
+          setVillagers(prev => [...prev, ...seenVillagers.map(v => ({ ...v, isSeen: true }))]);
         }
       }
     } catch (err) {
       console.error('Error in markVillagersAsSeen:', err);
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, newVillagers]);
   
   useEffect(() => {
     if (fontsLoaded) {
@@ -283,11 +285,20 @@ export default function VillagersScreen() {
   useEffect(() => {
     if (session?.user?.id) {
       fetchVillagersAndRequests();
-      // Mark new villagers as seen when the screen is focused
-      markVillagersAsSeen();
     }
-
   }, [session?.user?.id]);
+
+  // Mark new villagers as seen when they appear
+  useEffect(() => {
+    if (newVillagers.length > 0) {
+      // Add a small delay to ensure the user actually sees them
+      const timer = setTimeout(() => {
+        markVillagersAsSeen();
+      }, 1000); // 1 second delay
+
+      return () => clearTimeout(timer);
+    }
+  }, [newVillagers, markVillagersAsSeen]);
 
   useEffect(() => {
     if (!session?.user?.id) return;
