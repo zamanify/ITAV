@@ -4,7 +4,7 @@ import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-goo
 
 import { SplashScreen } from 'expo-router';
 import { useEffect, useState, useContext, useCallback } from 'react';
-import { ArrowLeft, Users, MessageCircle, Plus, Trash2, CreditCard as Edit, Check } from 'lucide-react-native';
+import { ArrowLeft, Users, MessageCircle, Plus, Trash2 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -43,11 +43,6 @@ export default function GroupsScreen() {
   const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<Group | null>(null);
-
-  // Group editing state
-  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
-  const [editedGroupName, setEditedGroupName] = useState('');
-  const [savingGroupId, setSavingGroupId] = useState<string | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
