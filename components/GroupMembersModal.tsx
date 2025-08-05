@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, Modal, ActivityIndicator, TextInput, Alert, Platform } from 'react-native';
-import { X, Users, CreditCard as Edit, Save, UserPlus, UserMinus } from 'lucide-react-native';
+import { X, Users, Edit, Save, UserPlus, UserMinus } from 'lucide-react-native';
 import { useState, useEffect, useContext } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -284,6 +284,13 @@ export default function GroupMembersModal({ visible, onClose, groupId, groupName
       // Exit editing mode
       setIsEditing(false);
       
+      // Show success feedback
+      if (Platform.OS === 'web') {
+        // For web, we could show a brief success message
+        console.log('Group name updated successfully');
+      } else {
+        Alert.alert('Sparat', 'Gruppnamnet har uppdaterats.');
+      }
     } catch (err) {
       console.error('Error saving group name:', err);
       setError('Ett fel uppstod vid sparande av gruppnamn');
@@ -462,6 +469,8 @@ export default function GroupMembersModal({ visible, onClose, groupId, groupName
                 style={styles.addVillagerButton}
                 onPress={handleOpenVillagerModal}
               >
+                onSubmitEditing={handleSaveGroupName}
+                returnKeyType="done"
                 <UserPlus size={20} color="#87CEEB" />
                 <Text style={styles.addVillagerButtonText}>Lägg till</Text>
               </Pressable>
@@ -607,7 +616,7 @@ export default function GroupMembersModal({ visible, onClose, groupId, groupName
           {selectedVillagers.length > 0 && (
             <View style={styles.villagerActionContainer}>
               <Pressable 
-                style={[styles.addSelectedButton, isAddingVillagers && styles.addSelectedButtonDisabled]}
+                disabled={isSaving || (isEditing && (!editedGroupName.trim() || editedGroupName.trim() === groupName))}
                 onPress={handleAddSelectedVillagers}
                 disabled={isAddingVillagers}
               >
@@ -719,6 +728,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#87CEEB',
     paddingVertical: 4,
     paddingHorizontal: 0,
+    backgroundColor: 'transparent',
+    minHeight: 32,
   },
   editButton: {
     flexDirection: 'row',
@@ -730,16 +741,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 6,
-    minWidth: 80,
+    minWidth: 90,
     justifyContent: 'center',
+    shadowColor: '#87CEEB',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   editButtonDisabled: {
     opacity: 0.6,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   editButtonText: {
     color: '#87CEEB',
     fontSize: 12,
     fontFamily: 'Unbounded-Regular',
+    fontWeight: '600',
   },
   editButtonTextDisabled: {
     color: '#999',
