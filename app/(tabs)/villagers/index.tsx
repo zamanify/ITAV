@@ -886,6 +886,7 @@ export default function VillagersScreen() {
                 )}
               </React.Fragment>
             )}
+          </>
         )}
       </ScrollView>
 
