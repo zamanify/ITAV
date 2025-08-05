@@ -1264,15 +1264,3 @@ const styles = StyleSheet.create({
     color: '#999',
   },
 });
-    }
-  }
-}
-    }
-  }
-}
-    }
-  }
-}
-    }
-  }
-}
