@@ -4,7 +4,7 @@ import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-goo
 
 import { SplashScreen } from 'expo-router';
 import { useEffect, useState, useContext, useCallback } from 'react';
-import { ArrowLeft, Users, MessageCircle, Plus, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Users, MessageCircle, Plus, Trash2, Edit, Check } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -43,6 +43,11 @@ export default function GroupsScreen() {
   const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<Group | null>(null);
+
+  // Group editing state
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editedGroupName, setEditedGroupName] = useState('');
+  const [savingGroupId, setSavingGroupId] = useState<string | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -559,6 +564,37 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#87CEEB',
     fontFamily: 'Unbounded-SemiBold',
+    flex: 1,
+  },
+  groupNameInput: {
+    fontSize: 18,
+    color: '#87CEEB',
+    fontFamily: 'Unbounded-SemiBold',
+    flex: 1,
+    borderBottomWidth: 2,
+    borderBottomColor: '#87CEEB',
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+    backgroundColor: 'transparent',
+    minHeight: 24,
+  },
+  editButton: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#87CEEB',
+    borderRadius: 12,
+    padding: 8,
+    marginLeft: 12,
+    shadowColor: '#87CEEB',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  editButtonDisabled: {
+    opacity: 0.6,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   deleteButton: {
     flexDirection: 'row',
