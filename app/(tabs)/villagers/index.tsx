@@ -886,7 +886,8 @@ export default function VillagersScreen() {
                 )}
               </React.Fragment>
             )}
-        )}
+          </>           
+       )}
       </ScrollView>
 
       {/* Group Selection Modal */}
