@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert, Platform, TextInput } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
 import { SplashScreen } from 'expo-router';
@@ -6,6 +6,7 @@ import { useState, useEffect, useContext } from 'react';
 import { ArrowLeft, User, MessageCircle, CircleCheck as CheckCircle, Circle as XCircle } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
+import TimeLoggingModal from '../../components/TimeLoggingModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -44,6 +45,7 @@ export default function ManageRequestScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTimeLoggingModal, setShowTimeLoggingModal] = useState(false);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -168,78 +170,14 @@ export default function ManageRequestScreen() {
   };
 
   const handleCompleteRequest = async () => {
-    if (!requestData || !session?.user?.id || isProcessing || !requestData.responder) return;
+    if (!requestData || !requestData.responder) return;
+    
+    setShowTimeLoggingModal(true);
+  };
 
-    const performComplete = async () => {
-      try {
-        setIsProcessing(true);
-
-        // 1. Update request status to 'completed'
-        const { error: updateRequestError } = await supabase
-          .from('requests')
-          .update({ status: 'completed' })
-          .eq('id', requestId);
-
-        if (updateRequestError) {
-          console.error('Error completing request:', updateRequestError);
-          setError('Kunde inte markera ärendet som klart. Försök igen.');
-          return;
-        }
-
-        // 2. Create a transaction with correct from_user and to_user based on request type
-        const fromUser = requestData.is_offer
-          ? requestData.responder.id  // For offers: responder gives minutes
-          : requestData.requester_id; // For requests: requester gives minutes
-
-        const toUser = requestData.is_offer
-          ? requestData.requester_id  // For offers: requester receives minutes
-          : requestData.responder.id; // For requests: responder receives minutes
-
-        const { error: transactionError } = await supabase
-          .from('transactions')
-          .insert({
-            from_user: fromUser,
-            to_user: toUser,
-            minutes: requestData.minutes_logged,
-            related_request: requestData.id
-          });
-
-        if (transactionError) {
-          console.error('Error creating transaction:', transactionError);
-          setError('Kunde inte skapa transaktionen. Försök igen.');
-          return;
-        }
-
-        // 3. Update minute balances for both users (this is handled by a database trigger on transactions table)
-        //    No explicit client-side update needed here if trigger is set up.
-        //    Assuming a trigger exists that updates users.minute_balance based on transactions.
-
-        Alert.alert('Ärende klart!', 'Saldo har överförts.');
-        router.replace('/(tabs)'); // Go back to dashboard
-
-      } catch (err) {
-        console.error('Error during complete request:', err);
-        setError('Ett fel uppstod vid klar-markering av ärende.');
-      } finally {
-        setIsProcessing(false);
-      }
-    };
-
-    if (Platform.OS === 'web') {
-      const confirmed = confirm(`Är du säker på att du vill markera detta ärende som klart? ${requestData.minutes_logged} minuter kommer att överföras.`);
-      if (confirmed) {
-        await performComplete();
-      }
-    } else {
-      Alert.alert(
-        'Markera som klart',
-        `Är du säker på att du vill markera detta ärende som klart? ${requestData.minutes_logged} minuter kommer att överföras.`,
-        [
-          { text: 'Nej', style: 'cancel' },
-          { text: 'Ja', onPress: performComplete },
-        ]
-      );
-    }
+  const handleTimeLoggingConfirmed = () => {
+    setShowTimeLoggingModal(false);
+    router.replace('/(tabs)');
   };
 
   const formatDate = (dateString: string) => {
@@ -378,6 +316,21 @@ export default function ManageRequestScreen() {
           </Text>
         </Pressable>
       </View>
+
+      {/* Time Logging Modal */}
+      {requestData && requestData.responder && (
+        <TimeLoggingModal
+          visible={showTimeLoggingModal}
+          onClose={() => setShowTimeLoggingModal(false)}
+          requestId={requestData.id}
+          requesterId={requestData.requester_id}
+          responderId={requestData.responder.id}
+          estimatedMinutes={requestData.minutes_logged}
+          requesterFirstName={requestData.responder.first_name}
+          responderFirstName={requestData.responder.first_name}
+          onConfirm={handleTimeLoggingConfirmed}
+        />
+      )}
     </View>
   );
 }
