@@ -115,6 +115,7 @@ export default function VillagersScreen() {
           status,
           created_at,
           is_seen,
+          is_seen,
           sender:sender_id(id, first_name, last_name, phone_number, minute_balance, created_at, profile_image_url),
           receiver:receiver_id(id, first_name, last_name, phone_number, minute_balance, created_at, profile_image_url)
         `)
@@ -339,9 +340,7 @@ export default function VillagersScreen() {
 
       const { error } = await supabase
         .from('villager_connections')
-        .update({ 
-          status: accept ? 'accepted' : 'rejected' 
-        })
+        `)
         .eq('id', request.connectionId);
 
       if (error) {
