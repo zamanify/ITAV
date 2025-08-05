@@ -883,7 +883,7 @@ export default function VillagersScreen() {
                     )}
                   </View>
                 )}
-              </>
+              </View>
             )}
           </>
         )}
