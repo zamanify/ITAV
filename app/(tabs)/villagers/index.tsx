@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platform, RefreshControl, Image } from 'react-native';
+import React from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded'; // Keep this import
 import { SplashScreen } from 'expo-router';
@@ -846,7 +847,7 @@ export default function VillagersScreen() {
                 </Pressable>
               </View>
             ) : (
-              <>
+              <React.Fragment>
                 {villagers.length > 0 && (
                   <View style={styles.villagersSection}>
                     {(pendingRequests.length > 0 || sentRequests.length > 0 || blockedVillagers.length > 0) && (
@@ -883,9 +884,8 @@ export default function VillagersScreen() {
                     )}
                   </View>
                 )}
-              </View>
+              </React.Fragment>
             )}
-          </>
         )}
       </ScrollView>
 
