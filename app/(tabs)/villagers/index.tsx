@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platform, RefreshControl, Image } from 'react-native';
-import { router } from 'expo-router';
-import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
+import { router, useFocusEffect } from 'expo-router';
+import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded'; // Keep this import
 import { SplashScreen } from 'expo-router';
-import { useEffect, useState, useContext, useCallback } from 'react';
+import { useEffect, useState, useContext, useCallback, useRef } from 'react';
 import { ArrowLeft, UserPlus, MessageCircle, UserX, Check, X, UserCheck } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -19,6 +19,7 @@ type Villager = {
   memberSince: string;
   balance: number;
   status: 'connected' | 'pending' | 'request_received';
+  isSeen?: boolean; // Added for new functionality
   connectionId: string;
   profileImageUrl?: string;
 };
@@ -57,6 +58,7 @@ export default function VillagersScreen() {
   const { session } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState('');
   const [villagers, setVillagers] = useState<Villager[]>([]);
+  const [newVillagers, setNewVillagers] = useState<Villager[]>([]);
   const [pendingRequests, setPendingRequests] = useState<VillagerRequest[]>([]);
   const [sentRequests, setSentRequests] = useState<SentRequest[]>([]);
   const [blockedVillagers, setBlockedVillagers] = useState<BlockedVillager[]>([]);
@@ -69,6 +71,14 @@ export default function VillagersScreen() {
   const [processingBlockId, setProcessingBlockId] = useState<string | null>(null);
   const [messageModalVisible, setMessageModalVisible] = useState(false);
   const [selectedVillagerForMessage, setSelectedVillagerForMessage] = useState<{ id: string; name: string } | null>(null);
+
+  // Use ref to store latest newVillagers value to break dependency cycle
+  const newVillagersRef = useRef<Villager[]>([]);
+
+  // Update ref whenever newVillagers state changes
+  useEffect(() => {
+    newVillagersRef.current = newVillagers;
+  }, [newVillagers]);
 
   const fetchVillagersAndRequests = useCallback(async () => {
     if (!session?.user?.id) return;
@@ -112,6 +122,8 @@ export default function VillagersScreen() {
           id,
           status,
           created_at,
+          is_seen,
+          is_seen,
           sender:sender_id(id, first_name, last_name, phone_number, minute_balance, created_at, profile_image_url),
           receiver:receiver_id(id, first_name, last_name, phone_number, minute_balance, created_at, profile_image_url)
         `)
@@ -162,10 +174,18 @@ export default function VillagersScreen() {
           }),
           balance: otherUser.minute_balance || 0,
           status: 'connected' as const,
+          isSeen: connection.is_seen,
           connectionId: connection.id,
           profileImageUrl: otherUser.profile_image_url
         };
       }).filter(Boolean) as Villager[];
+
+      // Separate new villagers (accepted connections, not yet seen by current user)
+      const newAcceptedVillagers = villagersData.filter(v => v.isSeen === false);
+      const regularVillagers = villagersData.filter(v => v.isSeen === true);
+
+      setNewVillagers(newAcceptedVillagers);
+      setVillagers(regularVillagers);
 
       // Transform incoming requests
       const requestsData: VillagerRequest[] = incomingRequests.map(connection => {
@@ -222,7 +242,6 @@ export default function VillagersScreen() {
         };
       }).filter(Boolean) as BlockedVillager[];
 
-      setVillagers(villagersData);
       setPendingRequests(requestsData);
       setSentRequests(sentRequestsData);
       setBlockedVillagers(blockedData);
@@ -233,6 +252,30 @@ export default function VillagersScreen() {
       setIsLoading(false);
     }
   }, [session?.user?.id]);
+
+  const markVillagersAsSeen = useCallback(async () => {
+    if (!session?.user?.id || newVillagersRef.current.length === 0) return;
+
+    try {
+      const connectionIdsToMarkSeen = newVillagersRef.current
+        .filter(v => v.isSeen === false && v.connectionId)
+        .map(v => v.connectionId);
+
+      if (connectionIdsToMarkSeen.length > 0) {
+        const { error } = await supabase
+          .from('villager_connections')
+          .update({ is_seen: true })
+          .in('id', connectionIdsToMarkSeen)
+          .eq('status', 'accepted'); // Only mark accepted ones as seen
+
+        if (error) {
+          console.error('Error marking villagers as seen:', error);
+        }
+      }
+    } catch (err) {
+      console.error('Error in markVillagersAsSeen:', err);
+    }
+  }, [session?.user?.id]);
   
   useEffect(() => {
     if (fontsLoaded) {
@@ -240,11 +283,19 @@ export default function VillagersScreen() {
     }
   }, [fontsLoaded]);
 
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchVillagersAndRequests();
-    }
-  }, [session?.user?.id]);
+  // Use useFocusEffect to handle screen focus and cleanup
+  useFocusEffect(
+    useCallback(() => {
+      if (session?.user?.id) {
+        fetchVillagersAndRequests();
+      }
+
+      // Cleanup function to mark as seen when leaving the screen
+      return () => {
+        markVillagersAsSeen();
+      };
+    }, [session?.user?.id, fetchVillagersAndRequests, markVillagersAsSeen])
+  );
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -297,9 +348,7 @@ export default function VillagersScreen() {
 
       const { error } = await supabase
         .from('villager_connections')
-        .update({ 
-          status: accept ? 'accepted' : 'rejected' 
-        })
+        .update({ status: accept ? 'accepted' : 'rejected' })
         .eq('id', request.connectionId);
 
       if (error) {
@@ -568,11 +617,16 @@ export default function VillagersScreen() {
     if (isLoading) return 'LADDAR VILLAGERS...';
     if (error) return 'FEL VID LADDNING';
     
-    const totalItems = villagers.length + pendingRequests.length + sentRequests.length + blockedVillagers.length;
-    if (totalItems === 0) return 'INGA VILLAGERS ÄNNU';
+    if (villagers.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && blockedVillagers.length === 0 && newVillagers.length === 0) {
+      return 'INGA VILLAGERS ÄNNU';
+    }
     
     let title = '';
+    if (newVillagers.length > 0) {
+      title += `${newVillagers.length} NY${newVillagers.length > 1 ? 'A' : ''}`;
+    }
     if (villagers.length > 0) {
+      if (title) title += ' • ';
       title += `${villagers.length} VILLAGER${villagers.length > 1 ? 'S' : ''}`;
     }
     if (pendingRequests.length > 0) {
@@ -697,9 +751,40 @@ export default function VillagersScreen() {
                         {request.receiverPhone} | Medlem sedan {request.memberSince}
                       </Text>
                       <Text style={styles.sentRequestStatus}>
-                        Väntar på svar
+                        Väntar på svar...
                       </Text>
                     </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* New Villagers Section */}
+            {newVillagers.length > 0 && (
+              <View style={styles.newVillagersSection}>
+                <Text style={styles.sectionTitle}>NYA VILLAGERS</Text>
+                {newVillagers.map((villager) => (
+                  <View key={villager.id} style={styles.newVillagerCard}>
+                    <View style={styles.villagerHeader}>
+                      <View style={styles.villagerAvatarContainer}>
+                        {villager.profileImageUrl ? (
+                          <Image source={{ uri: villager.profileImageUrl }} style={styles.villagerAvatar} />
+                        ) : (
+                          <View style={styles.newVillagerAvatarPlaceholder} />
+                        )}
+                      </View>
+                      <Text style={styles.newVillagerName}>{villager.name}</Text>
+                      <View style={styles.newBadge}>
+                        <Text style={styles.newBadgeText}>NY</Text>
+                      </View>
+                    </View>
+                    <View style={styles.villagerDetails}>
+                      <Text style={styles.villagerPhone}>{villager.phoneNumber}</Text>
+                      <Text style={styles.newVillagerBalance}>
+                        Saldo {villager.balance > 0 ? '+' : ''}{villager.balance} min
+                      </Text>
+                    </View>
+                    {renderVillagerActions(villager)}
                   </View>
                 ))}
               </View>
@@ -721,18 +806,11 @@ export default function VillagersScreen() {
                       </Text>
                     </View>
                     <Pressable 
-                      style={[
-                        styles.unblockButton,
-                        processingBlockId === blockedVillager.id && styles.unblockButtonDisabled
-                      ]}
+                      style={[styles.unblockButton, processingBlockId === blockedVillager.id && styles.unblockButtonDisabled]}
                       onPress={() => handleUnblockVillager(blockedVillager)}
                       disabled={processingBlockId === blockedVillager.id}
                     >
-                      <UserCheck size={20} color={processingBlockId === blockedVillager.id ? "#999" : "#4CAF50"} />
-                      <Text style={[
-                        styles.unblockButtonText,
-                        processingBlockId === blockedVillager.id && styles.unblockButtonTextDisabled
-                      ]}>
+                      <Text style={[styles.unblockButtonText, processingBlockId === blockedVillager.id && styles.unblockButtonTextDisabled]}>
                         {processingBlockId === blockedVillager.id ? 'Avblockerar...' : 'Avblockera'}
                       </Text>
                     </Pressable>
@@ -742,7 +820,7 @@ export default function VillagersScreen() {
             )}
 
             {/* Villagers Section */}
-            {villagers.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && blockedVillagers.length === 0 ? (
+            {villagers.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && blockedVillagers.length === 0 && newVillagers.length === 0 ? (
               <View style={styles.centerContainer}>
                 <Text style={styles.emptyTitle}>Inga villagers än</Text>
                 <Text style={styles.emptyDescription}>
@@ -753,7 +831,6 @@ export default function VillagersScreen() {
                   onPress={() => router.push('/invite')}
                 >
                   <Text style={styles.inviteButtonText}>Bjud in villagers</Text>
-           {console.log('Villager Profile Image URL:', villager.profileImageUrl)}
                 </Pressable>
               </View>
             ) : (
@@ -942,6 +1019,52 @@ const styles = StyleSheet.create({
   },
   sentRequestsSection: {
     marginBottom: 30,
+  },
+  newVillagersSection: {
+    marginBottom: 30,
+  },
+  newVillagerCard: {
+    backgroundColor: '#FFF8FC',
+    borderWidth: 2,
+    borderColor: '#FF69B4',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#FF69B4',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  newVillagerName: {
+    flex: 1,
+    fontSize: 18,
+    color: '#FF69B4',
+    fontFamily: 'Unbounded-SemiBold',
+  },
+  newVillagerAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FF69B4',
+    opacity: 0.2,
+  },
+  newVillagerBalance: {
+    fontSize: 14,
+    color: '#FF69B4',
+    fontFamily: 'Unbounded-SemiBold',
+  },
+  newBadge: {
+    backgroundColor: '#FF69B4',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  newBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontFamily: 'Unbounded-SemiBold',
+    letterSpacing: 0.5,
   },
   blockedSection: {
     marginBottom: 30,
