@@ -60,7 +60,6 @@ export default function VillagersScreen() {
   const [villagers, setVillagers] = useState<Villager[]>([]);
   const [pendingRequests, setPendingRequests] = useState<VillagerRequest[]>([]);
   const [newVillagers, setNewVillagers] = useState<Villager[]>([]); // New state for unseen villagers
-  const [newVillagers, setNewVillagers] = useState<Villager[]>([]); // New state for unseen villagers
   const [sentRequests, setSentRequests] = useState<SentRequest[]>([]);
   const [blockedVillagers, setBlockedVillagers] = useState<BlockedVillager[]>([]);
   const [isLoading, setIsLoading] = useState(true);
