@@ -728,41 +728,35 @@ export default function VillagersScreen() {
                           processingRequestId === request.id && styles.requestButtonDisabled
                         ]}
                         onPress={() => handleRequestResponse(request, false)}
-                        disabled={processingRequestId === request.id}
-                      >
-                        <X size={20} color="#FF4444" />
-                        <Text style={styles.rejectButtonText}>Avvisa</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Sent Requests Section */}
-            {sentRequests.length > 0 && (
-              <View style={styles.sentRequestsSection}>
-                <Text style={styles.sectionTitle}>SKICKADE FÖRFRÅGNINGAR</Text>
-                {sentRequests.map((request) => (
-                  <View key={request.id} style={styles.sentRequestCard}>
-                    <View style={styles.sentRequestInfo}>
-                      <Text style={styles.sentRequestName}>{request.receiverName}</Text>
-                      <Text style={styles.sentRequestDetails}>
-                        {request.receiverPhone} | Medlem sedan {request.memberSince}
-                      </Text>
-                      <Text style={styles.sentRequestStatus}>
-                        Väntar på svar
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-
             {/* Blocked Villagers Section */}
             {blockedVillagers.length > 0 && (
               <View style={styles.blockedSection}>
                 <Text style={styles.sectionTitle}>BLOCKERADE VILLAGERS</Text>
+                {blockedVillagers.map((blockedVillager) => (
+                  <View key={blockedVillager.id} style={styles.blockedCard}>
+                    <View style={styles.blockedInfo}>
+                      <Text style={styles.blockedName}>{blockedVillager.name}</Text>
+                      <Text style={styles.blockedDetails}>
+                        {blockedVillager.phoneNumber} | Medlem sedan {blockedVillager.memberSince}
+                      </Text>
+                      <Text style={styles.blockedStatus}>
+                        Blockerad
+                      </Text>
+                    </View>
+                    <Pressable 
+                      style={[styles.unblockButton, processingBlockId === blockedVillager.id && styles.unblockButtonDisabled]}
+                      onPress={() => handleUnblockVillager(blockedVillager)}
+                      disabled={processingBlockId === blockedVillager.id}
+                    >
+                      <Text style={[styles.unblockButtonText, processingBlockId === blockedVillager.id && styles.unblockButtonTextDisabled]}>
+                        {processingBlockId === blockedVillager.id ? 'Avblockerar...' : 'Avblockera'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            )}
+
             {/* Villagers Section */}
             {villagers.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && blockedVillagers.length === 0 && newVillagers.length === 0 ? (
               <View style={styles.centerContainer}>
