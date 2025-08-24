@@ -782,7 +782,7 @@ export default function VillagersScreen() {
                       onPress={() => handleUnblockVillager(blockedVillager)}
                       disabled={processingBlockId === blockedVillager.id}
                     >
-                      <UserCheck size={20} color={processingBlockId === blockedVillager.id ? "#999" : "#4CAF50"} />
+                      <UserCheck size={16} color={processingBlockId === blockedVillager.id ? "#999" : "#4CAF50"} />
                       <Text style={[
                         styles.unblockButtonText,
                         processingBlockId === blockedVillager.id && styles.unblockButtonTextDisabled
