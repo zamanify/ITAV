@@ -180,9 +180,6 @@ export default function VillagersScreen() {
         };
       }).filter(Boolean) as Villager[];
 
-      // Sort villagers by name in ascending order
-      villagersData.sort((a, b) => a.name.localeCompare(b.name));
-
       // Separate new villagers (accepted connections, not yet seen by current user)
       const newAcceptedVillagers = villagersData.filter(v => v.isSeen === false);
       const regularVillagers = villagersData.filter(v => v.isSeen === true);
