@@ -826,6 +826,45 @@ export default function VillagersScreen() {
                     </Pressable>
                   </View>
                 ))}
+              </View>
+            )}
+
+            {/* New Villagers Section */}
+            {newVillagers.length > 0 && (
+              <View style={styles.newVillagersSection}>
+                <Text style={styles.sectionTitle}>NYA VILLAGERS</Text>
+                {newVillagers.map((villager) => (
+                  <View key={villager.id} style={styles.villagerCard}>
+                    <View style={styles.villagerHeader}>
+                      <View style={styles.villagerAvatarContainer}>
+                        {villager.profileImageUrl ? (
+                          <Image source={{ uri: villager.profileImageUrl }} style={styles.villagerAvatar} />
+                        ) : (
+                          <View style={styles.villagerAvatarPlaceholder} />
+                        )}
+                      </View>
+                      <Text style={styles.villagerName}>{villager.name}</Text>
+                    </View>
+                    <View style={styles.villagerDetails}>
+                      <Text style={styles.villagerPhone}>{villager.phoneNumber}</Text>
+                      <Text style={styles.villagerBalance}>
+                        Saldo {villager.balance > 0 ? '+' : ''}{villager.balance} min
+                      </Text>
+                    </View>
+                    {renderVillagerActions(villager)}
+                  </View>
+                ))}
+                
+                {newVillagers.length === 0 && searchQuery && (
+                  <View style={styles.centerContainer}>
+                    <Text style={styles.noResultsText}>
+                      Inga nya villagers matchar "{searchQuery}"
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* Villagers Section */}
             {villagers.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && blockedVillagers.length === 0 && newVillagers.length === 0 ? (
               <View style={styles.centerContainer}>
