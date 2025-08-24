@@ -763,37 +763,6 @@ export default function VillagersScreen() {
             {blockedVillagers.length > 0 && (
               <View style={styles.blockedSection}>
                 <Text style={styles.sectionTitle}>BLOCKERADE VILLAGERS</Text>
-                {filteredBlockedVillagers.map((blockedVillager) => (
-                  <View key={blockedVillager.id} style={styles.blockedCard}>
-                    <View style={styles.blockedInfo}>
-                      <Text style={styles.blockedName}>{blockedVillager.name}</Text>
-                      <Text style={styles.blockedDetails}>
-                        {blockedVillager.phoneNumber} | Medlem sedan {blockedVillager.memberSince}
-                      </Text>
-                      <Text style={styles.blockedStatus}>
-                        Blockerad
-                      </Text>
-                    </View>
-                    <Pressable 
-                      style={[
-                        styles.unblockButton,
-                        processingBlockId === blockedVillager.id && styles.unblockButtonDisabled
-                      ]}
-                      onPress={() => handleUnblockVillager(blockedVillager)}
-                      disabled={processingBlockId === blockedVillager.id}
-                    >
-                      <UserCheck size={20} color={processingBlockId === blockedVillager.id ? "#999" : "#4CAF50"} />
-                      <Text style={[
-                        styles.unblockButtonText,
-                        processingBlockId === blockedVillager.id && styles.unblockButtonTextDisabled
-                      ]}>
-                        {processingBlockId === blockedVillager.id ? 'Avblockerar...' : 'Avblockera'}
-                      </Text>
-                    </Pressable>
-                  </View>
-                ))}
-              </View>
-
             {/* Villagers Section */}
             {villagers.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && blockedVillagers.length === 0 && newVillagers.length === 0 ? (
               <View style={styles.centerContainer}>
