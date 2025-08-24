@@ -348,7 +348,7 @@ export default function VillagersScreen() {
 
       const { error } = await supabase
         .from('villager_connections')
-        
+        .update({ status: accept ? 'accepted' : 'rejected' })
         .eq('id', request.connectionId);
 
       if (error) {
@@ -728,11 +728,42 @@ export default function VillagersScreen() {
                           processingRequestId === request.id && styles.requestButtonDisabled
                         ]}
                         onPress={() => handleRequestResponse(request, false)}
+                        disabled={processingRequestId === request.id}
+                      >
+                        <X size={20} color="#FF4444" />
+                        <Text style={styles.rejectButtonText}>Avvisa</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Sent Requests Section */}
+            {sentRequests.length > 0 && (
+              <View style={styles.sentRequestsSection}>
+                <Text style={styles.sectionTitle}>SKICKADE FÖRFRÅGNINGAR</Text>
+                {sentRequests.map((request) => (
+                  <View key={request.id} style={styles.sentRequestCard}>
+                    <View style={styles.sentRequestInfo}>
+                      <Text style={styles.sentRequestName}>{request.receiverName}</Text>
+                      <Text style={styles.sentRequestDetails}>
+                        {request.receiverPhone} | Medlem sedan {request.memberSince}
+                      </Text>
+                      <Text style={styles.sentRequestStatus}>
+                        Väntar på svar
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
             {/* Blocked Villagers Section */}
             {blockedVillagers.length > 0 && (
               <View style={styles.blockedSection}>
                 <Text style={styles.sectionTitle}>BLOCKERADE VILLAGERS</Text>
-                {blockedVillagers.map((blockedVillager) => (
+                {filteredBlockedVillagers.map((blockedVillager) => (
                   <View key={blockedVillager.id} style={styles.blockedCard}>
                     <View style={styles.blockedInfo}>
                       <Text style={styles.blockedName}>{blockedVillager.name}</Text>
@@ -744,11 +775,18 @@ export default function VillagersScreen() {
                       </Text>
                     </View>
                     <Pressable 
-                      style={[styles.unblockButton, processingBlockId === blockedVillager.id && styles.unblockButtonDisabled]}
+                      style={[
+                        styles.unblockButton,
+                        processingBlockId === blockedVillager.id && styles.unblockButtonDisabled
+                      ]}
                       onPress={() => handleUnblockVillager(blockedVillager)}
                       disabled={processingBlockId === blockedVillager.id}
                     >
-                      <Text style={[styles.unblockButtonText, processingBlockId === blockedVillager.id && styles.unblockButtonTextDisabled]}>
+                      <UserCheck size={20} color={processingBlockId === blockedVillager.id ? "#999" : "#4CAF50"} />
+                      <Text style={[
+                        styles.unblockButtonText,
+                        processingBlockId === blockedVillager.id && styles.unblockButtonTextDisabled
+                      ]}>
                         {processingBlockId === blockedVillager.id ? 'Avblockerar...' : 'Avblockera'}
                       </Text>
                     </Pressable>
