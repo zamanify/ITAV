@@ -693,40 +693,6 @@ export default function VillagersScreen() {
           </View>
         ) : (
           <>
-            {/* New Villagers Section */}
-            {newVillagers.length > 0 && (
-              <View style={styles.newVillagersSection}>
-                <Text style={styles.sectionTitle}>NYA VILLAGERS</Text>
-                {newVillagers.filter(villager =>
-                  villager.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  villager.phoneNumber.includes(searchQuery)
-                ).map((villager) => (
-                  <View key={villager.id} style={styles.newVillagerCard}>
-                    <View style={styles.villagerHeader}>
-                      <View style={styles.villagerAvatarContainer}>
-                        {villager.profileImageUrl ? (
-                          <Image source={{ uri: villager.profileImageUrl }} style={styles.villagerAvatar} />
-                        ) : (
-                          <View style={styles.newVillagerAvatarPlaceholder} />
-                        )}
-                      </View>
-                      <Text style={styles.newVillagerName}>{villager.name}</Text>
-                      <View style={styles.newBadge}>
-                        <Text style={styles.newBadgeText}>NY</Text>
-                      </View>
-                    </View>
-                    <View style={styles.villagerDetails}>
-                      <Text style={styles.villagerPhone}>{villager.phoneNumber}</Text>
-                      <Text style={styles.newVillagerBalance}>
-                        Saldo {villager.balance > 0 ? '+' : ''}{villager.balance} min
-                      </Text>
-                    </View>
-                    {renderVillagerActions(villager)}
-                  </View>
-                ))}
-              </View>
-            )}
-
             {/* Pending Requests Section */}
             {pendingRequests.length > 0 && (
               <View style={styles.requestsSection}>
