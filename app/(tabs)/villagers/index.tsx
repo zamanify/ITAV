@@ -70,6 +70,7 @@ export default function VillagersScreen() {
   const [processingBlockId, setProcessingBlockId] = useState<string | null>(null);
   const [messageModalVisible, setMessageModalVisible] = useState(false);
   const [selectedVillagerForMessage, setSelectedVillagerForMessage] = useState<{ id: string; name: string } | null>(null);
+  const [newVillagers, setNewVillagers] = useState<Villager[]>([]);
 
   // Use ref to store latest newVillagers value to break dependency cycle
   const newVillagersRef = useRef<Villager[]>([]);
