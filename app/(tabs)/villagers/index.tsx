@@ -751,9 +751,40 @@ export default function VillagersScreen() {
                         {request.receiverPhone} | Medlem sedan {request.memberSince}
                       </Text>
                       <Text style={styles.sentRequestStatus}>
-                        Väntar på svar
+                        Väntar på svar...
                       </Text>
                     </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* New Villagers Section */}
+            {newVillagers.length > 0 && (
+              <View style={styles.newVillagersSection}>
+                <Text style={styles.sectionTitle}>NYA VILLAGERS</Text>
+                {newVillagers.map((villager) => (
+                  <View key={villager.id} style={styles.newVillagerCard}>
+                    <View style={styles.villagerHeader}>
+                      <View style={styles.villagerAvatarContainer}>
+                        {villager.profileImageUrl ? (
+                          <Image source={{ uri: villager.profileImageUrl }} style={styles.villagerAvatar} />
+                        ) : (
+                          <View style={styles.newVillagerAvatarPlaceholder} />
+                        )}
+                      </View>
+                      <Text style={styles.newVillagerName}>{villager.name}</Text>
+                      <View style={styles.newBadge}>
+                        <Text style={styles.newBadgeText}>NY</Text>
+                      </View>
+                    </View>
+                    <View style={styles.villagerDetails}>
+                      <Text style={styles.villagerPhone}>{villager.phoneNumber}</Text>
+                      <Text style={styles.newVillagerBalance}>
+                        Saldo {villager.balance > 0 ? '+' : ''}{villager.balance} min
+                      </Text>
+                    </View>
+                    {renderVillagerActions(villager)}
                   </View>
                 ))}
               </View>
@@ -775,18 +806,11 @@ export default function VillagersScreen() {
                       </Text>
                     </View>
                     <Pressable 
-                      style={[
-                        styles.unblockButton,
-                        processingBlockId === blockedVillager.id && styles.unblockButtonDisabled
-                      ]}
+                      style={[styles.unblockButton, processingBlockId === blockedVillager.id && styles.unblockButtonDisabled]}
                       onPress={() => handleUnblockVillager(blockedVillager)}
                       disabled={processingBlockId === blockedVillager.id}
                     >
-                      <UserCheck size={16} color={processingBlockId === blockedVillager.id ? "#999" : "#4CAF50"} />
-                      <Text style={[
-                        styles.unblockButtonText,
-                        processingBlockId === blockedVillager.id && styles.unblockButtonTextDisabled
-                      ]}>
+                      <Text style={[styles.unblockButtonText, processingBlockId === blockedVillager.id && styles.unblockButtonTextDisabled]}>
                         {processingBlockId === blockedVillager.id ? 'Avblockerar...' : 'Avblockera'}
                       </Text>
                     </Pressable>
@@ -805,7 +829,7 @@ export default function VillagersScreen() {
                 <Pressable 
                   style={styles.inviteButton} 
                   onPress={() => router.push('/invite')}
-                > {/* Removed console.log here */}
+                >
                   <Text style={styles.inviteButtonText}>Bjud in villagers</Text>
                 </Pressable>
               </View>
