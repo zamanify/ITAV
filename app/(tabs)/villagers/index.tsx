@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platfo
 import { router, useFocusEffect } from 'expo-router';
 import { useFonts, Unbounded_400Regular, Unbounded_600SemiBold } from '@expo-google-fonts/unbounded'; // Keep this import
 import { SplashScreen } from 'expo-router';
-import { useEffect, useState, useContext, useCallback } from 'react';
+import { useEffect, useState, useContext, useCallback, useRef } from 'react';
 import { ArrowLeft, UserPlus, MessageCircle, UserX, Check, X, UserCheck } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -59,7 +59,6 @@ export default function VillagersScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [villagers, setVillagers] = useState<Villager[]>([]);
   const [pendingRequests, setPendingRequests] = useState<VillagerRequest[]>([]);
-  const [newVillagers, setNewVillagers] = useState<Villager[]>([]); // New state for unseen villagers
   const [sentRequests, setSentRequests] = useState<SentRequest[]>([]);
   const [blockedVillagers, setBlockedVillagers] = useState<BlockedVillager[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,6 +70,14 @@ export default function VillagersScreen() {
   const [processingBlockId, setProcessingBlockId] = useState<string | null>(null);
   const [messageModalVisible, setMessageModalVisible] = useState(false);
   const [selectedVillagerForMessage, setSelectedVillagerForMessage] = useState<{ id: string; name: string } | null>(null);
+
+  // Use ref to store latest newVillagers value to break dependency cycle
+  const newVillagersRef = useRef<Villager[]>([]);
+
+  // Update ref whenever newVillagers state changes
+  useEffect(() => {
+    newVillagersRef.current = newVillagers;
+  }, [newVillagers]);
 
   const fetchVillagersAndRequests = useCallback(async () => {
     if (!session?.user?.id) return;
@@ -246,10 +253,10 @@ export default function VillagersScreen() {
   }, [session?.user?.id]);
 
   const markVillagersAsSeen = useCallback(async () => {
-    if (!session?.user?.id || newVillagers.length === 0) return;
+    if (!session?.user?.id || newVillagersRef.current.length === 0) return;
 
     try {
-      const connectionIdsToMarkSeen = newVillagers
+      const connectionIdsToMarkSeen = newVillagersRef.current
         .filter(v => v.isSeen === false && v.connectionId)
         .map(v => v.connectionId);
 
@@ -262,15 +269,12 @@ export default function VillagersScreen() {
 
         if (error) {
           console.error('Error marking villagers as seen:', error);
-        } else {
-          // Re-fetch data to update the UI correctly
-          fetchVillagersAndRequests();
         }
       }
     } catch (err) {
       console.error('Error in markVillagersAsSeen:', err);
     }
-  }, [session?.user?.id, newVillagers, fetchVillagersAndRequests]);
+  }, [session?.user?.id]);
   
   useEffect(() => {
     if (fontsLoaded) {
