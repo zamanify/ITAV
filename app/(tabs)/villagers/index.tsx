@@ -58,6 +58,7 @@ export default function VillagersScreen() {
   const { session } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState('');
   const [villagers, setVillagers] = useState<Villager[]>([]);
+  const [newVillagers, setNewVillagers] = useState<Villager[]>([]);
   const [pendingRequests, setPendingRequests] = useState<VillagerRequest[]>([]);
   const [sentRequests, setSentRequests] = useState<SentRequest[]>([]);
   const [blockedVillagers, setBlockedVillagers] = useState<BlockedVillager[]>([]);
