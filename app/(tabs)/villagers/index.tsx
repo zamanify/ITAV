@@ -348,7 +348,7 @@ export default function VillagersScreen() {
 
       const { error } = await supabase
         .from('villager_connections')
-        
+        .update({ status: accept ? 'accepted' : 'rejected' })
         .eq('id', request.connectionId);
 
       if (error) {
